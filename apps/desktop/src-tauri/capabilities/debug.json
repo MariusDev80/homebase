@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "debug",
+  "description": "Debug builds only (build.rs excludes this file from release builds): spike command that schedules a test notification, and devtools toggling (Ctrl+Shift+I).",
+  "windows": ["main"],
+  "permissions": ["allow-schedule-test-notification", "core:webview:allow-internal-toggle-devtools"]
+}

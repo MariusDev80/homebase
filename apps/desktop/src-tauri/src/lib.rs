@@ -5,6 +5,23 @@ mod tray;
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_autostart::MacosLauncher;
 
+/// Debug builds also expose the test-notification spike command.
+#[cfg(debug_assertions)]
+fn invoke_handler<R: tauri::Runtime>(
+) -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![
+        spike::schedule_test_notification,
+        spike::get_autostart,
+        spike::set_autostart,
+    ]
+}
+
+#[cfg(not(debug_assertions))]
+fn invoke_handler<R: tauri::Runtime>(
+) -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![spike::get_autostart, spike::set_autostart]
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -19,11 +36,7 @@ pub fn run() {
                 .add_migrations(db::DB_URL, db::migrations())
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![
-            spike::schedule_test_notification,
-            spike::get_autostart,
-            spike::set_autostart,
-        ])
+        .invoke_handler(invoke_handler())
         .setup(|app| {
             tray::setup(app.handle())?;
             Ok(())

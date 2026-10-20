@@ -2,6 +2,7 @@ import { NgComponentOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   Injector,
   Type,
   computed,
@@ -10,8 +11,11 @@ import {
   input,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { ConfirmationService } from 'primeng/api';
+import { ConfirmDialog } from 'primeng/confirmdialog';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
 import { clampGrid } from './grid';
@@ -33,7 +37,9 @@ type WidgetHostState =
 
 @Component({
   selector: 'app-widget-host',
-  imports: [NgComponentOutlet, TranslocoPipe],
+  imports: [NgComponentOutlet, TranslocoPipe, ConfirmDialog],
+  // Own service instance: the dialog below only reacts to this host's confirmations.
+  providers: [ConfirmationService],
   templateUrl: './widget-host.component.html',
   host: { class: 'block min-h-0' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -44,6 +50,9 @@ export class WidgetHostComponent {
   private readonly registry = inject(WidgetRegistry);
   private readonly store = inject(DashboardStore);
   private readonly parentInjector = inject(Injector);
+  private readonly removeButton = viewChild<ElementRef<HTMLButtonElement>>('removeButton');
+  private readonly confirmation = inject(ConfirmationService);
+  private readonly transloco = inject(TranslocoService);
 
   protected readonly state = signal<WidgetHostState>({ kind: 'loading' });
   private readonly attempt = signal(0);
@@ -114,8 +123,25 @@ export class WidgetHostComponent {
 
   protected readonly actionFailed = signal(false);
 
-  protected remove(): Promise<void> {
-    return this.runAction(() => this.store.remove(this.instance().id));
+  /** Asks for confirmation first; cancelling (button or Escape) changes nothing. */
+  protected remove(): void {
+    const t = (key: string): string => this.transloco.translate(key);
+    this.confirmation.confirm({
+      header: t('widgetHost.confirmRemove.header'),
+      message: t('widgetHost.confirmRemove.message'),
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: t('widgetHost.confirmRemove.accept'),
+      rejectLabel: t('widgetHost.confirmRemove.reject'),
+      acceptButtonProps: { severity: 'danger' },
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      defaultFocus: 'reject',
+      // Cancel button + Escape are enough: no unlabeled close icon.
+      closable: false,
+      // Cancel/Escape: focus goes back to the trash button. On accept the host is destroyed;
+      // the dashboard then moves the focus to its add-widget button.
+      reject: () => this.removeButton()?.nativeElement.focus(),
+      accept: () => void this.runAction(() => this.store.remove(this.instance().id)),
+    });
   }
 
   protected reset(): Promise<void> {

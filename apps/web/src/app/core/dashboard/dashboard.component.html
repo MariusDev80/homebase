@@ -8,12 +8,14 @@
   @case ('ready') {
     <div class="page-header">
       <h1 class="page-title">{{ store.dashboard()?.name }}</h1>
-      <div class="relative">
+      <div class="relative" #menuRoot>
         <button
           type="button"
           class="btn btn-primary"
+          #menuTrigger
           data-testid="add-widget"
           aria-haspopup="menu"
+          aria-controls="add-widget-menu"
           [attr.aria-expanded]="menuOpen()"
           (click)="toggleMenu()"
         >
@@ -21,12 +23,18 @@
           {{ 'dashboard.addWidget' | transloco }}
         </button>
         @if (menuOpen()) {
-          <ul role="menu" class="menu right-0">
+          <ul
+            id="add-widget-menu"
+            role="menu"
+            class="menu right-0"
+            [attr.aria-label]="'dashboard.addWidget' | transloco"
+          >
             @for (definition of registry.list(); track definition.type) {
               <li role="none">
                 <button
                   type="button"
                   role="menuitem"
+                  tabindex="-1"
                   class="menu-item"
                   [attr.data-testid]="'add-' + definition.type"
                   [disabled]="!canAdd(definition.type)"

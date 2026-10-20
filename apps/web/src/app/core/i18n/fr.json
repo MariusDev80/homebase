@@ -53,6 +53,12 @@
   },
   "widgetHost": {
     "remove": "Supprimer",
+    "confirmRemove": {
+      "header": "Supprimer ce widget ?",
+      "message": "Le widget et sa configuration seront supprimés définitivement.",
+      "accept": "Supprimer",
+      "reject": "Annuler"
+    },
     "unknownType": "Widget inconnu : {{ type }}",
     "invalidConfig": "Configuration invalide",
     "futureVersion": "Configuration créée par une version plus récente de Homebase",

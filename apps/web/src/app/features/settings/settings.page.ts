@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { SystemService } from '../../core/system';
+import { SPIKE_TOOLS_ENABLED, SystemService } from '../../core/system';
 import { THEME_MODES, ThemeService } from '../../core/theme';
 
 const TEST_NOTIFICATION_DELAY_SECS = 10;
@@ -46,15 +46,17 @@ const TEST_NOTIFICATION_DELAY_SECS = 10;
             </p>
           }
           <div class="flex flex-col items-start gap-3">
-            <button
-              type="button"
-              data-testid="test-notification"
-              [disabled]="!available"
-              (click)="sendTestNotification()"
-              class="btn"
-            >
-              {{ 'settings.system.testNotification' | transloco }}
-            </button>
+            @if (spikeTools) {
+              <button
+                type="button"
+                data-testid="test-notification"
+                [disabled]="!available"
+                (click)="sendTestNotification()"
+                class="btn"
+              >
+                {{ 'settings.system.testNotification' | transloco }}
+              </button>
+            }
             <label class="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -84,6 +86,7 @@ export class SettingsPage implements OnInit {
   protected readonly theme = inject(ThemeService);
   private readonly system = inject(SystemService);
   protected readonly modes = THEME_MODES;
+  protected readonly spikeTools = inject(SPIKE_TOOLS_ENABLED);
 
   protected readonly available = this.system.isAvailable();
   protected readonly autostart = signal(false);

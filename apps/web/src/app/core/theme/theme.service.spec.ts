@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { THEME_PREFERENCE_STORE, ThemeMode, ThemePreferenceStore } from './theme-preference.store';
-import { ThemeService } from './theme.service';
+import { THEME_MIRROR_KEY, ThemeService } from './theme.service';
 
 class FakeMediaQuery {
   matches: boolean;
@@ -52,6 +52,7 @@ describe('ThemeService', () => {
 
   afterEach(() => {
     document.documentElement.classList.remove('app-dark');
+    window.localStorage.clear();
     delete (window as unknown as Record<string, unknown>)['matchMedia'];
   });
 
@@ -128,5 +129,30 @@ describe('ThemeService', () => {
     const service = setup(false, null);
     await service.ready;
     expect(service.mode()).toBe('system');
+  });
+
+  it('starts from the synchronous mirror instead of flashing the system theme', () => {
+    window.localStorage.setItem(THEME_MIRROR_KEY, 'dark');
+    const service = setup(false);
+    expect(service.mode()).toBe('dark');
+    TestBed.tick();
+    expect(isDarkClass()).toBe(true);
+  });
+
+  it('falls back to system and clears the mirror when nothing is saved', async () => {
+    window.localStorage.setItem(THEME_MIRROR_KEY, 'dark');
+    const service = setup(false, null);
+    expect(service.mode()).toBe('dark');
+    await service.ready;
+    expect(service.mode()).toBe('system');
+    expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBeNull();
+  });
+
+  it('mirrors user changes and the loaded preference', async () => {
+    const service = setup(false, 'light');
+    await service.ready;
+    expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('light');
+    service.setMode('dark');
+    expect(window.localStorage.getItem(THEME_MIRROR_KEY)).toBe('dark');
   });
 });

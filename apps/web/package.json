@@ -9,7 +9,7 @@
     "lint": "ng lint && node scripts/check-widget-boundaries.mjs && node scripts/check-design-tokens.mjs",
     "test:ci": "ng test --no-watch",
     "test:boundaries": "node scripts/test-boundaries.mjs",
-    "test:design": "node scripts/check-contrast.mjs && node scripts/test-design-tokens.mjs",
+    "test:design": "node scripts/check-contrast.mjs && node scripts/test-design-tokens.mjs && node scripts/test-theme-init.mjs",
     "test:data": "tsc -p tsconfig.data-test.json --noEmit && vitest run --config vitest.data.config.ts"
   },
   "private": true,

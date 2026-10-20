@@ -1,11 +1,9 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: core defaults plus the app's own spike commands only",
+  "description": "Main window, all builds. No core:* permission on purpose: the front only calls the app's own commands and the SQL plugin through invoke, and never uses the event, window, webview, path, app, menu, tray or resources JS APIs (the tray is built from Rust, which is not subject to the ACL). Remove core:default, add a specific core:<module>:allow-<command> only when the front starts using one.",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    "allow-schedule-test-notification",
     "allow-get-autostart",
     "allow-set-autostart",
     "sql:allow-execute",

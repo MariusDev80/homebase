@@ -49,6 +49,24 @@ async function setup(definition: WidgetDefinition = fixtureDefinition() as Widge
   return { render, store, instances };
 }
 
+/** The confirm dialog is rendered in an overlay (document.body), not inside the host. */
+async function confirmDialogButton(
+  fixture: { detectChanges(): void },
+  label: string,
+): Promise<HTMLButtonElement> {
+  let found: HTMLButtonElement | undefined;
+  await vi.waitFor(() => {
+    fixture.detectChanges();
+    found = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>(
+        '[role="alertdialog"] button, [role="dialog"] button',
+      ),
+    ).find((b) => b.textContent?.trim() === label);
+    expect(found).toBeDefined();
+  });
+  return found as HTMLButtonElement;
+}
+
 describe('WidgetHostComponent', () => {
   it('renders the widget component with its context', async () => {
     const { render } = await setup();
@@ -82,12 +100,54 @@ describe('WidgetHostComponent', () => {
     const { fixture, el } = await render({ config: { label: 'x' } });
     instances.failNext(new Error('db down'));
     (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    await confirmDialogButton(fixture, 'Supprimer').then((button) => button.click());
     await vi.waitFor(() => {
       fixture.detectChanges();
       expect(el.querySelector('[data-testid="widget-action-error"]')?.textContent).toContain(
         "L'opération a échoué.",
       );
     });
+  });
+
+  it('asks for confirmation before removing and removes on accept', async () => {
+    const { render, store } = await setup();
+    const remove = vi.spyOn(store, 'remove');
+    const { fixture, el, record } = await render({ config: { label: 'x' } });
+    (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    await confirmDialogButton(fixture, 'Annuler');
+    expect(document.body.textContent).toContain('Supprimer ce widget ?');
+    expect(document.body.querySelector('.p-dialog-close-button')).toBeNull();
+    expect(remove).not.toHaveBeenCalled();
+    (await confirmDialogButton(fixture, 'Supprimer')).click();
+    await vi.waitFor(() => expect(remove).toHaveBeenCalledWith(record.id));
+  });
+
+  it('returns the focus to the trash button on cancel and on Escape', async () => {
+    const { render } = await setup();
+    const { fixture, el } = await render({ config: { label: 'x' } });
+    const trash = el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement;
+    trash.click();
+    (await confirmDialogButton(fixture, 'Annuler')).click();
+    await vi.waitFor(() => expect(document.activeElement).toBe(trash));
+
+    document.body.focus();
+    trash.click();
+    const cancel = await confirmDialogButton(fixture, 'Annuler');
+    cancel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await vi.waitFor(() => expect(document.activeElement).toBe(trash));
+  });
+
+  it('does nothing when the removal is cancelled', async () => {
+    const { render, store, instances } = await setup();
+    const remove = vi.spyOn(store, 'remove');
+    const { fixture, el, record } = await render({ config: { label: 'x' } });
+    (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    (await confirmDialogButton(fixture, 'Annuler')).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(remove).not.toHaveBeenCalled();
+    expect(await instances.get(record.id)).not.toBeNull();
+    expect(el.querySelector('[data-testid="widget-action-error"]')).toBeNull();
   });
 
   it('offers no reset for a future config version', async () => {

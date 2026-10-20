@@ -1,4 +1,4 @@
-//! Feasibility spike: scheduled native notification, autostart.
+//! Feasibility spike: scheduled native notification (debug builds only), autostart.
 //!
 //! Notification title/body are fixed here (French, hard-coded for the spike;
 //! native i18n is out of scope) and never built from user input.
@@ -8,16 +8,24 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
+#[cfg(debug_assertions)]
 use tauri_plugin_notification::NotificationExt;
 
+// Only the debug-only command uses the delay validation; the code stays compiled (and
+// tested) in every profile.
+#[cfg_attr(not(debug_assertions), allow(dead_code))]
 pub const MIN_DELAY_SECS: u32 = 1;
+#[cfg_attr(not(debug_assertions), allow(dead_code))]
 pub const MAX_DELAY_SECS: u32 = 3600;
 
+#[cfg(debug_assertions)]
 const NOTIFICATION_TITLE: &str = "Homebase";
+#[cfg(debug_assertions)]
 const NOTIFICATION_BODY: &str = "Notification de test planifiée par Homebase.";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(not(debug_assertions), allow(dead_code))]
 pub enum SpikeError {
     /// The requested delay is outside `MIN_DELAY_SECS..=MAX_DELAY_SECS`.
     #[serde(rename_all = "camelCase")]
@@ -28,6 +36,7 @@ pub enum SpikeError {
 }
 
 /// Pure validation of the delay bound, independent from Tauri.
+#[cfg_attr(not(debug_assertions), allow(dead_code))]
 pub fn validate_delay(delay_secs: u32) -> Result<Duration, SpikeError> {
     if (MIN_DELAY_SECS..=MAX_DELAY_SECS).contains(&delay_secs) {
         Ok(Duration::from_secs(u64::from(delay_secs)))
@@ -46,6 +55,8 @@ fn plugin_error(error: impl std::fmt::Display) -> SpikeError {
     }
 }
 
+/// Debug builds only: registered in `lib.rs` and authorised by `capabilities/debug.json`.
+#[cfg(debug_assertions)]
 #[tauri::command]
 pub fn schedule_test_notification<R: Runtime>(
     app: AppHandle<R>,
