@@ -1,0 +1,72 @@
+@switch (status()) {
+  @case ('ready') {
+    <label for="notes-title-{{ ctx.instanceId }}" class="sr-only">
+      {{ 'widgets.notes.titleLabel' | transloco }}
+    </label>
+    <input
+      id="notes-title-{{ ctx.instanceId }}"
+      type="text"
+      class="field w-full font-semibold"
+      data-testid="notes-title"
+      maxlength="200"
+      autocomplete="off"
+      [placeholder]="'widgets.notes.titlePlaceholder' | transloco"
+      [value]="title()"
+      (input)="onTitleInput($event)"
+      (blur)="flush()"
+    />
+    <label for="notes-body-{{ ctx.instanceId }}" class="sr-only">
+      {{ 'widgets.notes.bodyLabel' | transloco }}
+    </label>
+    <textarea
+      id="notes-body-{{ ctx.instanceId }}"
+      class="field min-h-0 w-full flex-1 resize-none py-2"
+      data-testid="notes-body"
+      maxlength="100000"
+      [placeholder]="'widgets.notes.bodyPlaceholder' | transloco"
+      [value]="body()"
+      (input)="onBodyInput($event)"
+      (blur)="flush()"
+    ></textarea>
+    @if (saveState() === 'error') {
+      <p role="alert" class="text-xs text-danger" data-testid="notes-save-state">
+        {{ 'widgets.notes.saveError' | transloco }}
+      </p>
+    } @else {
+      <p class="text-xs text-fg-muted" data-testid="notes-save-state">
+        @switch (saveState()) {
+          @case ('saving') {
+            {{ 'widgets.notes.saving' | transloco }}
+          }
+          @case ('saved') {
+            {{ 'widgets.notes.saved' | transloco }}
+          }
+        }
+      </p>
+    }
+  }
+  @case ('missing') {
+    <div class="empty-state" data-testid="notes-missing">
+      <i class="pi pi-file" aria-hidden="true"></i>
+      <p>{{ 'widgets.notes.missing' | transloco }}</p>
+      <button
+        type="button"
+        class="btn"
+        data-testid="notes-create"
+        [disabled]="busy()"
+        (click)="createNew()"
+      >
+        {{ 'widgets.notes.createNew' | transloco }}
+      </button>
+    </div>
+  }
+  @case ('error') {
+    <div class="empty-state" role="alert" data-testid="notes-error">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      <p>{{ 'widgets.notes.loadError' | transloco }}</p>
+      <button type="button" class="btn" data-testid="notes-retry" (click)="load()">
+        {{ 'widgets.notes.retry' | transloco }}
+      </button>
+    </div>
+  }
+}

@@ -45,6 +45,11 @@ export interface WidgetDefinition<TConfig extends JsonObject = JsonObject> {
   readonly size: WidgetSizeConstraints;
   readonly config: WidgetConfigSpec<TConfig>;
   readonly permissions: readonly WidgetPermissionKind[];
+  /**
+   * i18n key of the removal confirmation message, when removing the widget also deletes
+   * data the user owns (e.g. its note). Defaults to widgetHost.confirmRemove.message.
+   */
+  readonly removeConfirmKey?: string;
   /** Per dashboard. */
   readonly maxInstances?: number;
   readonly loadCalendarSource?: () => Promise<Type<CalendarSource>>;

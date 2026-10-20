@@ -122,6 +122,16 @@ describe('WidgetHostComponent', () => {
     await vi.waitFor(() => expect(remove).toHaveBeenCalledWith(record.id));
   });
 
+  it('uses the definition removeConfirmKey as confirmation message', async () => {
+    const { render } = await setup(
+      fixtureDefinition({ removeConfirmKey: 'widgets.notes.removeConfirm' }) as WidgetDefinition,
+    );
+    const { fixture, el } = await render({ config: { label: 'x' } });
+    (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    await confirmDialogButton(fixture, 'Annuler');
+    expect(document.body.textContent).toContain('Supprimer ce widget et sa note ?');
+  });
+
   it('returns the focus to the trash button on cancel and on Escape', async () => {
     const { render } = await setup();
     const { fixture, el } = await render({ config: { label: 'x' } });

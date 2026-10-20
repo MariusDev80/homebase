@@ -1,7 +1,7 @@
 # ADR-001 : contrat `Widget`, registre et format de configuration
 
 - **Statut** : proposé (à valider par Marius)
-- **Date** : 2026-10-20 (amendé le même jour pour alignement sur l'ADR-002)
+- **Date** : 2026-10-20 (amendé le même jour pour alignement sur l'ADR-002, puis en phase 1 : `removeConfirmKey`, durcissement de l'opener)
 - **Auteur** : architect (Opus)
 - **Liens** : `docs/PLAN.md` §3 « Contrat Widget », §4, §5, §6 ; `docs/ROADMAP.md` phases 0 et 1 ; `docs/adr/002-data-layer.md` (couche de données)
 
@@ -92,6 +92,7 @@ Une définition par type de widget, déclarée dans `widgets/<type>/<type>.defin
 - `config` : `version` (entier ≥ 1), `schema` (Standard Schema v1, synchrone), `defaults()` (fabrique, pas d'objet partagé), `migrations` (`migrations[n]` transforme une config de version `n` en version `n+1` ; clés exactement `1..version-1`).
 - `permissions` : sous-ensemble de `'network' | 'notifications' | 'launch-apps' | 'open-url'`, sans doublon.
 - `maxInstances?` : entier ≥ 1, **par dashboard** (ex. barre de recherche unique) ; absent = illimité.
+- `removeConfirmKey?` : clé i18n non vide (refusée vide par le registre) du message de confirmation de suppression, à la place du message générique de l'hôte. À renseigner quand la suppression du widget supprime aussi des données (ex. `notes` : la note est liée à l'instance en `ON DELETE CASCADE`). *Amendement phase 1.*
 - `loadCalendarSource?` : chargement lazy d'un service `@Injectable({ providedIn: 'root' })` implémentant `CalendarSource`. La source est **par type** et non par instance : les rappels existent même si aucun widget « rappels » n'est placé. L'interface `CalendarSource` est **provisoire** ; l'ADR-003 (modèle de temps) et l'ADR-004 (calendrier) la figent avant tout usage (phase 2).
 
 ### 3.3 Registre
@@ -180,7 +181,7 @@ Toutes les vues Angular tournent dans **une seule webview** : les capabilities T
 | Permission | Service `core/` (phase) | Côté Tauri (moindre privilège) |
 |---|---|---|
 | `notifications` | `NotificationService` (phase 2) | `tauri-plugin-notification` : uniquement les permissions nécessaires (envoi + état de l'autorisation), pas `default` sans relecture ; rappels planifiés côté Rust |
-| `open-url` | `UrlOpener` (phase 1, raccourcis liens) | `opener:allow-open-url` avec portée explicite `[{ "url": "https://*" }, { "url": "http://*" }]` ; **pas** `opener:default` (il autorise aussi `reveal-item-in-dir`, `mailto:`, `tel:`) ; pas `allow-open-path` |
+| `open-url` | `UrlOpener` (phase 1, raccourcis liens) | `opener:allow-open-url` avec portée explicite `[{ "url": "https://*" }, { "url": "http://*" }]` ; **pas** `opener:default` (il autorise aussi `reveal-item-in-dir`, `mailto:`, `tel:`) ; pas `allow-open-path`. *Amendement phase 1* : portée `deny` `[{ "url": "*\"*" }, { "url": "* *" }]` (une URL normalisée n'en contient jamais) ; aucune entrée avec `app` (elle permettrait de lancer un exécutable via `with`) ; plugin initialisé avec `open_js_links_on_click(false)` pour que l'écouteur de clic injecté ne contourne pas `UrlOpener` ; garde-fou `src/capability_tests.rs` |
 | `network` | `OutboundHttp` (phase 3) | **Aucune** permission `http:*` exposée au JS. Commandes Rust dédiées (`fetch_feed`, `probe_service`…) avec liste d'hôtes, refus des IP privées sauf NAS, timeouts, taille max (spec phase 3) |
 | `launch-apps` | `AppLauncher` (phase 3) | **Aucune** permission `shell:*`. Commande Rust `launch_app(appId)` : `appId` résolu dans une liste autorisée tenue côté Rust ; jamais de chemin ni d'argument venant du front |
 

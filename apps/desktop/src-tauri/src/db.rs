@@ -5,12 +5,20 @@ pub const DB_URL: &str = "sqlite:homebase.db";
 
 /// One entry per V<n>__<name>.sql file, in order, no gap. Never modify an existing entry.
 pub fn migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "init",
-        sql: include_str!("../migrations/V1__init.sql"),
-        kind: MigrationKind::Up,
-    }]
+    vec![
+        Migration {
+            version: 1,
+            description: "init",
+            sql: include_str!("../migrations/V1__init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "notes_and_shortcuts",
+            sql: include_str!("../migrations/V2__notes_and_shortcuts.sql"),
+            kind: MigrationKind::Up,
+        },
+    ]
 }
 
 #[cfg(test)]

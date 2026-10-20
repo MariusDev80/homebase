@@ -5,14 +5,22 @@ import {
   makeEnvironmentProviders,
   provideAppInitializer,
 } from '@angular/core';
-import { isTauri } from '@tauri-apps/api/core';
+import { isTauriRuntime } from '../tauri-runtime';
 import { randomUuid, systemClock } from './clock';
 import { DataError } from './data-error';
-import { DashboardRepository, SettingsRepository, WidgetInstanceRepository } from './repositories';
+import {
+  DashboardRepository,
+  NoteRepository,
+  SettingsRepository,
+  ShortcutRepository,
+  WidgetInstanceRepository,
+} from './repositories';
 import { DataLayerHealth, GuardedSqlExecutor } from './sqlite/guarded-sql-executor';
 import { initDatabase } from './sqlite/database-bootstrap';
 import { SqliteDashboardRepository } from './sqlite/sqlite-dashboard.repository';
+import { SqliteNoteRepository } from './sqlite/sqlite-note.repository';
 import { SqliteSettingsRepository } from './sqlite/sqlite-settings.repository';
+import { SqliteShortcutRepository } from './sqlite/sqlite-shortcut.repository';
 import { SqliteWidgetInstanceRepository } from './sqlite/sqlite-widget-instance.repository';
 import { TauriSqlExecutor } from './sqlite/tauri-sql-executor';
 
@@ -22,9 +30,8 @@ export const WIDGET_INSTANCE_REPOSITORY = new InjectionToken<WidgetInstanceRepos
   'WIDGET_INSTANCE_REPOSITORY',
 );
 
-function insideTauri(): boolean {
-  return isTauri() || '__TAURI_INTERNALS__' in globalThis;
-}
+export const NOTE_REPOSITORY = new InjectionToken<NoteRepository>('NOTE_REPOSITORY');
+export const SHORTCUT_REPOSITORY = new InjectionToken<ShortcutRepository>('SHORTCUT_REPOSITORY');
 
 /**
  * Wires the SQLite repositories on top of tauri-plugin-sql and runs the bootstrap
@@ -52,9 +59,17 @@ export function provideDataLayer(): EnvironmentProviders {
       provide: WIDGET_INSTANCE_REPOSITORY,
       useFactory: () => new SqliteWidgetInstanceRepository(guarded, systemClock, randomUuid),
     },
+    {
+      provide: NOTE_REPOSITORY,
+      useFactory: () => new SqliteNoteRepository(guarded, systemClock, randomUuid),
+    },
+    {
+      provide: SHORTCUT_REPOSITORY,
+      useFactory: () => new SqliteShortcutRepository(guarded, systemClock, randomUuid),
+    },
     provideAppInitializer(() =>
       health.initialize(() => {
-        if (!insideTauri()) {
+        if (!isTauriRuntime()) {
           throw new DataError('unavailable', 'Homebase doit être lancé via Tauri');
         }
         return initDatabase(guarded, isDevMode());

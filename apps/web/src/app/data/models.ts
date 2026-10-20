@@ -44,3 +44,40 @@ export interface LayoutItem {
   id: string;
   grid: GridRect;
 }
+
+export interface Note {
+  id: string;
+  /** Owning widget instance (the note is deleted with it); null = standalone. */
+  widgetInstanceId: string | null;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewNote {
+  id?: string;
+  widgetInstanceId?: string | null;
+  title?: string;
+  body?: string;
+}
+
+export interface Shortcut {
+  id: string;
+  label: string;
+  url: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewShortcut {
+  id?: string;
+  label: string;
+  url: string;
+}
+
+export interface ShortcutFields {
+  label: string;
+  url: string;
+}

@@ -153,7 +153,7 @@ export class WidgetHostComponent {
     const t = (key: string): string => this.transloco.translate(key);
     this.confirmation.confirm({
       header: t('widgetHost.confirmRemove.header'),
-      message: t('widgetHost.confirmRemove.message'),
+      message: t(this.definition()?.removeConfirmKey ?? 'widgetHost.confirmRemove.message'),
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: t('widgetHost.confirmRemove.accept'),
       rejectLabel: t('widgetHost.confirmRemove.reject'),

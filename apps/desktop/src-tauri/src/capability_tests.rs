@@ -1,0 +1,89 @@
+//! Guard tests on `capabilities/default.json`: any change to the permissions of the main
+//! window must be deliberate and updates this file in the same commit.
+
+use serde_json::Value;
+use std::{fs, path::Path};
+
+fn default_capability() -> Value {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("capabilities/default.json");
+    serde_json::from_str(&fs::read_to_string(path).expect("read default.json")).expect("valid json")
+}
+
+fn permissions() -> Vec<Value> {
+    default_capability()["permissions"]
+        .as_array()
+        .expect("permissions array")
+        .clone()
+}
+
+fn urls(entry: &Value, key: &str) -> Vec<String> {
+    entry[key]
+        .as_array()
+        .unwrap_or_else(|| panic!("opener scope has no {key}"))
+        .iter()
+        .map(|e| {
+            let object = e.as_object().expect("scope entry is an object");
+            assert_eq!(
+                object.keys().collect::<Vec<_>>(),
+                ["url"],
+                "scope entries must only have a `url` key (no `app`, no `path`)"
+            );
+            object["url"].as_str().expect("url string").to_owned()
+        })
+        .collect()
+}
+
+#[test]
+fn main_window_permissions_are_exactly_the_expected_ones() {
+    let identifiers: Vec<String> = permissions()
+        .iter()
+        .map(|p| match p {
+            Value::String(s) => s.clone(),
+            other => other["identifier"].as_str().expect("identifier").to_owned(),
+        })
+        .collect();
+    assert_eq!(
+        identifiers,
+        [
+            "allow-get-autostart",
+            "allow-set-autostart",
+            "sql:allow-execute",
+            "sql:allow-select",
+            "opener:allow-open-url",
+        ]
+    );
+}
+
+#[test]
+fn opener_is_limited_to_http_and_https_open_url() {
+    let serialized = serde_json::to_string(&permissions()).expect("serialize");
+    for forbidden in [
+        "opener:default",
+        "open-path",
+        "reveal",
+        "mailto",
+        "tel:",
+        "file:",
+    ] {
+        assert!(
+            !serialized.contains(forbidden),
+            "permissions must not mention {forbidden}"
+        );
+    }
+
+    let permissions = permissions();
+    let opener = permissions
+        .iter()
+        .find(|p| p["identifier"] == "opener:allow-open-url")
+        .expect("scoped opener permission");
+    assert_eq!(urls(opener, "allow"), ["https://*", "http://*"]);
+    assert_eq!(urls(opener, "deny"), ["*\"*", "* *"]);
+}
+
+#[test]
+fn no_other_window_or_remote_access() {
+    let capability = default_capability();
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert!(capability.get("remote").is_none());
+    assert!(capability.get("webviews").is_none());
+}

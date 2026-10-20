@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod capability_tests;
 mod db;
 mod spike;
 mod tray;
@@ -26,6 +28,11 @@ fn invoke_handler<R: tauri::Runtime>(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         // MacosLauncher is ignored on Windows (registry Run key).
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,

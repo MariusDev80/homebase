@@ -1,12 +1,17 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window, all builds. No core:* permission on purpose: the front only calls the app's own commands and the SQL plugin through invoke, and never uses the event, window, webview, path, app, menu, tray or resources JS APIs (the tray is built from Rust, which is not subject to the ACL). Remove core:default, add a specific core:<module>:allow-<command> only when the front starts using one.",
+  "description": "Main window, all builds. No core:* permission on purpose: the front only calls the app's own commands and the SQL plugin through invoke, and never uses the event, window, webview, path, app, menu, tray or resources JS APIs (the tray is built from Rust, which is not subject to the ACL). The opener plugin is limited to opener:allow-open-url scoped to http(s) URLs (never opener:default, which also allows mailto:, tel: and reveal-item-in-dir), with deny entries for URLs containing a quote or a space; the front only calls openUrl, through core/UrlOpener, and the plugin's own click listener on external links is disabled in lib.rs (open_js_links_on_click(false)). Remove core:default, add a specific core:<module>:allow-<command> only when the front starts using one.",
   "windows": ["main"],
   "permissions": [
     "allow-get-autostart",
     "allow-set-autostart",
     "sql:allow-execute",
-    "sql:allow-select"
+    "sql:allow-select",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*" }, { "url": "http://*" }],
+      "deny": [{ "url": "*\"*" }, { "url": "* *" }]
+    }
   ]
 }

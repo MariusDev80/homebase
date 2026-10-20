@@ -1,6 +1,6 @@
 import { DataError } from '../data-error';
 import { parseJsonObject } from '../json';
-import { Dashboard, WidgetInstanceRecord } from '../models';
+import { Dashboard, Note, Shortcut, WidgetInstanceRecord } from '../models';
 
 // Type aliases (not interfaces) so that they stay assignable to SqlRow (index signature).
 /* eslint-disable @typescript-eslint/consistent-type-definitions */
@@ -69,6 +69,52 @@ export function toWidgetInstance(row: WidgetInstanceRow): WidgetInstanceRecord {
     },
     config: parseJsonObject(str(row.config, 'config')),
     configVersion: int(row.config_version, 'config_version'),
+    createdAt: str(row.created_at, 'created_at'),
+    updatedAt: str(row.updated_at, 'updated_at'),
+  };
+}
+
+/* eslint-disable @typescript-eslint/consistent-type-definitions */
+export type NoteRow = {
+  id: string;
+  widget_instance_id: string | null;
+  title: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ShortcutRow = {
+  id: string;
+  label: string;
+  url: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+/* eslint-enable @typescript-eslint/consistent-type-definitions */
+
+export const NOTE_COLUMNS = 'id, widget_instance_id, title, body, created_at, updated_at';
+export const SHORTCUT_COLUMNS = 'id, label, url, sort_order, created_at, updated_at';
+
+export function toNote(row: NoteRow): Note {
+  return {
+    id: str(row.id, 'id'),
+    widgetInstanceId:
+      row.widget_instance_id === null ? null : str(row.widget_instance_id, 'widget_instance_id'),
+    title: str(row.title, 'title'),
+    body: str(row.body, 'body'),
+    createdAt: str(row.created_at, 'created_at'),
+    updatedAt: str(row.updated_at, 'updated_at'),
+  };
+}
+
+export function toShortcut(row: ShortcutRow): Shortcut {
+  return {
+    id: str(row.id, 'id'),
+    label: str(row.label, 'label'),
+    url: str(row.url, 'url'),
+    sortOrder: int(row.sort_order, 'sort_order'),
     createdAt: str(row.created_at, 'created_at'),
     updatedAt: str(row.updated_at, 'updated_at'),
   };

@@ -42,6 +42,53 @@
       "nameLabel": "Nom",
       "save": "Enregistrer",
       "invalidName": "Le nom doit contenir de 1 à 40 caractères."
+    },
+    "notes": {
+      "title": "Notes",
+      "description": "Un bloc-notes en texte brut",
+      "titleLabel": "Titre de la note",
+      "titlePlaceholder": "Titre",
+      "bodyLabel": "Contenu de la note",
+      "bodyPlaceholder": "Écrivez ici…",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré",
+      "saveError": "Échec de l'enregistrement",
+      "missing": "Cette note est introuvable.",
+      "createNew": "Créer une nouvelle note",
+      "loadError": "Impossible de charger la note.",
+      "retry": "Réessayer",
+      "removeConfirm": "Supprimer ce widget et sa note ? Cette action est irréversible."
+    },
+    "shortcuts": {
+      "title": "Raccourcis",
+      "description": "Vos liens web favoris",
+      "empty": "Aucun raccourci pour l'instant.",
+      "open": "Ouvrir {{ label }}",
+      "openError": "Impossible d'ouvrir ce lien.",
+      "loadError": "Impossible de charger les raccourcis.",
+      "retry": "Réessayer",
+      "manage": "Gérer",
+      "doneManaging": "Terminer",
+      "add": "Ajouter un raccourci",
+      "edit": "Modifier {{ label }}",
+      "remove": "Supprimer {{ label }}",
+      "moveUp": "Monter {{ label }}",
+      "moveDown": "Descendre {{ label }}",
+      "labelLabel": "Libellé",
+      "urlLabel": "Adresse (https://…)",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "confirmRemove": "Supprimer « {{ label }} » ?",
+      "confirmYes": "Supprimer",
+      "confirmNo": "Annuler",
+      "actionError": "L'opération a échoué.",
+      "errors": {
+        "labelRequired": "Le libellé doit contenir de 1 à 80 caractères.",
+        "urlInvalid": "Adresse invalide.",
+        "urlProtocol": "Seules les adresses http et https sont acceptées.",
+        "urlCredentials": "L'adresse ne doit pas contenir d'identifiants.",
+        "urlTooLong": "L'adresse est trop longue (2048 caractères au maximum)."
+      }
     }
   },
   "dashboard": {

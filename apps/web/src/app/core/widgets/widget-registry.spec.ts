@@ -37,6 +37,11 @@ describe('validateDefinition', () => {
     expect(problemsOf({ titleKey: '', descriptionKey: '' })).toHaveLength(2);
   });
 
+  it('rejects an empty removeConfirmKey but accepts an absent or filled one', () => {
+    expect(problemsOf({ removeConfirmKey: '' }).join()).toContain('removeConfirmKey');
+    expect(problemsOf({ removeConfirmKey: 'widgets.notes.removeConfirm' })).toEqual([]);
+  });
+
   it('rejects min > default', () => {
     const size = { min: { w: 3, h: 1 }, default: { w: 2, h: 2 }, max: { w: 4, h: 4 } };
     expect(problemsOf({ size }).join()).toContain('size.w');
