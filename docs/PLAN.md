@@ -24,11 +24,11 @@ Ce que Tauri complique :
 | Shell desktop | Tauri 2 (Rust) | Léger, notifications natives, tray, autostart, lancement d'apps |
 | Front | Angular 21 (zoneless, signals, Vitest) | Stack déjà maîtrisée |
 | UI | Tailwind 4 + PrimeNG, direction visuelle inspirée de GitHub (Primer) | Composants prêts, thèmes clair/sombre ; tokens `--hb-*`, preset PrimeNG maison, patterns : voir `docs/DESIGN.md` (décidé le 20/10/2026) |
-| Grille | angular-gridster2 **21.x épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Support zoneless revendiqué (PR #917, #950) mais issue #916 encore ouverte : à valider en phase 1 (la phase 0 utilise une grille CSS simple, voir ADR-001) |
+| Grille | angular-gridster2 **21.0.1 épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Intégré en phase 1 derrière `core/dashboard/grid-adapter.ts`, tests verts en zoneless ; comportement réel à confirmer à la main (issue #916) |
 | Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR) |
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
-| Récurrence | `rrule` | Standard RFC 5545 |
+| Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003 |
 | Timers | Web Worker (UI) + horloge Rust (rappels) | Fiable même fenêtre réduite |
 | Notifications | `tauri-plugin-notification`, tray, `autostart` | Natif Windows |
 | Mise à jour | `tauri-plugin-updater` (binaires signés) | Phase finitions |
