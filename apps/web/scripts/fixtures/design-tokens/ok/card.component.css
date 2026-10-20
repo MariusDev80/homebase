@@ -1,0 +1,5 @@
+/* #ffffff documented here */
+.card {
+  color: var(--hb-fg);
+  background: color-mix(in srgb, var(--hb-danger) 10%, var(--hb-bg));
+}

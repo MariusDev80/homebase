@@ -17,6 +17,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 **Sortie** : application Windows qui se lance, lit et écrit en base, grille avec un widget factice.
 
 ## Phase 1 : MVP
+- [x] (S) Design system selon `docs/DESIGN.md` : `core/theme/tokens.css` (clair/sombre), `@theme` Tailwind sémantique, preset PrimeNG dérivé d'Aura sur les tokens `--hb-*`, refonte de la barre supérieure (UnderlineNav), du dashboard et de l'hôte de widget (carte Box) ; captures clair/sombre de l'exe release. **À faire avant les widgets**
 - [ ] (S) Reliquats revue phase 0 : remplacer `core:default` par la liste minimale, retirer/limiter au debug les commandes de spike, menu « Ajouter un widget » accessible (Échap, clic extérieur, flèches), confirmation de suppression, F5 sur `/settings` en release (sinon `withHashLocation()`), flash de thème au démarrage, coalescence `updateConfig` vs ADR-001 §3.6
 - [ ] (S) Grille drag & drop redimensionnable, layout enregistré en base
 - [ ] (S) Widgets : TODO, notes, raccourcis (liens), recherche

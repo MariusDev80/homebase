@@ -1,0 +1,333 @@
+/*
+ * Reusable UI patterns of docs/DESIGN.md section 3, as plain classes in @layer components
+ * (Tailwind utilities, in a later layer, can still override them). Colors come from --hb-* only.
+ */
+
+/* Focus: visible only from the keyboard (3). Inset inside cards so it is not clipped. */
+:where(:focus-visible) {
+  outline: 2px solid var(--hb-focus);
+  outline-offset: 2px;
+}
+.box :where(:focus-visible),
+.menu :where(:focus-visible),
+.underline-nav-item:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Buttons: 32 px, radius 6 px, label 600. Default variant is the bare .btn. */
+.btn {
+  display: inline-flex;
+  min-height: var(--hb-control-height);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hb-space-2);
+  padding: 0 var(--hb-space-3);
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-bg-subtle);
+  color: var(--hb-fg);
+  font-size: var(--hb-text-base);
+  font-weight: var(--hb-weight-semibold);
+  line-height: 1.25;
+  white-space: nowrap;
+  transition:
+    background-color var(--hb-transition),
+    border-color var(--hb-transition),
+    color var(--hb-transition);
+}
+.btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--hb-fg) 8%, var(--hb-bg-subtle));
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.btn[aria-pressed='true'] {
+  border-color: var(--hb-accent);
+  background: var(--hb-accent-subtle);
+}
+.btn-compact {
+  min-height: var(--hb-control-height-compact);
+  padding: 0 var(--hb-space-2);
+}
+.btn-icon {
+  width: var(--hb-control-height);
+  padding: 0;
+  color: var(--hb-fg-muted);
+}
+.btn-icon.btn-compact {
+  width: var(--hb-control-height-compact);
+}
+.btn-primary {
+  border-color: transparent;
+  background: var(--hb-success-emphasis);
+  color: var(--hb-fg-on-emphasis);
+}
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, black 12%, var(--hb-success-emphasis));
+}
+.btn-danger {
+  background: var(--hb-bg-subtle);
+  color: var(--hb-danger);
+}
+.btn-danger:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--hb-danger);
+  color: var(--hb-fg-on-emphasis);
+}
+.btn-invisible {
+  border-color: transparent;
+  background: transparent;
+}
+.btn-invisible:hover:not(:disabled) {
+  background: var(--hb-hover);
+}
+.btn-invisible.btn-danger {
+  background: transparent;
+}
+.btn-invisible.btn-danger:hover:not(:disabled) {
+  background: var(--hb-danger);
+}
+
+/* Fields: 32 px, radius 6 px; focus = accent border + 2 px ring. */
+.field {
+  min-height: var(--hb-control-height);
+  padding: 0 var(--hb-space-3);
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-bg-inset);
+  color: var(--hb-fg);
+  transition:
+    background-color var(--hb-transition),
+    border-color var(--hb-transition);
+}
+.field:focus-visible {
+  border-color: var(--hb-accent);
+  outline: 2px solid var(--hb-focus);
+  outline-offset: -1px;
+}
+.field[aria-invalid='true'] {
+  border-color: var(--hb-danger);
+}
+.field-error {
+  margin-top: var(--hb-space-1);
+  color: var(--hb-danger);
+  font-size: var(--hb-text-xs);
+}
+
+/* Switch: native checkbox with role="switch". */
+.switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex: none;
+  cursor: pointer;
+  appearance: none;
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius-full);
+  background: var(--hb-bg-inset);
+  transition:
+    background-color var(--hb-transition),
+    border-color var(--hb-transition);
+}
+.switch::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--hb-radius-full);
+  background: var(--hb-fg-muted);
+  content: '';
+  transition:
+    transform var(--hb-transition),
+    background-color var(--hb-transition);
+}
+.switch:checked {
+  border-color: var(--hb-accent);
+  background: var(--hb-accent);
+}
+.switch:checked::before {
+  background: var(--hb-fg-on-emphasis);
+  transform: translateX(14px);
+}
+.switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Box card: frame + header + body (4). Only the widget host draws it; pages may reuse it. */
+.box {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-bg);
+}
+.box-header {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-2) var(--hb-space-4);
+  border-bottom: 1px solid var(--hb-border);
+  background: var(--hb-bg-subtle);
+  font-size: var(--hb-text-base);
+  font-weight: var(--hb-weight-semibold);
+}
+.box-header > i {
+  color: var(--hb-fg-muted);
+  font-size: 16px;
+}
+.box-body {
+  min-height: 0;
+  flex: 1;
+  padding: var(--hb-space-4);
+  overflow: auto;
+}
+.box-row {
+  padding: var(--hb-space-2) 0;
+  border-bottom: 1px solid var(--hb-border-muted);
+}
+.box-row:last-child {
+  border-bottom: 0;
+}
+
+/* Top bar and underline navigation (3). */
+.topbar {
+  display: flex;
+  height: var(--hb-topbar-height);
+  flex: none;
+  align-items: center;
+  gap: var(--hb-space-6);
+  padding: 0 var(--hb-space-4);
+  border-bottom: 1px solid var(--hb-border);
+  background: var(--hb-bg-subtle);
+}
+.underline-nav {
+  display: flex;
+  height: 100%;
+  flex: 1;
+  align-items: stretch;
+  gap: var(--hb-space-2);
+}
+.underline-nav-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--hb-space-3);
+  border-bottom: 2px solid transparent;
+  color: var(--hb-fg-muted);
+  transition: color var(--hb-transition);
+}
+.underline-nav-item:hover {
+  color: var(--hb-fg);
+}
+.underline-nav-item.is-active {
+  border-bottom-color: var(--hb-accent);
+  color: var(--hb-fg);
+  font-weight: var(--hb-weight-semibold);
+}
+
+/* Page header (3). */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hb-space-4);
+  margin-bottom: var(--hb-space-4);
+}
+.page-title {
+  font-size: var(--hb-text-lg);
+  font-weight: var(--hb-weight-semibold);
+  line-height: 1.4;
+}
+
+/* Floating menu / popover: border + light shadow. */
+.menu {
+  position: absolute;
+  z-index: 10;
+  min-width: 14rem;
+  margin-top: var(--hb-space-1);
+  padding: var(--hb-space-1);
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-bg);
+  box-shadow: var(--hb-shadow-floating);
+  list-style: none;
+}
+.menu-item {
+  display: flex;
+  width: 100%;
+  min-height: var(--hb-control-height);
+  cursor: pointer;
+  align-items: center;
+  gap: var(--hb-space-2);
+  padding: 0 var(--hb-space-2);
+  border-radius: var(--hb-radius);
+  color: var(--hb-fg);
+  text-align: left;
+}
+.menu-item > i {
+  color: var(--hb-fg-muted);
+}
+.menu-item:hover:not(:disabled) {
+  background: var(--hb-hover);
+}
+.menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Flash banner: tinted background and border of the meaning, text in --hb-fg. */
+.flash {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-2) var(--hb-space-4);
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-bg-subtle);
+  color: var(--hb-fg);
+}
+.flash > i {
+  margin-top: 4px;
+}
+.flash-danger {
+  border-color: var(--hb-danger);
+  background: var(--hb-danger-subtle);
+}
+.flash-danger > i {
+  color: var(--hb-danger);
+}
+.flash-attention {
+  border-color: var(--hb-attention);
+  background: var(--hb-attention-subtle);
+}
+.flash-attention > i {
+  color: var(--hb-attention);
+}
+
+/* Empty state: centered, muted icon, one sentence. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hb-space-2);
+  padding: var(--hb-space-6) var(--hb-space-4);
+  color: var(--hb-fg-muted);
+  text-align: center;
+}
+.empty-state > i {
+  font-size: 24px;
+}
