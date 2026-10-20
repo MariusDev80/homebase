@@ -24,7 +24,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 - [ ] (S) Widgets : TODO, notes, raccourcis (liens), recherche
 - [ ] (S) Widget météo Open-Meteo (+ géocodage)
 - [ ] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration
-- [ ] (O) ADR-003 : modèle de temps (UTC + IANA + RRULE)
+- [x] (O) ADR-003 : modèle de temps (UTC + IANA + RRULE) (`docs/adr/003-time-model.md`, statut proposé ; revu, décisions D1 à D3 validées par Marius)
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
 
 ## Phase 2 : Temps
