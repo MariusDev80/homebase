@@ -1,0 +1,11 @@
+node_modules
+dist
+.angular
+target
+coverage
+package-lock.json
+apps/desktop/src-tauri/gen
+apps/desktop/src-tauri/icons
+docs
+.claude
+CLAUDE.md

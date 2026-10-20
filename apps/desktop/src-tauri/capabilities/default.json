@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window: core defaults plus the app's own spike commands only",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "allow-schedule-test-notification",
+    "allow-get-autostart",
+    "allow-set-autostart",
+    "sql:allow-execute",
+    "sql:allow-select"
+  ]
+}

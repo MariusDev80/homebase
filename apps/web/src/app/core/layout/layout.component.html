@@ -1,0 +1,43 @@
+<div
+  class="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+>
+  <header
+    class="flex items-center gap-6 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-700 dark:bg-slate-800"
+  >
+    <span class="text-lg font-semibold">{{ 'app.name' | transloco }}</span>
+
+    <nav [attr.aria-label]="'layout.mainNav' | transloco" class="flex flex-1 gap-2">
+      <a
+        routerLink="/"
+        routerLinkActive="bg-slate-200 dark:bg-slate-700"
+        ariaCurrentWhenActive="page"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="rounded px-3 py-1 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:hover:bg-slate-700 dark:focus-visible:outline-blue-400"
+        >{{ 'nav.dashboard' | transloco }}</a
+      >
+      <a
+        routerLink="/settings"
+        routerLinkActive="bg-slate-200 dark:bg-slate-700"
+        ariaCurrentWhenActive="page"
+        class="rounded px-3 py-1 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:hover:bg-slate-700 dark:focus-visible:outline-blue-400"
+        >{{ 'nav.settings' | transloco }}</a
+      >
+    </nav>
+
+    <button
+      type="button"
+      data-testid="theme-toggle"
+      (click)="theme.cycle()"
+      [attr.aria-label]="
+        'theme.toggle' | transloco: { mode: 'theme.mode.' + theme.mode() | transloco }
+      "
+      class="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-slate-600 dark:hover:bg-slate-700 dark:focus-visible:outline-blue-400"
+    >
+      {{ 'theme.mode.' + theme.mode() | transloco }}
+    </button>
+  </header>
+
+  <main class="flex-1 p-4">
+    <router-outlet />
+  </main>
+</div>

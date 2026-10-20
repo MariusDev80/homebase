@@ -16,7 +16,13 @@ Documents de référence (à lire à la demande, pas à chaque tâche) :
 - Aucun serveur : pas de Spring Boot, PostgreSQL, Flyway ni Docker. L'app est utilisée uniquement sur le PC de Marius
 
 ## Commandes
-À COMPLÉTER à la fin de la phase 0 (ne pas inventer) : install, dev, test, lint, build pour le front Angular et `src-tauri` (cargo).
+Toutes depuis la racine (npm workspaces ; front = workspace `web` dans `apps/web`, Tauri dans `apps/desktop/src-tauri`). Toolchain : `docs/TOOLCHAIN.md`.
+- Install : `npm ci --ignore-scripts` (comme la CI ; `npm install` pour ajouter une dépendance)
+- Dev (fenêtre Tauri + `ng serve`) : `npm run dev` ; front seul : `npm run web:start` (hors Tauri, la couche `data/` lève `unavailable`)
+- Tests : `npm run test` (Vitest Angular + `test:data` : repositories SQLite sur better-sqlite3 en mémoire) ; Rust : `npm run rust:test`
+- Lint : `npm run lint` (ESLint + frontières entre widgets), `npm run format:check` (Prettier), `npm run rust:fmt:check`, `npm run rust:lint` (clippy `-D warnings`)
+- Build : `npm run build` (installateurs NSIS + MSI non signés sous `apps/desktop/src-tauri/target/release/bundle/`) ; front seul : `npm run web:build`
+- Vérification complète avant « terminé » : `format:check`, `lint`, `test`, `rust:fmt:check`, `rust:lint`, `rust:test` (ce que fait `.github/workflows/ci.yml`)
 
 ## Conventions
 - Code, identifiants, commits : anglais. Textes d'interface : français, via i18n (prêt pour d'autres langues).

@@ -1,0 +1,29 @@
+{
+  "name": "homebase",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Homebase: personal widget dashboard (Tauri 2 + Angular)",
+  "packageManager": "npm@11.19.0",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "web:start": "npm run start --workspace=web",
+    "web:build": "npm run build --workspace=web",
+    "test": "npm run test:ci --workspace=web && npm run test:data --workspace=web && npm run test:boundaries --workspace=web",
+    "test:data": "npm run test:data --workspace=web && npm run test:boundaries --workspace=web",
+    "lint": "npm run lint --workspace=web",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "rust:check": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "rust:lint": "cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "rust:test": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "rust:fmt:check": "cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

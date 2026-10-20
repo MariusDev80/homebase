@@ -24,7 +24,7 @@ Ce que Tauri complique :
 | Shell desktop | Tauri 2 (Rust) | Léger, notifications natives, tray, autostart, lancement d'apps |
 | Front | Angular 21 (zoneless, signals, Vitest) | Stack déjà maîtrisée |
 | UI | Tailwind 4 + PrimeNG | Composants prêts, thèmes clair/sombre |
-| Grille | angular-gridster2 (ou gridstack) | **À vérifier** : compatibilité Angular 21 |
+| Grille | angular-gridster2 **21.x épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Support zoneless revendiqué (PR #917, #950) mais issue #916 encore ouverte : à valider en phase 1 (la phase 0 utilise une grille CSS simple, voir ADR-001) |
 | Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR) |
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
@@ -90,7 +90,7 @@ UTC + fuseau IANA ; récurrence en RRULE ; planificateur Rust qui recalcule la p
 Les agents du kit suffisent pour démarrer. Plugins officiels optionnels : `security-guidance` (dès qu'il y a du réseau et du Rust), `frontend-design`, `code-review`, `hookify` plus tard. Éviter d'en empiler (chaque plugin consomme du contexte).
 
 ## 8. Points à vérifier avant ou pendant la phase 0
-1. angular-gridster2 sur Angular 21 (sinon gridstack).
+1. ~~angular-gridster2 sur Angular 21 (sinon gridstack).~~ Fait : 21.x épinglé, voir §2.
 2. Schedule-X vs FullCalendar (récurrence, vues, thèmes).
 3. Toolchain Windows installée (Rust MSVC, Build Tools C++, WebView2) et version de Rust compatible avec `tauri-plugin-sql` (Rust 1.90 ou plus d'après la doc).
 4. Environnement de travail de Claude Code : Windows natif (sans sandbox) ou WSL2 (voir KICKOFF).

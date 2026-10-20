@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Homebase",
+  "version": "0.0.0",
+  "identifier": "fr.mariusdev.homebase",
+  "build": {
+    "devUrl": "http://localhost:4200",
+    "frontendDist": "../../web/dist/web/browser",
+    "beforeDevCommand": "npm run start --workspace=web",
+    "beforeBuildCommand": "npm run build --workspace=web"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Homebase",
+        "center": true,
+        "resizable": true,
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'",
+      "dangerousDisableAssetCspModification": ["style-src"]
+    }
+  },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:homebase.db"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "publisher": "Marius Dudouet",
+    "copyright": "Copyright (c) 2026 Marius Dudouet",
+    "category": "Productivity",
+    "shortDescription": "Tableau de bord personnel à widgets",
+    "longDescription": "Homebase est un tableau de bord personnel à widgets, local-first, pour Windows.",
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" }
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

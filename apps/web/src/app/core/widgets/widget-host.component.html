@@ -1,0 +1,69 @@
+<section
+  class="flex h-full flex-col overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
+>
+  <header
+    class="flex items-center gap-2 border-b border-slate-200 px-3 py-1.5 text-sm font-medium dark:border-slate-700"
+  >
+    @let def = definition();
+    @if (def) {
+      <i [class]="def.icon" aria-hidden="true"></i>
+      <h2 class="flex-1 truncate">{{ def.titleKey | transloco }}</h2>
+    } @else {
+      <h2 class="flex-1 truncate">{{ instance().widgetType }}</h2>
+    }
+    <button
+      type="button"
+      class="cursor-pointer rounded px-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
+      data-testid="widget-remove"
+      [attr.aria-label]="'widgetHost.remove' | transloco"
+      [attr.title]="'widgetHost.remove' | transloco"
+      (click)="remove()"
+    >
+      <i class="pi pi-times" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  <div class="min-h-0 flex-1 overflow-auto p-3">
+    @if (actionFailed()) {
+      <p role="alert" data-testid="widget-action-error" class="mb-2 text-red-700 dark:text-red-400">
+        {{ 'widgetHost.actionError' | transloco }}
+      </p>
+    }
+    @let s = state();
+    @if (s.kind === 'ready') {
+      <ng-container *ngComponentOutlet="s.component; injector: s.injector" />
+    } @else if (s.kind === 'unknown-type') {
+      <p data-testid="widget-unknown">
+        {{ 'widgetHost.unknownType' | transloco: { type: s.type } }}
+      </p>
+    } @else if (s.kind === 'invalid-config') {
+      <p data-testid="widget-invalid">
+        @if (s.reason === 'future-version') {
+          {{ 'widgetHost.futureVersion' | transloco }}
+        } @else {
+          {{ 'widgetHost.invalidConfig' | transloco }}
+        }
+      </p>
+      @if (s.reason !== 'future-version') {
+        <button
+          type="button"
+          class="mt-2 cursor-pointer rounded border border-slate-400 px-2 py-0.5"
+          data-testid="widget-reset"
+          (click)="reset()"
+        >
+          {{ 'widgetHost.resetConfig' | transloco }}
+        </button>
+      }
+    } @else if (s.kind === 'load-error') {
+      <p data-testid="widget-load-error">{{ 'widgetHost.loadError' | transloco }}</p>
+      <button
+        type="button"
+        class="mt-2 cursor-pointer rounded border border-slate-400 px-2 py-0.5"
+        data-testid="widget-retry"
+        (click)="retry()"
+      >
+        {{ 'widgetHost.retry' | transloco }}
+      </button>
+    }
+  </div>
+</section>

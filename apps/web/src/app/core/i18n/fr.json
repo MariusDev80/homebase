@@ -1,0 +1,64 @@
+{
+  "app": {
+    "name": "Homebase"
+  },
+  "pages": {
+    "dashboard": { "title": "Tableau de bord" },
+    "settings": { "title": "Réglages" }
+  },
+  "layout": {
+    "mainNav": "Navigation principale"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "settings": "Réglages"
+  },
+  "theme": {
+    "toggle": "Thème : {{ mode }}. Cliquer pour changer.",
+    "mode": {
+      "system": "Système",
+      "light": "Clair",
+      "dark": "Sombre"
+    }
+  },
+  "settings": {
+    "heading": "Réglages",
+    "theme": {
+      "label": "Thème"
+    },
+    "system": {
+      "label": "Système (expérimental)",
+      "unavailable": "Disponible uniquement dans l'application Windows.",
+      "testNotification": "Envoyer une notification de test dans 10 s",
+      "autostart": "Lancer au démarrage de Windows",
+      "error": "L'opération a échoué."
+    }
+  },
+  "widgets": {
+    "hello": {
+      "title": "Bonjour",
+      "description": "Widget de démonstration",
+      "greeting": "Bonjour, {{ name }} !",
+      "nameLabel": "Nom",
+      "save": "Enregistrer",
+      "invalidName": "Le nom doit contenir de 1 à 40 caractères."
+    }
+  },
+  "dashboard": {
+    "defaultName": "Accueil",
+    "loadError": "Impossible de charger le tableau de bord.",
+    "addWidget": "Ajouter un widget",
+    "empty": "Aucun widget pour l'instant.",
+    "addError": "Impossible d'ajouter ce widget."
+  },
+  "widgetHost": {
+    "remove": "Supprimer",
+    "unknownType": "Widget inconnu : {{ type }}",
+    "invalidConfig": "Configuration invalide",
+    "futureVersion": "Configuration créée par une version plus récente de Homebase",
+    "resetConfig": "Réinitialiser",
+    "loadError": "Impossible de charger ce widget",
+    "retry": "Réessayer",
+    "actionError": "L'opération a échoué."
+  }
+}

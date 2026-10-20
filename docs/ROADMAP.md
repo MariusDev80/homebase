@@ -3,20 +3,21 @@
 Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (`architect` / `reviewer`). Cocher chaque tâche une fois ses critères atteints. Chaque phase se termine par une revue `reviewer` (O).
 
 ## Phase 0 : Fondations (application Windows)
-- [ ] (H) Vérifier la toolchain Windows (Rust MSVC, Build Tools C++, WebView2, Node) et la documenter
-- [ ] (S) Init monorepo : Tauri 2 + Angular 21 zoneless + Tailwind 4 + PrimeNG, Vitest, ESLint, Prettier
-- [ ] (S) Fenêtre native qui affiche le shell ; build d'un installateur de test
-- [ ] (S) Shell : layout, thème clair/sombre, routing, i18n FR
-- [ ] (S) Spike : une notification native planifiée + icône de zone de notification + démarrage automatique (valide la faisabilité des rappels)
-- [ ] (S) SQLite via `tauri-plugin-sql` + migrations `V1__init.sql` ; interface `Repository` + une implémentation de test (SQLite en mémoire pour les tests)
-- [ ] (S) CI GitHub Actions sur `windows-latest` (lint + test + build), Dependabot
-- [ ] (O) ADR-001 : contrat `Widget` + registre + format de configuration
-- [ ] (O) ADR-002 : couche de données (schéma SQLite, UUID, conventions de migration, stockage des images, sauvegardes)
-- [ ] (H, scout) Vérifier angular-gridster2 vs Angular 21 ; sinon alternative
-- [ ] (H) Compléter la section « Commandes » de `CLAUDE.md`
+- [x] (H) Vérifier la toolchain Windows (Rust MSVC, Build Tools C++, WebView2, Node) et la documenter (`docs/TOOLCHAIN.md`)
+- [x] (S) Init monorepo : Tauri 2 + Angular 21 zoneless + Tailwind 4 + PrimeNG, Vitest, ESLint, Prettier
+- [x] (S) Fenêtre native qui affiche le shell ; build d'un installateur de test
+- [x] (S) Shell : layout, thème clair/sombre, routing, i18n FR
+- [x] (S) Spike : une notification native planifiée + icône de zone de notification + démarrage automatique (valide la faisabilité des rappels) (`docs/spikes/001-tray-notification-autostart.md` ; vérification manuelle à faire par Marius)
+- [x] (S) SQLite via `tauri-plugin-sql` + migrations `V1__init.sql` ; interface `Repository` + une implémentation de test (SQLite en mémoire pour les tests)
+- [x] (S) CI GitHub Actions sur `windows-latest` (lint + test + build), Dependabot (validée localement avec actionlint ; premier run GitHub à confirmer après le premier push)
+- [x] (O) ADR-001 : contrat `Widget` + registre + format de configuration (`docs/adr/001-widget-contract.md`, statut proposé)
+- [x] (O) ADR-002 : couche de données (schéma SQLite, UUID, conventions de migration, stockage des images, sauvegardes) (`docs/adr/002-data-layer.md`, statut proposé ; fait foi pour `data/`)
+- [x] (H, scout) Vérifier angular-gridster2 vs Angular 21 ; sinon alternative (angular-gridster2 21.x, repli gridstack ; voir PLAN §2)
+- [x] (H) Compléter la section « Commandes » de `CLAUDE.md`
 **Sortie** : application Windows qui se lance, lit et écrit en base, grille avec un widget factice.
 
 ## Phase 1 : MVP
+- [ ] (S) Reliquats revue phase 0 : remplacer `core:default` par la liste minimale, retirer/limiter au debug les commandes de spike, menu « Ajouter un widget » accessible (Échap, clic extérieur, flèches), confirmation de suppression, F5 sur `/settings` en release (sinon `withHashLocation()`), flash de thème au démarrage, coalescence `updateConfig` vs ADR-001 §3.6
 - [ ] (S) Grille drag & drop redimensionnable, layout enregistré en base
 - [ ] (S) Widgets : TODO, notes, raccourcis (liens), recherche
 - [ ] (S) Widget météo Open-Meteo (+ géocodage)

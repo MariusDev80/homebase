@@ -4,3 +4,23 @@
 # Secrets
 .env*
 secrets/
+
+# Dependencies and build output
+node_modules/
+dist/
+out-tsc/
+.angular/
+coverage/
+*.tsbuildinfo
+
+# Rust / Tauri
+target/
+apps/desktop/src-tauri/gen/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+npm-debug.log*
+__screenshots__/

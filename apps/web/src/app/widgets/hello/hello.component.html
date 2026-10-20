@@ -1,0 +1,25 @@
+<p class="text-lg" data-testid="hello-greeting">
+  {{ 'widgets.hello.greeting' | transloco: { name: ctx.config().name } }}
+</p>
+<form class="mt-2 flex items-center gap-2" (submit)="submit($event, nameInput.value)">
+  <label for="hello-name-{{ ctx.instanceId }}" class="sr-only">
+    {{ 'widgets.hello.nameLabel' | transloco }}
+  </label>
+  <input
+    #nameInput
+    id="hello-name-{{ ctx.instanceId }}"
+    type="text"
+    class="min-w-0 flex-1 rounded border border-slate-400 bg-transparent px-2 py-0.5"
+    data-testid="hello-name"
+    [value]="ctx.config().name"
+    [attr.aria-invalid]="invalid()"
+  />
+  <button type="submit" class="cursor-pointer rounded border border-slate-400 px-2 py-0.5">
+    {{ 'widgets.hello.save' | transloco }}
+  </button>
+</form>
+@if (invalid()) {
+  <p role="alert" class="mt-1 text-sm text-red-700 dark:text-red-400" data-testid="hello-error">
+    {{ 'widgets.hello.invalidName' | transloco }}
+  </p>
+}
