@@ -39,7 +39,7 @@
     "@eslint/js": "^10.0.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^24.19.2",
+    "@types/node": "^26.6.5",
     "angular-eslint": "^21.4.0",
     "better-sqlite3": "^13.0.3",
     "eslint": "^10.13.0",
