@@ -49,9 +49,18 @@
     "loadError": "Impossible de charger le tableau de bord.",
     "addWidget": "Ajouter un widget",
     "empty": "Aucun widget pour l'instant.",
-    "addError": "Impossible d'ajouter ce widget."
+    "addError": "Impossible d'ajouter ce widget.",
+    "editLayout": "Modifier la disposition",
+    "doneEditing": "Terminer",
+    "layoutError": "Impossible d'enregistrer la disposition ; la dernière disposition enregistrée a été rétablie."
   },
   "widgetHost": {
+    "layout": {
+      "handle": "Déplacer le widget (flèches : déplacer, Maj + flèches : redimensionner)",
+      "moved": "Widget déplacé : colonne {{ x }}, ligne {{ y }}, taille {{ w }} sur {{ h }}.",
+      "resized": "Widget redimensionné : taille {{ w }} sur {{ h }}, colonne {{ x }}, ligne {{ y }}.",
+      "blocked": "Déplacement impossible : limite atteinte."
+    },
     "remove": "Supprimer",
     "confirmRemove": {
       "header": "Supprimer ce widget ?",

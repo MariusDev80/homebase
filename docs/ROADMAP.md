@@ -19,7 +19,8 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 ## Phase 1 : MVP
 - [x] (S) Design system selon `docs/DESIGN.md` : `core/theme/tokens.css` (clair/sombre), `@theme` Tailwind sémantique, preset PrimeNG dérivé d'Aura sur les tokens `--hb-*`, refonte de la barre supérieure (UnderlineNav), du dashboard et de l'hôte de widget (carte Box) ; captures clair/sombre de l'exe release. **À faire avant les widgets**
 - [x] (S) Reliquats revue phase 0 : remplacer `core:default` par la liste minimale, retirer/limiter au debug les commandes de spike, menu « Ajouter un widget » accessible (Échap, clic extérieur, flèches), confirmation de suppression, F5 sur `/settings` en release (sinon `withHashLocation()`), flash de thème au démarrage, coalescence `updateConfig` vs ADR-001 §3.6 (aucune permission `core:*` ; spike et devtools dans `capabilities/debug.json` ; routage par chemin conservé, Tauri renvoie vers `index.html` ; `public/theme-init.js` ; vérification manuelle dans l'exe release à faire par Marius)
-- [ ] (S) Grille drag & drop redimensionnable, layout enregistré en base
+- [x] (S) Grille drag & drop redimensionnable, layout enregistré en base (angular-gridster2 21.0.1 derrière `core/dashboard/grid-adapter.ts`, 12 colonnes, mode « Modifier la disposition », déplacement clavier ; vérification manuelle dans `npm run dev` à faire par Marius)
+- [ ] (S) ADR-003 lot A : fondations temps (`data/time-formats.ts`, `core/time`, fuseau utilisateur, affichage, règle ESLint, vecteurs sans récurrence). **Avant le widget TODO**
 - [ ] (S) Widgets : TODO, notes, raccourcis (liens), recherche
 - [ ] (S) Widget météo Open-Meteo (+ géocodage)
 - [ ] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration
@@ -27,6 +28,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
 
 ## Phase 2 : Temps
+- [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource`
 - [ ] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage)
 - [ ] (S) Timers/alarmes, pomodoro, session « en cours depuis X » + historique
 - [ ] (S) Rappels datés/récurrents (rrule) + notifications natives + zone de notification + démarrage automatique

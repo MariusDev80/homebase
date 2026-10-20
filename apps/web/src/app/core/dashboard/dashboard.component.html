@@ -8,45 +8,58 @@
   @case ('ready') {
     <div class="page-header">
       <h1 class="page-title">{{ store.dashboard()?.name }}</h1>
-      <div class="relative" #menuRoot>
+      <div class="flex items-center gap-2">
         <button
           type="button"
-          class="btn btn-primary"
-          #menuTrigger
-          data-testid="add-widget"
-          aria-haspopup="menu"
-          aria-controls="add-widget-menu"
-          [attr.aria-expanded]="menuOpen()"
-          (click)="toggleMenu()"
+          class="btn"
+          data-testid="toggle-layout-edit"
+          [attr.aria-pressed]="editing()"
+          [disabled]="store.instances().length === 0"
+          (click)="toggleEditing()"
         >
-          <i class="pi pi-plus" aria-hidden="true"></i>
-          {{ 'dashboard.addWidget' | transloco }}
+          <i [class]="editing() ? 'pi pi-check' : 'pi pi-pencil'" aria-hidden="true"></i>
+          {{ (editing() ? 'dashboard.doneEditing' : 'dashboard.editLayout') | transloco }}
         </button>
-        @if (menuOpen()) {
-          <ul
-            id="add-widget-menu"
-            role="menu"
-            class="menu right-0"
-            [attr.aria-label]="'dashboard.addWidget' | transloco"
+        <div class="relative" #menuRoot>
+          <button
+            type="button"
+            class="btn btn-primary"
+            #menuTrigger
+            data-testid="add-widget"
+            aria-haspopup="menu"
+            aria-controls="add-widget-menu"
+            [attr.aria-expanded]="menuOpen()"
+            (click)="toggleMenu()"
           >
-            @for (definition of registry.list(); track definition.type) {
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  tabindex="-1"
-                  class="menu-item"
-                  [attr.data-testid]="'add-' + definition.type"
-                  [disabled]="!canAdd(definition.type)"
-                  (click)="add(definition.type)"
-                >
-                  <i [class]="definition.icon" aria-hidden="true"></i>
-                  {{ definition.titleKey | transloco }}
-                </button>
-              </li>
-            }
-          </ul>
-        }
+            <i class="pi pi-plus" aria-hidden="true"></i>
+            {{ 'dashboard.addWidget' | transloco }}
+          </button>
+          @if (menuOpen()) {
+            <ul
+              id="add-widget-menu"
+              role="menu"
+              class="menu right-0"
+              [attr.aria-label]="'dashboard.addWidget' | transloco"
+            >
+              @for (definition of registry.list(); track definition.type) {
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    tabindex="-1"
+                    class="menu-item"
+                    [attr.data-testid]="'add-' + definition.type"
+                    [disabled]="!canAdd(definition.type)"
+                    (click)="add(definition.type)"
+                  >
+                    <i [class]="definition.icon" aria-hidden="true"></i>
+                    {{ definition.titleKey | transloco }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
       </div>
     </div>
 
@@ -57,17 +70,30 @@
       </p>
     }
 
+    @if (store.layoutError()) {
+      <p role="alert" data-testid="dashboard-layout-error" class="flash flash-danger mb-4">
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+        {{ 'dashboard.layoutError' | transloco }}
+      </p>
+    }
+
     @if (store.instances().length === 0) {
       <div data-testid="dashboard-empty" class="empty-state">
         <i class="pi pi-objects-column" aria-hidden="true"></i>
         <p>{{ 'dashboard.empty' | transloco }}</p>
       </div>
     } @else {
-      <div class="grid auto-rows-[6rem] grid-cols-12 gap-4">
-        @for (instance of store.instances(); track instance.id) {
-          <app-widget-host [instance]="instance" [style]="placement(instance)" />
+      <gridster
+        [options]="gridOptions()"
+        class="dashboard-grid"
+        [class.dashboard-grid-editing]="editing()"
+      >
+        @for (entry of entries(); track entry.instance.id) {
+          <gridster-item [item]="entry.item">
+            <app-widget-host [instance]="entry.instance" [editing]="editing()" />
+          </gridster-item>
         }
-      </div>
+      </gridster>
     }
   }
 }

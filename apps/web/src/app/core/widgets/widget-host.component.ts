@@ -18,6 +18,7 @@ import { ConfirmationService } from 'primeng/api';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { DRAG_HANDLE_CLASS } from '../dashboard/grid-adapter';
 import { clampGrid } from './grid';
 import { resolveConfig } from './widget-config';
 import type { ConfigErrorReason } from './widget-config';
@@ -41,11 +42,14 @@ type WidgetHostState =
   // Own service instance: the dialog below only reacts to this host's confirmations.
   providers: [ConfirmationService],
   templateUrl: './widget-host.component.html',
-  host: { class: 'block min-h-0' },
+  host: { class: 'block h-full min-h-0' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WidgetHostComponent {
   readonly instance = input.required<WidgetInstanceRecord>();
+  /** Layout edit mode: shows the drag handle (also the keyboard move/resize target). */
+  readonly editing = input(false);
+  protected readonly dragHandleClass = DRAG_HANDLE_CLASS;
 
   private readonly registry = inject(WidgetRegistry);
   private readonly store = inject(DashboardStore);
@@ -122,6 +126,27 @@ export class WidgetHostComponent {
   }
 
   protected readonly actionFailed = signal(false);
+  /** Polite live-region text after a keyboard move/resize. */
+  protected readonly announcement = signal('');
+
+  /** Arrows move by one cell, Shift + arrows resize; same bounds and persistence as a drag. */
+  protected onHandleKeydown(event: KeyboardEvent): void {
+    const step = ARROW_STEPS[event.key];
+    if (!step || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    const rect = this.store.nudge(
+      this.instance().id,
+      event.shiftKey ? { dw: step.dx, dh: step.dy } : { dx: step.dx, dy: step.dy },
+    );
+    this.announcement.set(
+      rect
+        ? this.transloco.translate(
+            event.shiftKey ? 'widgetHost.layout.resized' : 'widgetHost.layout.moved',
+            { x: rect.x + 1, y: rect.y + 1, w: rect.w, h: rect.h },
+          )
+        : this.transloco.translate('widgetHost.layout.blocked'),
+    );
+  }
 
   /** Asks for confirmation first; cancelling (button or Escape) changes nothing. */
   protected remove(): void {
@@ -158,3 +183,10 @@ export class WidgetHostComponent {
     }
   }
 }
+
+const ARROW_STEPS: Record<string, { dx: number; dy: number } | undefined> = {
+  ArrowLeft: { dx: -1, dy: 0 },
+  ArrowRight: { dx: 1, dy: 0 },
+  ArrowUp: { dx: 0, dy: -1 },
+  ArrowDown: { dx: 0, dy: 1 },
+};

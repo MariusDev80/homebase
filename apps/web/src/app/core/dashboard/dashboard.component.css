@@ -1,0 +1,59 @@
+/*
+ * angular-gridster2 ships unlayered CSS with its own colors and shadows; restyled here with the
+ * --hb-* tokens only (docs/DESIGN.md): borders instead of shadows, light and dark via the tokens.
+ * Selectors are prefixed with app-dashboard to win over the library rules.
+ */
+app-dashboard gridster.dashboard-grid {
+  background: transparent;
+  user-select: none;
+}
+
+app-dashboard gridster-item {
+  overflow: visible;
+  background: transparent;
+  user-select: text;
+  transition:
+    transform var(--hb-transition),
+    width var(--hb-transition),
+    height var(--hb-transition);
+}
+
+app-dashboard gridster-item.gridster-item-moving,
+app-dashboard gridster-item.gridster-item-resizing {
+  box-shadow: none;
+  transition: none;
+}
+
+app-dashboard gridster-item.gridster-item-moving .box,
+app-dashboard gridster-item.gridster-item-resizing .box {
+  border-color: var(--hb-accent);
+  background: var(--hb-bg-subtle);
+}
+
+/* While editing, the dashed frame tells that the widgets can be moved. */
+app-dashboard .dashboard-grid-editing gridster-item .box {
+  border-style: dashed;
+}
+
+/* Drop placeholder */
+app-dashboard gridster-preview {
+  border: 1px dashed var(--hb-accent);
+  border-radius: var(--hb-radius);
+  background: var(--hb-accent-subtle);
+}
+
+/* Resize handles: a visible corner grip, invisible edge strips. */
+app-dashboard .gridster-item-resizable-handler.handle-se,
+app-dashboard gridster-item:hover .gridster-item-resizable-handler.handle-se {
+  width: 0;
+  height: 0;
+  border-width: 0 0 14px 14px;
+  border-color: transparent transparent var(--hb-fg-muted);
+}
+app-dashboard .gridster-item-resizable-handler.handle-se:hover {
+  border-color: transparent transparent var(--hb-accent);
+}
+
+app-dashboard .widget-drag-handle {
+  cursor: move;
+}

@@ -1,5 +1,18 @@
 <section class="box h-full">
   <header class="box-header">
+    @if (editing()) {
+      <button
+        type="button"
+        class="btn btn-invisible btn-icon btn-compact cursor-move {{ dragHandleClass }}"
+        data-testid="widget-drag-handle"
+        [attr.aria-label]="'widgetHost.layout.handle' | transloco"
+        [attr.title]="'widgetHost.layout.handle' | transloco"
+        (keydown)="onHandleKeydown($event)"
+        (blur)="announcement.set('')"
+      >
+        <i class="pi pi-arrows-alt" aria-hidden="true"></i>
+      </button>
+    }
     @let def = definition();
     @if (def) {
       <i [class]="def.icon" aria-hidden="true"></i>
@@ -67,6 +80,9 @@
       </div>
     }
   </div>
+  <span class="sr-only" role="status" aria-live="polite" data-testid="widget-layout-status">{{
+    announcement()
+  }}</span>
 </section>
 
 <p-confirmdialog />

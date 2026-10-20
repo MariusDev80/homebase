@@ -8,6 +8,17 @@ import { fixtureDefinition } from '../testing/fixture-definitions';
 import type { WidgetDefinition } from '../widgets/widget-definition';
 import { provideWidget } from '../widgets/widget-registry';
 import { DashboardComponent } from './dashboard.component';
+import type { DashboardGridItem } from './grid-adapter';
+import { By } from '@angular/platform-browser';
+import { Gridster, GridsterItem } from 'angular-gridster2';
+import type { ComponentFixture } from '@angular/core/testing';
+
+function gridItem(fixture: ComponentFixture<DashboardComponent>, index = 0): DashboardGridItem {
+  return fixture.debugElement.queryAll(By.directive(GridsterItem))[index].componentInstance.item();
+}
+function gridOptions(fixture: ComponentFixture<DashboardComponent>) {
+  return fixture.debugElement.query(By.directive(Gridster)).componentInstance.options();
+}
 
 async function render(
   configure?: (dashboards: FakeDashboardRepository) => void,
@@ -51,9 +62,14 @@ describe('DashboardComponent', () => {
     await fixture.whenStable();
     await vi.waitFor(() => {
       fixture.detectChanges();
-      const host = el.querySelector('app-widget-host') as HTMLElement;
-      expect(host.style.gridColumn).toContain('1 / span 2');
-      expect(host.style.gridRow).toContain('1 / span 2');
+      const item = gridItem(fixture);
+      expect(item).toMatchObject({ x: 0, y: 0, cols: 2, rows: 2 });
+      expect(item).toMatchObject({
+        minItemCols: 1,
+        maxItemCols: 4,
+        minItemRows: 1,
+        maxItemRows: 4,
+      });
     });
   });
 
@@ -79,6 +95,121 @@ describe('DashboardComponent', () => {
     expect(el.querySelector('[data-testid="dashboard-error"]')?.textContent).toContain(
       'Impossible de charger le tableau de bord.',
     );
+  });
+
+  describe('layout editing', () => {
+    const seeded = async () => {
+      const dashboards = new FakeDashboardRepository();
+      const instances = new FakeWidgetInstanceRepository();
+      await dashboards.createIfNone({ name: 'Accueil' });
+      const [dashboard] = await dashboards.list();
+      instances.seed({
+        dashboardId: dashboard.id,
+        widgetType: 'fixture',
+        grid: { x: 0, y: 0, w: 2, h: 2 },
+      });
+      instances.seed({
+        dashboardId: dashboard.id,
+        widgetType: 'fixture',
+        grid: { x: 4, y: 0, w: 2, h: 2 },
+      });
+      TestBed.configureTestingModule({
+        providers: [
+          provideAppI18n(),
+          provideWidget(fixtureDefinition({ type: 'fixture' }) as WidgetDefinition),
+          { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
+          { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
+        ],
+      });
+      await TestBed.inject(ApplicationInitStatus).donePromise;
+      const fixture = TestBed.createComponent(DashboardComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      document.body.appendChild(fixture.nativeElement);
+      return { fixture, el: fixture.nativeElement as HTMLElement, instances };
+    };
+    const toggle = (el: HTMLElement) =>
+      el.querySelector('[data-testid="toggle-layout-edit"]') as HTMLButtonElement;
+
+    it('disables drag and resize outside the edit mode and enables them while editing', async () => {
+      const { fixture, el } = await seeded();
+      expect(gridOptions(fixture).draggable.enabled).toBe(false);
+      expect(gridOptions(fixture).resizable.enabled).toBe(false);
+      expect(el.querySelector('[data-testid="widget-drag-handle"]')).toBeNull();
+      expect(toggle(el).textContent).toContain('Modifier la disposition');
+      toggle(el).click();
+      fixture.detectChanges();
+      expect(gridOptions(fixture).draggable.enabled).toBe(true);
+      expect(gridOptions(fixture).resizable.enabled).toBe(true);
+      expect(el.querySelectorAll('[data-testid="widget-drag-handle"]')).toHaveLength(2);
+      expect(toggle(el).textContent).toContain('Terminer');
+      toggle(el).click();
+      fixture.detectChanges();
+      expect(gridOptions(fixture).draggable.enabled).toBe(false);
+    });
+
+    it('writes nothing on load, even when the display was clamped', async () => {
+      const { instances } = await seeded();
+      const spy = vi.spyOn(instances, 'updateLayout');
+      await Promise.resolve();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('persists one updateLayout with the dragged and the pushed items at the end of a drag', async () => {
+      const { fixture, el, instances } = await seeded();
+      const spy = vi.spyOn(instances, 'updateLayout');
+      toggle(el).click();
+      fixture.detectChanges();
+      const [a, b] = [gridItem(fixture, 0), gridItem(fixture, 1)];
+      // What gridster does when item a is dropped on b: both objects are mutated, then notified.
+      a.x = 4;
+      b.y = 2;
+      gridOptions(fixture).itemChangeCallback(a);
+      gridOptions(fixture).itemChangeCallback(b);
+      await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+      expect(spy.mock.calls[0][1]).toEqual([
+        { id: 'instance-1', grid: { x: 4, y: 0, w: 2, h: 2 } },
+        { id: 'instance-2', grid: { x: 4, y: 2, w: 2, h: 2 } },
+      ]);
+    });
+
+    it('moves a widget with the keyboard and announces it', async () => {
+      const { fixture, el, instances } = await seeded();
+      toggle(el).click();
+      fixture.detectChanges();
+      const handle = el.querySelector('[data-testid="widget-drag-handle"]') as HTMLButtonElement;
+      handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      fixture.detectChanges();
+      await vi.waitFor(() => expect(instances.items[0].grid).toEqual({ x: 1, y: 0, w: 2, h: 2 }));
+      expect(el.querySelector('[data-testid="widget-layout-status"]')?.textContent).toContain(
+        'colonne 2, ligne 1',
+      );
+      handle.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true }),
+      );
+      await vi.waitFor(() => expect(instances.items[0].grid.h).toBe(3));
+    });
+
+    it('shows a non blocking translated error when the layout write fails', async () => {
+      const { fixture, el, instances } = await seeded();
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      toggle(el).click();
+      fixture.detectChanges();
+      instances.failNext(new DataError('busy', 'locked'));
+      el.querySelector('[data-testid="widget-drag-handle"]')?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+      );
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(el.querySelector('[data-testid="dashboard-layout-error"]')?.textContent).toContain(
+          "Impossible d'enregistrer la disposition",
+        );
+      });
+      expect(gridItem(fixture, 0)).toMatchObject({ x: 0, y: 0 });
+      expect(toggle(el).disabled).toBe(false);
+    });
   });
 
   describe('add widget menu', () => {
