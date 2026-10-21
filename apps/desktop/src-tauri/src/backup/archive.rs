@@ -335,6 +335,10 @@ pub fn open_validated(
     if !matches!(archive.has_overlapping_entries(), Ok(false)) {
         return Err(invalid(ArchiveProblem::OverlappingEntries));
     }
+    // 4b. every local header must agree with the central directory (name, sizes, flags)
+    archive
+        .validate_header_consistency()
+        .map_err(|_| invalid(ArchiveProblem::CorruptEntry))?;
     // 5. per-entry checks (allow-list, duplicates, kind, encryption, method, sizes)
     let mut seen = HashSet::new();
     let mut sizes: BTreeMap<String, u64> = BTreeMap::new();

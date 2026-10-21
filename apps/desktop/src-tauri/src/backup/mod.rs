@@ -16,6 +16,10 @@ pub mod sqlite;
 pub mod status;
 #[cfg(test)]
 pub mod test_support;
+#[allow(dead_code)] // used from lot B2b
+pub mod validate;
+#[cfg(test)]
+mod validate_tests;
 
 use crate::time::clock::Clock;
 use error::BackupError;

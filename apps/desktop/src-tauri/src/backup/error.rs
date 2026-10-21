@@ -16,7 +16,6 @@ pub enum BackupError {
     InvalidArchive {
         problem: ArchiveProblem,
     },
-    #[allow(dead_code)] // used from lot B2a
     SchemaTooNew {
         archive: i64,
         supported: i64,
@@ -37,7 +36,6 @@ pub enum BackupError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)] // used from lot B2a
 pub enum ArchiveProblem {
     NotZip,
     Zip64,

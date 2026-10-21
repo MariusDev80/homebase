@@ -359,13 +359,11 @@ Entrées directes de `backups\` avec un nom valide, triées par `stamp` décrois
       - `type <> 'table'`, ou `sql` qui ne commence pas par `CREATE TABLE ` (ce qui exclut `CREATE VIRTUAL TABLE`) → `unexpected_schema`.
       - Colonnes : `SELECT name, type, "notnull", pk, hidden FROM pragma_table_xinfo('_sqlx_migrations') ORDER BY cid` doit être égal à la liste V25 (`version` a `notnull = 0`), sinon `unexpected_schema`.
    3. **Historique** : une ligne `success = 0` → `dirty_migration`. Versions qui ne forment pas exactement `1..=v` avec `v ≥ 1` → `unknown_migration`. **`v > supported_schema_version()` → `schema_too_new { archive: v, supported }` (premier niveau, R4)**. Checksum différent du SHA-384 du `sql` de `db::migrations()[version]` → `unknown_migration`.
-   4. **Schéma complet**. Toutes les lignes de `SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name`, **sans aucun filtre de nom**, doivent être égales à `expected_schema(v)` (base `sqlite::memory:` + migrations 1..v du binaire via `raw_sql`, autoindex et `sqlite_sequence` compris), plus au plus ces lignes :
-      - `('table', '_sqlx_migrations', '_sqlx_migrations', <sql vérifié en 9.2>)` ;
-      - `('index', 'sqlite_autoindex__sqlx_migrations_1', '_sqlx_migrations', NULL)` ;
+   4. **Schéma complet**. Toutes les lignes de `SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name`, **sans aucun filtre de nom**, doivent être égales à `expected_schema(v)` (base `sqlite::memory:` + DDL exact de `_sqlx_migrations` de sqlx 0.8.6 (`SQLX_MIGRATIONS_DDL`) + migrations 1..v du binaire via `raw_sql`, autoindex et `sqlite_sequence` compris ; la ligne `_sqlx_migrations` et son autoindex sont donc attendus **exactement**), plus au plus ces lignes :
       - `('table', 'sqlite_stat1', 'sqlite_stat1', 'CREATE TABLE sqlite_stat1(tbl,idx,stat)')` ;
       - `('table', 'sqlite_stat4', 'sqlite_stat4', 'CREATE TABLE sqlite_stat4(tbl,idx,neq,nlt,ndlt,sample)')`.
 
-      Toute autre différence → `unexpected_schema`, y compris un déclencheur nommé `sqlite_*` (V21).
+      Toute autre différence → `unexpected_schema`, y compris un déclencheur nommé `sqlite_*` (V21) et toute variante de `_sqlx_migrations` aux mêmes colonnes (`CHECK`, `DEFAULT`, `ON CONFLICT`, `COLLATE`, `PRIMARY KEY DESC`, `REFERENCES … ON DELETE CASCADE` : pièges persistants qui casseraient les migrations suivantes). *Amendement (revue B2a, 2026-10-21)* : la vérification par préfixe et colonnes (9.2) ne sert plus qu'à la priorité des erreurs. Toute lecture de `sqlite_schema` ou de `_sqlx_migrations` utilise `try_get` (un `sql` stocké en BLOB via `writable_schema` est chargé par SQLite) → `unexpected_schema`, jamais de panique. Les erreurs SQLite sont classées par code primaire (`code & 0xFF` = 11 ou 26 → `integrity_failed`). L'ouverture de l'archive appelle `validate_header_consistency()` (en-tête local ≠ répertoire central → `corrupt_entry`).
    5. `PRAGMA foreign_key_check` doit être vide, sinon `foreign_key_violation`.
    6. `manifest.schemaVersion` différent de `v` → `manifest_mismatch`.
 10. Renvoyer le manifeste.

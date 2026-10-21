@@ -11,27 +11,7 @@ pub fn run<F: Future>(future: F) -> F::Output {
     tauri::async_runtime::block_on(future)
 }
 
-/// Exact DDL of `_sqlx_migrations` as created by sqlx-sqlite 0.8.6 (`migrate.rs`).
-pub const SQLX_MIGRATIONS_DDL: &str = "
-CREATE TABLE IF NOT EXISTS _sqlx_migrations (
-    version BIGINT PRIMARY KEY,
-    description TEXT NOT NULL,
-    installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    success BOOLEAN NOT NULL,
-    checksum BLOB NOT NULL,
-    execution_time BIGINT NOT NULL
-);
-";
-
-/// `(name, type, notnull, pk, hidden)` of `pragma_table_xinfo('_sqlx_migrations')`, in `cid` order (V25).
-pub const V25_COLUMNS: [(&str, &str, i64, i64, i64); 6] = [
-    ("version", "BIGINT", 0, 1, 0),
-    ("description", "TEXT", 1, 0, 0),
-    ("installed_on", "TIMESTAMP", 1, 0, 0),
-    ("success", "BOOLEAN", 1, 0, 0),
-    ("checksum", "BLOB", 1, 0, 0),
-    ("execution_time", "BIGINT", 1, 0, 0),
-];
+pub use super::validate::{SQLX_MIGRATIONS_DDL, V25_COLUMNS};
 
 /// Creates a WAL database at `path` with migrations `1..=up_to` applied the way sqlx does
 /// (SHA-384 checksums, `raw_sql`). With `with_sample_rows`, one setting and one dashboard.
