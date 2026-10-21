@@ -58,6 +58,15 @@ describe('TimeDisplay', () => {
     expect(display.formatLocalDate('2026-11-03', 'weekday-long')).toBe('mardi 3 novembre 2026');
   });
 
+  it('formats a short weekday and day number', () => {
+    const expected = new Intl.DateTimeFormat('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(Date.UTC(2026, 9, 23));
+    expect(display.formatLocalDate('2026-10-23', 'weekday-short')).toBe(expected);
+  });
+
   it('formats instants in the given zone, defaulting to the user zone', () => {
     const instant = '2026-11-03T08:00:00.000Z';
     expect(display.formatInstant(instant, 'time')).toBe('09:00');
