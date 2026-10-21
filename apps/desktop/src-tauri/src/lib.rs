@@ -1,11 +1,9 @@
-#[allow(dead_code)] // used from lot B1b
 mod backup;
 #[cfg(test)]
 mod capability_tests;
 mod db;
 mod net;
 mod spike;
-#[allow(dead_code)] // used from lot B1b
 mod time;
 mod tray;
 mod weather;
@@ -23,6 +21,9 @@ fn invoke_handler<R: tauri::Runtime>(
         spike::set_autostart,
         weather::weather_forecast,
         weather::weather_geocode,
+        backup::commands::backup_list,
+        backup::commands::backup_create,
+        backup::commands::backup_open_folder,
     ]
 }
 
@@ -34,6 +35,9 @@ fn invoke_handler<R: tauri::Runtime>(
         spike::set_autostart,
         weather::weather_forecast,
         weather::weather_geocode,
+        backup::commands::backup_list,
+        backup::commands::backup_create,
+        backup::commands::backup_open_folder,
     ]
 }
 
@@ -59,6 +63,12 @@ pub fn run() {
         )
         .invoke_handler(invoke_handler())
         .setup(|app| {
+            // Lot B2b moves this into the internal `homebase-backup` plugin.
+            app.manage(backup::BackupState::new(
+                backup::paths::DataRoot::new(app.path().app_config_dir()?),
+                std::sync::Arc::new(time::clock::SystemClock),
+                false,
+            ));
             tray::setup(app.handle())?;
             Ok(())
         })
@@ -81,5 +91,46 @@ pub(crate) fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Both `invoke_handler` variants (debug and release) must list the backup commands and
+    /// keep the weather ones.
+    #[test]
+    fn commands_are_registered_in_both_invoke_handlers() {
+        let source = include_str!("lib.rs");
+        let production = source
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production part");
+        for command in [
+            "backup::commands::backup_list",
+            "backup::commands::backup_create",
+            "backup::commands::backup_open_folder",
+            "weather::weather_forecast",
+            "weather::weather_geocode",
+        ] {
+            assert_eq!(
+                production.matches(&format!("        {command},")).count(),
+                2,
+                "{command} must be in both invoke handlers"
+            );
+        }
+    }
+
+    #[test]
+    fn build_rs_lists_the_commands() {
+        let build = include_str!("../build.rs");
+        for command in [
+            "weather_forecast",
+            "weather_geocode",
+            "backup_list",
+            "backup_create",
+            "backup_open_folder",
+        ] {
+            assert!(build.contains(&format!("\"{command}\",")), "{command}");
+        }
     }
 }

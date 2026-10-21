@@ -1,11 +1,21 @@
 //! Backup, restore and configuration export (docs/specs/backup-restore.md).
 
+pub mod archive;
+#[cfg(test)]
+mod archive_tests;
+pub mod commands;
+pub mod create;
 pub mod error;
 pub mod fsutil;
+pub mod list;
+pub mod manifest;
 pub mod names;
 pub mod paths;
 pub mod retention;
+pub mod sqlite;
 pub mod status;
+#[cfg(test)]
+pub mod test_support;
 
 use crate::time::clock::Clock;
 use error::BackupError;
@@ -24,9 +34,13 @@ pub const RETAIN_MANUAL: usize = 10;
 pub const RETAIN_DAILY: usize = 7;
 pub const RETAIN_SAFETY: usize = 5;
 pub const RETAIN_MIGRATION: usize = 3;
+#[allow(dead_code)] // used from lot B3
 pub const DAILY_INTERVAL: Duration = Duration::from_secs(24 * 3600);
+#[allow(dead_code)] // used from lot B3
 pub const DAILY_FIRST_CHECK: Duration = Duration::from_secs(120);
+#[allow(dead_code)] // used from lot B3
 pub const DAILY_CHECK_PERIOD: Duration = Duration::from_secs(3600);
+#[allow(dead_code)] // used from lot B4a
 pub const MAX_CONFIG_FILE_BYTES: u64 = 1_048_576;
 pub const RENAME_RETRY_TOTAL: Duration = Duration::from_secs(2);
 pub const RENAME_RETRY_STEP: Duration = Duration::from_millis(100);
@@ -37,6 +51,7 @@ pub struct BackupState {
     pub clock: Arc<dyn Clock>,
     busy: AtomicBool,
     restart_pending: AtomicBool,
+    #[allow(dead_code)] // used from lot B2b
     pub swapped_this_process: bool,
     pub last_auto_error: Mutex<Option<BackupError>>,
 }
@@ -79,6 +94,7 @@ impl BackupState {
         Ok(BusyGuard { busy: &self.busy })
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn mark_restart_pending(&self) {
         self.restart_pending.store(true, Ordering::SeqCst);
     }

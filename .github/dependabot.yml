@@ -45,6 +45,10 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # tauri-plugin-sql stays on sqlx 0.8; a direct sqlx 0.9 would link a second libsqlite3-sys.
+      - dependency-name: 'sqlx'
+        versions: ['>=0.9']
 
   - package-ecosystem: github-actions
     directory: /

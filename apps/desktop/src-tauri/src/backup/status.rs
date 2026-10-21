@@ -38,6 +38,7 @@ pub struct BackupStatus {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)] // used from lot B2b
 pub enum StartupBlockedReason {
     RollbackFailed,
     RollbackInfoUnreadable,
@@ -45,11 +46,13 @@ pub enum StartupBlockedReason {
 }
 
 #[derive(Serialize)]
+#[allow(dead_code)] // used from lot B2b
 struct AtMarker {
     at: String,
 }
 
 #[derive(Serialize)]
+#[allow(dead_code)] // used from lot B2b
 struct StartupBlockedMarker {
     at: String,
     reason: StartupBlockedReason,
@@ -60,6 +63,7 @@ pub fn read_last_restore(root: &DataRoot) -> Option<RestoreReport> {
     serde_json::from_slice(&bytes).ok()
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn write_last_restore(root: &DataRoot, report: &RestoreReport) -> io::Result<()> {
     write_json_atomic(&root.last_restore_marker(), report)
 }
@@ -68,6 +72,7 @@ pub fn db_missing_alert(root: &DataRoot) -> bool {
     root.db_missing_marker().exists()
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn write_db_missing(root: &DataRoot, at: Timestamp) -> io::Result<()> {
     let marker = AtMarker {
         at: format_instant(at),
@@ -75,6 +80,7 @@ pub fn write_db_missing(root: &DataRoot, at: Timestamp) -> io::Result<()> {
     write_json_atomic(&root.db_missing_marker(), &marker)
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn clear_db_missing(root: &DataRoot) -> io::Result<()> {
     remove_with_retry(&root.db_missing_marker())
 }
@@ -83,6 +89,7 @@ pub fn pre_migration_failed(root: &DataRoot) -> bool {
     root.pre_migration_failed_marker().exists()
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn write_pre_migration_failed(root: &DataRoot, at: Timestamp) -> io::Result<()> {
     let marker = AtMarker {
         at: format_instant(at),
@@ -90,14 +97,17 @@ pub fn write_pre_migration_failed(root: &DataRoot, at: Timestamp) -> io::Result<
     write_json_atomic(&root.pre_migration_failed_marker(), &marker)
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn clear_pre_migration_failed(root: &DataRoot) -> io::Result<()> {
     remove_with_retry(&root.pre_migration_failed_marker())
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn startup_blocked_exists(root: &DataRoot) -> bool {
     root.startup_blocked_marker().exists()
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn write_startup_blocked(
     root: &DataRoot,
     at: Timestamp,
@@ -110,12 +120,14 @@ pub fn write_startup_blocked(
     write_json_atomic(&root.startup_blocked_marker(), &marker)
 }
 
+#[allow(dead_code)] // used from lot B2b
 pub fn clear_startup_blocked(root: &DataRoot) -> io::Result<()> {
     remove_with_retry(&root.startup_blocked_marker())
 }
 
 /// `backup_acknowledge`: removes `last-restore`, `db-missing` and `pre-migration-failed`.
 /// Every removal is attempted; the first error is returned.
+#[allow(dead_code)] // used from lot B3
 pub fn acknowledge(root: &DataRoot) -> io::Result<()> {
     let results = [
         remove_with_retry(&root.last_restore_marker()),

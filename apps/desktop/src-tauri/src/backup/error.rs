@@ -6,7 +6,9 @@ use std::io;
 pub enum BackupError {
     Busy,
     RestartPending,
+    #[allow(dead_code)] // used from lot B3
     NotFound,
+    #[allow(dead_code)] // used from lot B3
     InvalidId,
     NoDatabase,
     TooLarge,
@@ -14,10 +16,12 @@ pub enum BackupError {
     InvalidArchive {
         problem: ArchiveProblem,
     },
+    #[allow(dead_code)] // used from lot B2a
     SchemaTooNew {
         archive: i64,
         supported: i64,
     },
+    #[allow(dead_code)] // used from lot B4a
     InvalidImport {
         problem: ImportProblem,
     },
@@ -33,6 +37,7 @@ pub enum BackupError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)] // used from lot B2a
 pub enum ArchiveProblem {
     NotZip,
     Zip64,
@@ -64,6 +69,7 @@ pub enum ArchiveProblem {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)] // used from lot B4a
 pub enum ImportProblem {
     NotConfig,
     NotUtf8,
@@ -92,6 +98,39 @@ impl From<io::Error> for BackupError {
         } else {
             BackupError::Io {
                 code: format!("{:?}", e.kind()),
+            }
+        }
+    }
+}
+
+/// SQLITE_FULL (13) maps to `DiskFull`; other database errors keep their SQLite code only.
+impl From<sqlx::Error> for BackupError {
+    fn from(e: sqlx::Error) -> Self {
+        if let sqlx::Error::Io(io_error) = e {
+            return io_error.into();
+        }
+        let code = e
+            .as_database_error()
+            .and_then(|d| d.code())
+            .map(|c| c.into_owned())
+            .unwrap_or_else(|| "other".to_owned());
+        // Raw messages stay on stderr; only the code reaches the front.
+        if code == "13" {
+            eprintln!("backup: sqlite disk full");
+            return BackupError::DiskFull;
+        }
+        eprintln!("backup: database error: {e}");
+        BackupError::Database { code }
+    }
+}
+
+impl From<zip::result::ZipError> for BackupError {
+    fn from(e: zip::result::ZipError) -> Self {
+        match e {
+            zip::result::ZipError::Io(io_error) => io_error.into(),
+            other => {
+                eprintln!("backup: zip error: {other}");
+                BackupError::Io { code: "zip".into() }
             }
         }
     }

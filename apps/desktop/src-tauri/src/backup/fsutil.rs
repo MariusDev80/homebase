@@ -51,6 +51,7 @@ pub fn remove_with_retry(path: &Path) -> io::Result<()> {
 }
 
 /// `<path>.tmp`, `sync_all`, then rename over `path`. The temporary file never survives.
+#[allow(dead_code)] // used from lot B2b
 pub fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     let bytes = serde_json::to_vec_pretty(value).map_err(io::Error::other)?;
     let mut tmp_name: OsString = path

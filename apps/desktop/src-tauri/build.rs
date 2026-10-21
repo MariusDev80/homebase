@@ -24,6 +24,9 @@ fn main() {
                 "set_autostart",
                 "weather_forecast",
                 "weather_geocode",
+                "backup_list",
+                "backup_create",
+                "backup_open_folder",
             ])),
     )
     .expect("failed to run tauri-build");

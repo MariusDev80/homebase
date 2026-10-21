@@ -339,7 +339,7 @@ Entrées directes de `backups\` avec un nom valide, triées par `stamp` décrois
 4. `has_overlapping_entries()` vrai ou en erreur → `overlapping_entries`.
 5. Pour chaque index, via `by_index_raw` :
    - le nom doit être de l'UTF-8 et **exactement** `manifest.json`, `homebase.db` ou `images/<n>` avec `is_image_file_name(<n>)`, sinon `unexpected_entry` (liste blanche anti zip slip) ;
-   - doublon → `duplicate_entry` ;
+   - doublon → `too_many_entries` (zip 9 dédoublonne les noms à l'ouverture, donc le nombre d'entrées ne correspond plus à l'EOCD ; `duplicate_entry` ne peut pas sortir) ;
    - entrée qui n'est pas un fichier → `unexpected_entry` ; chiffrée → `encrypted_entry` ; méthode autre que Stored ou Deflated → `unsupported_compression` ;
    - tailles déclarées au-delà des limites → `entry_too_large` ; total au-delà → `total_too_large`.
 6. `manifest.json` absent → `missing_manifest` ; `homebase.db` absent → `missing_database`.
@@ -860,7 +860,7 @@ Ajouter après l'exemple du §3.5 :
 
 ### 10.3 ADR-003 (§8.8, lot B)
 
-> `src/time/mod.rs`, `clock.rs`, `error.rs` (`TimeError::InvalidInstant` seulement), `formats.rs` (`format_instant`, `parse_instant`) et `clippy.toml` existent déjà (spec backup-restore, B1a), ainsi que `jiff = "0.2"`. Le lot B les complète sans en changer les signatures.
+> `src/time/mod.rs`, `clock.rs`, `error.rs` (enum `TimeError` complète de l'ADR-003 §8.9, conformément à D4), `formats.rs` (`format_instant`, `parse_instant`) et `clippy.toml` existent déjà (spec backup-restore, B1a), ainsi que `jiff = "0.2"`. Le lot B les complète sans en changer les signatures.
 
 ### 10.4 PLAN.md (« Natif »)
 

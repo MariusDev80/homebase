@@ -12,6 +12,7 @@ impl DataRoot {
         Self { root }
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn path(&self) -> &Path {
         &self.root
     }
@@ -21,6 +22,7 @@ impl DataRoot {
     }
 
     /// `-wal`, `-shm`, `-journal` (always handled together with the database).
+    #[allow(dead_code)] // used from lot B2b
     pub fn db_companions(&self) -> [PathBuf; 3] {
         ["-wal", "-shm", "-journal"].map(|suffix| self.root.join(format!("{DB_FILE_NAME}{suffix}")))
     }
@@ -37,14 +39,17 @@ impl DataRoot {
         self.backups().join(".tmp")
     }
 
+    #[allow(dead_code)] // used from lot B3
     pub fn incoming(&self) -> PathBuf {
         self.backups().join(".incoming")
     }
 
+    #[allow(dead_code)] // used from lot B3
     pub fn incoming_picked(&self) -> PathBuf {
         self.incoming().join("picked.zip")
     }
 
+    #[allow(dead_code)] // used from lot B3
     pub fn incoming_check(&self) -> PathBuf {
         self.incoming().join("check")
     }
@@ -65,26 +70,32 @@ impl DataRoot {
         self.status_dir().join("pre-migration-failed.json")
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn startup_blocked_marker(&self) -> PathBuf {
         self.status_dir().join("startup-blocked.json")
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn restore_staging(&self) -> PathBuf {
         self.root.join("restore-staging.tmp")
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn restore_pending(&self) -> PathBuf {
         self.root.join("restore-pending")
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn restore_rollback(&self) -> PathBuf {
         self.root.join("restore-rollback")
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn restore_info(&self) -> PathBuf {
         self.restore_rollback().join("restore-info.json")
     }
 
+    #[allow(dead_code)] // used from lot B2b
     pub fn restore_rollback_confirmed(&self, stamp: &str) -> PathBuf {
         self.root
             .join(format!("restore-rollback.confirmed-{stamp}"))

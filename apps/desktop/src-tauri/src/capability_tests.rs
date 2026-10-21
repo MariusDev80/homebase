@@ -49,6 +49,9 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-set-autostart",
             "allow-weather-forecast",
             "allow-weather-geocode",
+            "allow-backup-list",
+            "allow-backup-create",
+            "allow-backup-open-folder",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",
@@ -148,4 +151,27 @@ fn no_other_window_or_remote_access() {
     assert_eq!(capability["windows"], serde_json::json!(["main"]));
     assert!(capability.get("remote").is_none());
     assert!(capability.get("webviews").is_none());
+}
+
+#[test]
+fn no_dialog_fs_process_or_shell_permission() {
+    for name in ["default.json", "debug.json"] {
+        let capability: Value = serde_json::from_str(&read_capability(name)).expect("valid json");
+        for permission in capability["permissions"].as_array().expect("permissions") {
+            let identifier = match permission {
+                Value::String(s) => s.as_str(),
+                other => other["identifier"].as_str().expect("identifier"),
+            };
+            for prefix in ["dialog:", "fs:", "process:", "shell:"] {
+                assert!(
+                    !identifier.starts_with(prefix),
+                    "{name}: forbidden permission {identifier}"
+                );
+            }
+            assert!(
+                !identifier.starts_with("opener:") || identifier == "opener:allow-open-url",
+                "{name}: unexpected opener permission {identifier}"
+            );
+        }
+    }
 }

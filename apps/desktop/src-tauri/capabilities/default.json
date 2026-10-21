@@ -1,13 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window, all builds. No core:* permission on purpose: the front only calls the app's own commands and the SQL plugin through invoke, and never uses the event, window, webview, path, app, menu, tray or resources JS APIs (the tray is built from Rust, which is not subject to the ACL). The opener plugin is limited to opener:allow-open-url scoped to http(s) URLs (never opener:default, which also allows mailto:, tel: and reveal-item-in-dir), with deny entries for URLs containing a quote or a space; the front only calls openUrl, through core/UrlOpener, and the plugin's own click listener on external links is disabled in lib.rs (open_js_links_on_click(false)). The weather commands only reach the two Open-Meteo hosts fixed in src/net (Endpoint enum); there is no http:* permission and the CSP connect-src stays local. Remove core:default, add a specific core:<module>:allow-<command> only when the front starts using one.",
+  "description": "Main window, all builds. No core:* permission on purpose: the front only calls the app's own commands and the SQL plugin through invoke, and never uses the event, window, webview, path, app, menu, tray or resources JS APIs (the tray is built from Rust, which is not subject to the ACL). The opener plugin is limited to opener:allow-open-url scoped to http(s) URLs (never opener:default, which also allows mailto:, tel: and reveal-item-in-dir), with deny entries for URLs containing a quote or a space; the front only calls openUrl, through core/UrlOpener, and the plugin's own click listener on external links is disabled in lib.rs (open_js_links_on_click(false)). The weather commands only reach the two Open-Meteo hosts fixed in src/net (Endpoint enum); there is no http:* permission and the CSP connect-src stays local. Backup and config-transfer commands open native dialogs from Rust only; no dialog:*, fs:* or process:* permission. Remove core:default, add a specific core:<module>:allow-<command> only when the front starts using one.",
   "windows": ["main"],
   "permissions": [
     "allow-get-autostart",
     "allow-set-autostart",
     "allow-weather-forecast",
     "allow-weather-geocode",
+    "allow-backup-list",
+    "allow-backup-create",
+    "allow-backup-open-folder",
     "sql:allow-execute",
     "sql:allow-select",
     {
