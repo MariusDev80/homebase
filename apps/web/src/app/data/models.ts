@@ -1,4 +1,5 @@
 import { JsonObject } from './json';
+import type { InstantIso, LocalDateIso } from './time-formats';
 
 export interface Dashboard {
   id: string;
@@ -80,4 +81,45 @@ export interface NewShortcut {
 export interface ShortcutFields {
   label: string;
   url: string;
+}
+
+export interface TodoList {
+  id: string;
+  /** Owning widget instance (the list is deleted with it); null = standalone. */
+  widgetInstanceId: string | null;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewTodoList {
+  id?: string;
+  widgetInstanceId?: string | null;
+  name: string;
+}
+
+export interface Todo {
+  id: string;
+  listId: string;
+  title: string;
+  /** Wall-clock due date `YYYY-MM-DD` (ADR-003), or null. */
+  dueOn: LocalDateIso | null;
+  /** Instant `YYYY-MM-DDTHH:MM:SS.sssZ` of completion, or null when not completed. */
+  completedAt: InstantIso | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewTodo {
+  id?: string;
+  listId: string;
+  title: string;
+  dueOn?: string | null;
+}
+
+export interface TodoChanges {
+  title?: string;
+  /** undefined keeps the current value; null clears it. */
+  dueOn?: string | null;
 }

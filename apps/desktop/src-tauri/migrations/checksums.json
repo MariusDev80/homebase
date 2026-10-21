@@ -1,4 +1,5 @@
 {
   "V1__init.sql": "2d7522896f6bffc96130f122e31572391a6f4f61822963107ea5ba0b572c390a",
-  "V2__notes_and_shortcuts.sql": "4823f5ab1b9149dd0e07e13e8a5b337f2a33037c6852f7f7de471478b3814a96"
+  "V2__notes_and_shortcuts.sql": "4823f5ab1b9149dd0e07e13e8a5b337f2a33037c6852f7f7de471478b3814a96",
+  "V3__todos.sql": "de26bd63fcc0ab4b407d4d922158d3a3caa903c2ccdf7faef0974f116db9f087"
 }

@@ -5,10 +5,15 @@ export type {
   NewDashboard,
   NewNote,
   NewShortcut,
+  NewTodo,
+  NewTodoList,
   NewWidgetInstance,
   Note,
   Shortcut,
   ShortcutFields,
+  Todo,
+  TodoChanges,
+  TodoList,
   WidgetInstanceRecord,
 } from './models';
 export type { JsonObject, JsonPrimitive, JsonValue } from './json';
@@ -22,6 +27,7 @@ export type {
   NoteRepository,
   SettingsRepository,
   ShortcutRepository,
+  TodoRepository,
   WidgetInstanceRepository,
 } from './repositories';
 export {
@@ -30,6 +36,7 @@ export {
   NOTE_REPOSITORY,
   SETTINGS_REPOSITORY,
   SHORTCUT_REPOSITORY,
+  TODO_REPOSITORY,
   WIDGET_INSTANCE_REPOSITORY,
   provideDataLayer,
 } from './data.providers';

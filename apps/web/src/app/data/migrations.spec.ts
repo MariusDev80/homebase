@@ -70,6 +70,8 @@ describe('migrations', () => {
         'notes',
         'settings',
         'shortcuts',
+        'todo_lists',
+        'todos',
         'widget_instances',
       ]);
 

@@ -14,6 +14,7 @@ import {
   NoteRepository,
   SettingsRepository,
   ShortcutRepository,
+  TodoRepository,
   WidgetInstanceRepository,
 } from './repositories';
 import { DataLayerHealth, GuardedSqlExecutor } from './sqlite/guarded-sql-executor';
@@ -22,6 +23,7 @@ import { SqliteDashboardRepository } from './sqlite/sqlite-dashboard.repository'
 import { SqliteNoteRepository } from './sqlite/sqlite-note.repository';
 import { SqliteSettingsRepository } from './sqlite/sqlite-settings.repository';
 import { SqliteShortcutRepository } from './sqlite/sqlite-shortcut.repository';
+import { SqliteTodoRepository } from './sqlite/sqlite-todo.repository';
 import { SqliteWidgetInstanceRepository } from './sqlite/sqlite-widget-instance.repository';
 import { TauriSqlExecutor } from './sqlite/tauri-sql-executor';
 
@@ -42,6 +44,7 @@ export const WIDGET_INSTANCE_REPOSITORY = new InjectionToken<WidgetInstanceRepos
 
 export const NOTE_REPOSITORY = new InjectionToken<NoteRepository>('NOTE_REPOSITORY');
 export const SHORTCUT_REPOSITORY = new InjectionToken<ShortcutRepository>('SHORTCUT_REPOSITORY');
+export const TODO_REPOSITORY = new InjectionToken<TodoRepository>('TODO_REPOSITORY');
 
 /**
  * Wires the SQLite repositories on top of tauri-plugin-sql and runs the bootstrap
@@ -76,6 +79,10 @@ export function provideDataLayer(): EnvironmentProviders {
     {
       provide: SHORTCUT_REPOSITORY,
       useFactory: () => new SqliteShortcutRepository(guarded, inject(CLOCK), randomUuid),
+    },
+    {
+      provide: TODO_REPOSITORY,
+      useFactory: () => new SqliteTodoRepository(guarded, inject(CLOCK), randomUuid),
     },
     provideAppInitializer(() =>
       health.initialize(() => {

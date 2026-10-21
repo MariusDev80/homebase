@@ -18,6 +18,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/V2__notes_and_shortcuts.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "todos",
+            sql: include_str!("../migrations/V3__todos.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
