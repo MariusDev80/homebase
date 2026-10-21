@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { DASHBOARD_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { WidgetFocus } from '../dashboard/widget-focus';
 import { provideAppI18n } from '../i18n';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
@@ -182,5 +183,37 @@ describe('WidgetHostComponent', () => {
       expect(el.querySelector('[data-testid="fixture-label"]')?.textContent).toBe('back');
     });
     expect(loadComponent).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('WidgetHostComponent focus request', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('scrolls to, focuses and briefly highlights the requested instance only', async () => {
+    const { render, store } = await setup();
+    const { fixture, el, record } = await render({ config: { label: 'x' } });
+    const scroll = vi.fn();
+    document.body.appendChild(el);
+    (el.querySelector('app-widget-host') as HTMLElement).scrollIntoView = scroll;
+    const card = el.querySelector('[data-testid="widget-card"]') as HTMLElement;
+    const focus = TestBed.inject(WidgetFocus);
+
+    expect(focus.focusInstance('ghost')).toBe('not-found');
+    fixture.detectChanges();
+    expect(card.classList.contains('is-highlighted')).toBe(false);
+
+    vi.useFakeTimers();
+    expect(focus.focusInstance(record.id)).toBe('focused');
+    expect(store.instances().some((i) => i.id === record.id)).toBe(true);
+    fixture.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(card);
+    expect(card.classList.contains('is-highlighted')).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(2100);
+    fixture.detectChanges();
+    expect(card.classList.contains('is-highlighted')).toBe(false);
   });
 });

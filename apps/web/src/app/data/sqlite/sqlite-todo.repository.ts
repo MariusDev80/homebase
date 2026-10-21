@@ -1,7 +1,8 @@
 import { Clock, IdGenerator } from '../clock';
 import { DataError } from '../data-error';
-import { NewTodo, NewTodoList, Todo, TodoChanges, TodoList } from '../models';
+import { NewTodo, NewTodoList, Todo, TodoChanges, TodoList, TodoSearchHit } from '../models';
 import { TodoRepository } from '../repositories';
+import { likeContains, validSearch } from '../search';
 import { SqlExecutor } from '../sql-executor';
 import { hasLocalDateShape } from '../time-formats';
 import {
@@ -22,6 +23,22 @@ export const REORDER_TODOS_SQL = `UPDATE todos
 SET sort_order = j.pos, updated_at = $3
 FROM (SELECT CAST(key AS INTEGER) AS pos, value AS id FROM json_each($1)) AS j
 WHERE todos.id = j.id AND todos.list_id = $2 AND todos.sort_order <> j.pos`;
+
+/* eslint-disable @typescript-eslint/consistent-type-definitions */
+type TodoSearchRow = {
+  id: string;
+  title: string;
+  list_id: string;
+  widget_instance_id: string | null;
+  completed_at: string | null;
+};
+/* eslint-enable @typescript-eslint/consistent-type-definitions */
+
+const SEARCH_TODOS_SQL = `SELECT t.id, t.title, t.list_id, l.widget_instance_id, t.completed_at
+FROM todos AS t JOIN todo_lists AS l ON l.id = t.list_id
+WHERE t.title LIKE $1 ESCAPE '\\'
+ORDER BY (t.completed_at IS NOT NULL), t.updated_at DESC, t.id
+LIMIT $2`;
 
 function validTitle(title: string): string {
   const trimmed = title.trim();
@@ -162,6 +179,21 @@ export class SqliteTodoRepository implements TodoRepository {
       [listId],
     );
     return result.rowsAffected;
+  }
+
+  async search(query: string, limit: number): Promise<TodoSearchHit[]> {
+    const term = validSearch(query, limit);
+    const rows = await this.executor.select<TodoSearchRow>(SEARCH_TODOS_SQL, [
+      likeContains(term),
+      limit,
+    ]);
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      listId: row.list_id,
+      widgetInstanceId: row.widget_instance_id,
+      completedAt: row.completed_at,
+    }));
   }
 
   private async mustGet(id: string): Promise<Todo> {

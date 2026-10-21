@@ -7,6 +7,7 @@ import type {
   TodoChanges,
   TodoList,
   TodoRepository,
+  TodoSearchHit,
 } from '../../data';
 
 /** In-memory TodoRepository with deterministic ids (specs only). */
@@ -123,6 +124,21 @@ export class FakeTodoRepository implements TodoRepository {
     const before = this.items.length;
     this.items = this.items.filter((t) => !(t.listId === listId && t.completedAt !== null));
     return before - this.items.length;
+  }
+
+  async search(query: string, limit: number): Promise<TodoSearchHit[]> {
+    this.record(`search:${query}`);
+    const q = query.trim().toLowerCase();
+    return this.items
+      .filter((t) => t.title.toLowerCase().includes(q))
+      .slice(0, limit)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        listId: t.listId,
+        widgetInstanceId: this.lists.get(t.listId)?.widgetInstanceId ?? null,
+        completedAt: t.completedAt,
+      }));
   }
 
   private replace(id: string, change: (todo: Todo) => Todo): Todo {

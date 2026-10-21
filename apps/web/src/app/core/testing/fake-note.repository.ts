@@ -1,5 +1,5 @@
 import { DataError } from '../../data';
-import type { NewNote, Note, NoteRepository } from '../../data';
+import type { NewNote, Note, NoteRepository, NoteSearchHit } from '../../data';
 
 /** In-memory NoteRepository with deterministic ids and timestamps (specs only). */
 export class FakeNoteRepository implements NoteRepository {
@@ -56,6 +56,20 @@ export class FakeNoteRepository implements NoteRepository {
   async remove(id: string): Promise<boolean> {
     this.record(`remove:${id}`);
     return this.notes.delete(id);
+  }
+
+  async search(query: string, limit: number): Promise<NoteSearchHit[]> {
+    this.record(`search:${query}`);
+    const q = query.trim().toLowerCase();
+    return [...this.notes.values()]
+      .filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q))
+      .slice(0, limit)
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        widgetInstanceId: n.widgetInstanceId,
+        excerpt: n.body.slice(0, 100),
+      }));
   }
 
   private record(call: string): void {

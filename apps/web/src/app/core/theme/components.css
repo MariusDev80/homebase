@@ -175,6 +175,12 @@
   border-radius: var(--hb-radius);
   background: var(--hb-bg);
 }
+/* Brief highlight when a widget is revealed by the search bar (static: no animation). */
+.box.is-highlighted {
+  border-color: var(--hb-accent);
+  outline: 2px solid var(--hb-accent);
+  outline-offset: -1px;
+}
 .box-header {
   display: flex;
   min-height: 48px;

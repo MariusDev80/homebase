@@ -118,6 +118,23 @@ export interface NewTodo {
   dueOn?: string | null;
 }
 
+/** Search hit on a note; `excerpt` is a short plain-text extract (may be empty). */
+export interface NoteSearchHit {
+  id: string;
+  title: string;
+  widgetInstanceId: string | null;
+  excerpt: string;
+}
+
+/** Search hit on a todo; `widgetInstanceId` is the one of its list. */
+export interface TodoSearchHit {
+  id: string;
+  title: string;
+  listId: string;
+  widgetInstanceId: string | null;
+  completedAt: InstantIso | null;
+}
+
 export interface TodoChanges {
   title?: string;
   /** undefined keeps the current value; null clears it. */

@@ -2,6 +2,7 @@ import { NgComponentOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   Type,
@@ -19,6 +20,7 @@ import { ConfirmDialog } from 'primeng/confirmdialog';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
 import { DRAG_HANDLE_CLASS } from '../dashboard/grid-adapter';
+import { WidgetFocus } from '../dashboard/widget-focus';
 import { clampGrid } from './grid';
 import { resolveConfig } from './widget-config';
 import type { ConfigErrorReason } from './widget-config';
@@ -57,6 +59,15 @@ export class WidgetHostComponent {
   private readonly removeButton = viewChild<ElementRef<HTMLButtonElement>>('removeButton');
   private readonly confirmation = inject(ConfirmationService);
   private readonly transloco = inject(TranslocoService);
+  private readonly widgetFocus = inject(WidgetFocus);
+  private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly section = viewChild<ElementRef<HTMLElement>>('section');
+
+  /** Brief highlight after a focus request (see WidgetFocus). */
+  protected readonly highlighted = signal(false);
+  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Requests made before this host existed are ignored. */
+  private lastFocusSequence = this.widgetFocus.request()?.sequence ?? 0;
 
   protected readonly state = signal<WidgetHostState>({ kind: 'loading' });
   private readonly attempt = signal(0);
@@ -65,6 +76,17 @@ export class WidgetHostComponent {
   protected readonly definition = computed(() => this.registry.get(this.instance().widgetType));
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      if (this.highlightTimer !== null) clearTimeout(this.highlightTimer);
+    });
+    effect(() => {
+      const request = this.widgetFocus.request();
+      if (!request || request.sequence <= this.lastFocusSequence) return;
+      untracked(() => {
+        this.lastFocusSequence = request.sequence;
+        if (request.instanceId === this.instance().id) this.reveal();
+      });
+    });
     effect(() => {
       const instance = this.instance();
       this.attempt();
@@ -78,6 +100,23 @@ export class WidgetHostComponent {
   }
 
   private builtFor: string | null = null;
+
+  /** Scrolls the card into view, moves the focus to it and highlights it for a moment. */
+  private reveal(): void {
+    const reduced =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.hostElement.nativeElement.scrollIntoView?.({
+      block: 'center',
+      behavior: reduced ? 'auto' : 'smooth',
+    });
+    this.section()?.nativeElement.focus({ preventScroll: true });
+    this.highlighted.set(true);
+    if (this.highlightTimer !== null) clearTimeout(this.highlightTimer);
+    this.highlightTimer = setTimeout(() => {
+      this.highlightTimer = null;
+      this.highlighted.set(false);
+    }, HIGHLIGHT_MS);
+  }
 
   private async build(instance: WidgetInstanceRecord): Promise<void> {
     const token = ++this.buildToken;
@@ -183,6 +222,9 @@ export class WidgetHostComponent {
     }
   }
 }
+
+/** Duration of the highlight (a static outline, no animation). */
+const HIGHLIGHT_MS = 2000;
 
 const ARROW_STEPS: Record<string, { dx: number; dy: number } | undefined> = {
   ArrowLeft: { dx: -1, dy: 0 },

@@ -1,12 +1,18 @@
 import { Clock, IdGenerator } from '../clock';
 import { DataError } from '../data-error';
-import { NewNote, Note } from '../models';
+import { NewNote, Note, NoteSearchHit } from '../models';
 import { NoteRepository } from '../repositories';
+import { excerptAround, likeContains, validSearch } from '../search';
 import { SqlExecutor } from '../sql-executor';
 import { NOTE_COLUMNS, NoteRow, toNote } from './row-mappers';
 
 export const NOTE_TITLE_MAX = 200;
 export const NOTE_BODY_MAX = 100_000;
+
+const SEARCH_NOTES_SQL = `SELECT ${NOTE_COLUMNS} FROM notes
+WHERE title LIKE $1 ESCAPE '\\' OR body LIKE $1 ESCAPE '\\'
+ORDER BY (title LIKE $1 ESCAPE '\\') DESC, updated_at DESC, id
+LIMIT $2`;
 
 function assertNoteFields(title: string, body: string): void {
   if (title.length > NOTE_TITLE_MAX) {
@@ -59,6 +65,20 @@ export class SqliteNoteRepository implements NoteRepository {
   async remove(id: string): Promise<boolean> {
     const result = await this.executor.execute('DELETE FROM notes WHERE id = $1', [id]);
     return result.rowsAffected > 0;
+  }
+
+  async search(query: string, limit: number): Promise<NoteSearchHit[]> {
+    const term = validSearch(query, limit);
+    const rows = await this.executor.select<NoteRow>(SEARCH_NOTES_SQL, [likeContains(term), limit]);
+    return rows.map((row) => {
+      const note = toNote(row);
+      return {
+        id: note.id,
+        title: note.title,
+        widgetInstanceId: note.widgetInstanceId,
+        excerpt: excerptAround(note.body, term),
+      };
+    });
   }
 
   private async mustGet(id: string): Promise<Note> {

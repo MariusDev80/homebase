@@ -9,11 +9,13 @@ export type {
   NewTodoList,
   NewWidgetInstance,
   Note,
+  NoteSearchHit,
   Shortcut,
   ShortcutFields,
   Todo,
   TodoChanges,
   TodoList,
+  TodoSearchHit,
   WidgetInstanceRecord,
 } from './models';
 export type { JsonObject, JsonPrimitive, JsonValue } from './json';

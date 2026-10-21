@@ -111,6 +111,36 @@
       },
       "removeConfirm": "Supprimer ce widget et toutes ses tâches ? Cette action est irréversible."
     },
+    "search": {
+      "title": "Recherche",
+      "description": "Raccourcis, notes et tâches, puis le web",
+      "inputLabel": "Rechercher",
+      "placeholder": "Rechercher (Ctrl+K)",
+      "engineLabel": "Moteur de recherche",
+      "engines": {
+        "duckduckgo": "DuckDuckGo",
+        "google": "Google",
+        "bing": "Bing",
+        "qwant": "Qwant",
+        "ecosia": "Ecosia"
+      },
+      "groups": {
+        "shortcut": "Raccourcis",
+        "note": "Notes",
+        "todo": "Tâches"
+      },
+      "untitledNote": "Note sans titre",
+      "completed": "terminée",
+      "webSearch": "Rechercher « {{ query }} » sur {{ engine }}",
+      "hint": "Tapez pour chercher dans vos raccourcis, notes et tâches.",
+      "noResults": "Aucun résultat dans vos raccourcis, notes et tâches.",
+      "resultsCount": "{{ count }} résultat(s)",
+      "partialError": "Certaines sources n'ont pas répondu : {{ sources }}.",
+      "openError": "Impossible d'ouvrir ce lien.",
+      "notFound": "Cet élément n'est pas sur le tableau de bord actuel.",
+      "webError": "Impossible de lancer la recherche web.",
+      "engineError": "Impossible d'enregistrer le moteur de recherche."
+    },
     "shortcuts": {
       "title": "Raccourcis",
       "description": "Vos liens web favoris",

@@ -60,6 +60,14 @@ export class FakeShortcutRepository implements ShortcutRepository {
     });
   }
 
+  async search(query: string, limit: number): Promise<Shortcut[]> {
+    this.check();
+    const q = query.trim().toLowerCase();
+    return this.items
+      .filter((s) => s.label.toLowerCase().includes(q) || s.url.toLowerCase().includes(q))
+      .slice(0, limit);
+  }
+
   private build(label: string, url: string): Shortcut {
     this.counter++;
     return {

@@ -9,11 +9,13 @@ import {
   NewTodoList,
   NewWidgetInstance,
   Note,
+  NoteSearchHit,
   Shortcut,
   ShortcutFields,
   Todo,
   TodoChanges,
   TodoList,
+  TodoSearchHit,
   WidgetInstanceRecord,
 } from './models';
 
@@ -74,6 +76,12 @@ export interface NoteRepository {
   update(id: string, title: string, body: string): Promise<Note>;
   /** false when already absent. */
   remove(id: string): Promise<boolean>;
+  /**
+   * Notes whose title or body contains `query` (literal match, LIKE ... ESCAPE; ASCII
+   * case-insensitive only). Title matches first, then most recently updated. `query` trimmed
+   * 1 to 200 characters, `limit` an integer 1 to 20 (invalid_input otherwise).
+   */
+  search(query: string, limit: number): Promise<NoteSearchHit[]>;
 }
 
 export interface ShortcutRepository {
@@ -96,6 +104,11 @@ export interface ShortcutRepository {
    * Only rows whose sort_order actually changes are written.
    */
   reorder(ids: readonly string[]): Promise<void>;
+  /**
+   * Shortcuts whose label or url contains `query` (same matching and limits as
+   * NoteRepository.search). Label matches first, then by sort_order.
+   */
+  search(query: string, limit: number): Promise<Shortcut[]>;
 }
 
 export interface TodoRepository {
@@ -128,4 +141,10 @@ export interface TodoRepository {
   reorder(listId: string, ids: readonly string[]): Promise<void>;
   /** Deletes the completed todos of the list; returns how many. */
   clearCompleted(listId: string): Promise<number>;
+  /**
+   * Todos (active and completed) whose title contains `query` (same matching and limits as
+   * NoteRepository.search), joined to their list for `widgetInstanceId`. Active first, then
+   * most recently updated.
+   */
+  search(query: string, limit: number): Promise<TodoSearchHit[]>;
 }

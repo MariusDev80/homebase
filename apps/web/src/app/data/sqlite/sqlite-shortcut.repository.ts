@@ -2,6 +2,7 @@ import { Clock, IdGenerator } from '../clock';
 import { DataError } from '../data-error';
 import { NewShortcut, Shortcut, ShortcutFields } from '../models';
 import { ShortcutRepository } from '../repositories';
+import { likeContains, validSearch } from '../search';
 import { SqlExecutor } from '../sql-executor';
 import { SHORTCUT_COLUMNS, ShortcutRow, toShortcut } from './row-mappers';
 
@@ -14,6 +15,11 @@ export const REORDER_SHORTCUTS_SQL = `UPDATE shortcuts
 SET sort_order = j.pos, updated_at = $2
 FROM (SELECT CAST(key AS INTEGER) AS pos, value AS id FROM json_each($1)) AS j
 WHERE shortcuts.id = j.id AND shortcuts.sort_order <> j.pos`;
+
+const SEARCH_SHORTCUTS_SQL = `SELECT ${SHORTCUT_COLUMNS} FROM shortcuts
+WHERE label LIKE $1 ESCAPE '\\' OR url LIKE $1 ESCAPE '\\'
+ORDER BY (label LIKE $1 ESCAPE '\\') DESC, sort_order, created_at, id
+LIMIT $2`;
 
 function validFields(fields: ShortcutFields): ShortcutFields {
   const label = fields.label.trim();
@@ -83,6 +89,15 @@ export class SqliteShortcutRepository implements ShortcutRepository {
       throw new DataError('invalid_input', 'Duplicate shortcut id in reorder');
     }
     await this.executor.execute(REORDER_SHORTCUTS_SQL, [JSON.stringify(ids), this.clock.nowIso()]);
+  }
+
+  async search(query: string, limit: number): Promise<Shortcut[]> {
+    const term = validSearch(query, limit);
+    const rows = await this.executor.select<ShortcutRow>(SEARCH_SHORTCUTS_SQL, [
+      likeContains(term),
+      limit,
+    ]);
+    return rows.map(toShortcut);
   }
 
   private async mustGet(id: string): Promise<Shortcut> {
