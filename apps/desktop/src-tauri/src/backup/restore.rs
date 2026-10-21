@@ -43,6 +43,12 @@ const CONFIRMED_PREFIX: &str = "restore-rollback.confirmed-";
 /// Point reached right after the numbered step of the swap (spec 4.8, "Échange").
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SwapStep {
+    /// Reached right before the corresponding rename (spec 4.8: the info is readable by then).
+    BeforeDbMove,
+    BeforeCompanionMove,
+    BeforeImagesMove,
+    BeforeDbInstall,
+    BeforeImagesInstall,
     /// 1. `restore-rollback\` created.
     RollbackDirCreated,
     /// 2. `restore-info.json` written.
@@ -92,6 +98,13 @@ pub enum ConfirmStep {
     DuringDelete,
 }
 
+/// Points of the startup sequence itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StartupStep {
+    /// Right before `restore-pending` is removed after a failed or refused exchange.
+    DiscardRemove,
+}
+
 type Hook<'a, S> = &'a dyn Fn(S) -> io::Result<()>;
 
 #[derive(Clone, Copy, Default)]
@@ -99,6 +112,7 @@ pub struct Faults<'a> {
     pub swap: Option<Hook<'a, SwapStep>>,
     pub rollback: Option<Hook<'a, RollbackStep>>,
     pub confirm: Option<Hook<'a, ConfirmStep>>,
+    pub startup: Option<Hook<'a, StartupStep>>,
 }
 
 impl Faults<'_> {
@@ -112,6 +126,10 @@ impl Faults<'_> {
 
     fn at_confirm(&self, step: ConfirmStep) -> io::Result<()> {
         self.confirm.map_or(Ok(()), |hook| hook(step))
+    }
+
+    pub fn at_startup(&self, step: StartupStep) -> io::Result<()> {
+        self.startup.map_or(Ok(()), |hook| hook(step))
     }
 }
 
@@ -364,14 +382,27 @@ fn list_pending_files(dir: &Path) -> Option<BTreeSet<String>> {
 // Swap
 // ---------------------------------------------------------------------------------------------
 
+/// Rename that refuses to replace anything (on Windows `fs::rename` replaces a file): a target
+/// that appeared since the start of the exchange means someone else is working on the root.
+fn rename_new(from: &Path, to: &Path) -> io::Result<()> {
+    if present(to)? {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "rename target already exists",
+        ));
+    }
+    rename_with_retry(from, to)
+}
+
 /// The eight steps of spec 4.8. `restore-pending\` must already be verified. Renames use
-/// `rename_with_retry`. On `Err` the caller runs `rollback()`.
+/// `rename_with_retry` and never replace an existing target. On `Err` the caller runs
+/// `rollback()`. Returns the `restore-info.json` written at step 2, for the confirmation.
 pub fn swap(
     root: &DataRoot,
     clock: &dyn Clock,
     manifest: &Manifest,
     faults: &Faults,
-) -> io::Result<()> {
+) -> io::Result<RestoreInfo> {
     let rollback = root.restore_rollback();
     let pending = root.restore_pending();
     let images = root.images();
@@ -401,34 +432,39 @@ pub fn swap(
     faults.at_swap(SwapStep::InfoWritten)?;
     // 3. if this fails, nothing has moved.
     if info.original_had_db {
-        rename_with_retry(&root.db(), &rollback.join(DB_FILE_NAME))?;
+        faults.at_swap(SwapStep::BeforeDbMove)?;
+        rename_new(&root.db(), &rollback.join(DB_FILE_NAME))?;
     }
     faults.at_swap(SwapStep::DbMoved)?;
     // 4.
     for ((from, saved), had) in companions.iter().zip(had_companion) {
         if had {
-            rename_with_retry(from, saved)?;
+            faults.at_swap(SwapStep::BeforeCompanionMove)?;
+            rename_new(from, saved)?;
         }
     }
     faults.at_swap(SwapStep::CompanionsMoved)?;
     // 5.
     if had_images {
-        rename_with_retry(&images, &rollback.join(ROLLBACK_IMAGES))?;
+        faults.at_swap(SwapStep::BeforeImagesMove)?;
+        rename_new(&images, &rollback.join(ROLLBACK_IMAGES))?;
     }
     faults.at_swap(SwapStep::ImagesMoved)?;
     // 6.
-    rename_with_retry(&pending.join(DB_ENTRY), &root.db())?;
+    faults.at_swap(SwapStep::BeforeDbInstall)?;
+    rename_new(&pending.join(DB_ENTRY), &root.db())?;
     faults.at_swap(SwapStep::DbInstalled)?;
     // 7.
     let pending_images = pending.join(ROLLBACK_IMAGES);
     if manifest.includes_images && present(&pending_images)? {
-        rename_with_retry(&pending_images, &images)?;
+        faults.at_swap(SwapStep::BeforeImagesInstall)?;
+        rename_new(&pending_images, &images)?;
     }
     faults.at_swap(SwapStep::ImagesInstalled)?;
     // 8.
     remove_with_retry(&pending)?;
     faults.at_swap(SwapStep::PendingRemoved)?;
-    Ok(())
+    Ok(info)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -495,6 +531,25 @@ fn restore_file(
     Ok(())
 }
 
+/// Renames `restore-rollback` to `restore-rollback.leftover-<stamp>` (a counter is appended when
+/// that name is taken).
+fn set_aside_leftover(root: &DataRoot, dir: &Path, info: &RestoreInfo) -> io::Result<()> {
+    let stamp = info
+        .stamp()
+        .ok_or_else(|| io::Error::other("restore-info: invalid startedAt"))?;
+    let base = root.restore_rollback_leftover(&stamp);
+    let mut target = base.clone();
+    let mut counter = 1u32;
+    while present(&target)? {
+        counter += 1;
+        let mut name = base.as_os_str().to_owned();
+        name.push(format!("-{counter}"));
+        target = PathBuf::from(name);
+    }
+    eprintln!("restore: unexpected content in restore-rollback, folder set aside");
+    rename_new(dir, &target)
+}
+
 /// Puts the original state back, driven by `restore-info.json`. Idempotent, also when
 /// interrupted and run again. Any I/O error stops it without further deletion.
 pub fn rollback(root: &DataRoot, faults: &Faults) -> Result<(), RollbackError> {
@@ -535,13 +590,13 @@ pub fn rollback(root: &DataRoot, faults: &Faults) -> Result<(), RollbackError> {
     faults.at_rollback(RollbackStep::Done(Item::Images))?;
 
     faults.at_rollback(RollbackStep::BeforeCleanup)?;
-    // Everything of ours is back; anything else in there is not ours to delete.
+    // Everything of ours is back; anything else in there is not ours to delete: the folder is set
+    // aside (never deleted nor restored automatically) so that the application can start.
     for entry in fs::read_dir(&dir)? {
         let name = entry?.file_name();
         if name != INFO_FILE && name != INFO_TMP_FILE {
-            return Err(RollbackError::Io(io::Error::other(
-                "unexpected content in restore-rollback",
-            )));
+            set_aside_leftover(root, &dir, &info)?;
+            return Ok(());
         }
     }
     remove_with_retry(&root.restore_info())?;
@@ -557,7 +612,7 @@ pub fn rollback(root: &DataRoot, faults: &Faults) -> Result<(), RollbackError> {
 
 #[derive(Debug)]
 pub enum ConfirmError {
-    /// `restore-info.json` unreadable after a swap in this process (nothing was renamed).
+    /// The swap's `startedAt` is not a valid instant (nothing was renamed).
     InfoUnreadable,
     /// `restore-rollback\` could not be renamed to `.confirmed-<stamp>`.
     MarkFailed(io::Error),
@@ -608,24 +663,24 @@ pub fn confirmed_dirs(root: &DataRoot) -> Vec<PathBuf> {
 pub fn confirm_restore(
     root: &DataRoot,
     clock: &dyn Clock,
-    swapped_this_process: bool,
+    swapped: Option<&RestoreInfo>,
 ) -> Result<(), ConfirmError> {
-    confirm_restore_with(root, clock, swapped_this_process, &Faults::default())
+    confirm_restore_with(root, clock, swapped, &Faults::default())
 }
 
 pub fn confirm_restore_with(
     root: &DataRoot,
     clock: &dyn Clock,
-    swapped_this_process: bool,
+    swapped: Option<&RestoreInfo>,
     faults: &Faults,
 ) -> Result<(), ConfirmError> {
     let rollback = root.restore_rollback();
-    if !swapped_this_process {
+    let Some(info) = swapped else {
         if rollback.exists() {
             eprintln!("restore: restore-rollback is present without a swap in this process");
         }
         return Ok(());
-    }
+    };
     let blocked = |error: ConfirmError| {
         if let Err(e) =
             write_startup_blocked(root, clock.now(), StartupBlockedReason::ConfirmMarkFailed)
@@ -634,10 +689,7 @@ pub fn confirm_restore_with(
         }
         error
     };
-    // 1.
-    let Some(info) = read_restore_info(&root.restore_info()) else {
-        return Err(blocked(ConfirmError::InfoUnreadable));
-    };
+    // 1. the info comes from memory (the swap of this process), not from the disk.
     let Some(stamp) = info.stamp() else {
         return Err(blocked(ConfirmError::InfoUnreadable));
     };

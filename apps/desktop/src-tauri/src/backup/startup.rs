@@ -4,11 +4,13 @@
 //! Lot B3 adds steps 6 (R6 detection) and 7 (`pre-migration`), the native message of
 //! `StartupBlocked` and the daily thread.
 
-use super::fsutil::remove_with_retry;
+use super::fsutil::{remove_with_retry, rename_with_retry};
+use super::lock;
+use super::names::{BackupKind, BackupName};
 use super::paths::DataRoot;
 use super::restore::{
     confirm_restore, confirmed_dirs, present, read_restore_info, remove_confirmed_dir, rollback,
-    swap, verify_pending, write_report, Faults,
+    swap, verify_pending, write_report, Faults, RestoreInfo, StartupStep,
 };
 use super::status::{
     clear_db_missing, clear_startup_blocked, read_last_restore, startup_blocked_exists,
@@ -23,10 +25,12 @@ use std::sync::Arc;
 use tauri::plugin::{Builder, TauriPlugin};
 use tauri::{AppHandle, Manager, Runtime};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StartupOutcome {
     /// An exchange took place in this process (the confirmation is due in `.setup()`).
     pub swapped: bool,
+    /// The `restore-info.json` of that exchange, kept in memory for the confirmation.
+    pub swap_info: Option<RestoreInfo>,
 }
 
 /// The original state could not be put back (or its description is unreadable): the application
@@ -79,10 +83,13 @@ pub fn startup_sequence_with(
     // 2. confirmed restorations: finish the deletion, never restore.
     for dir in confirmed_dirs(root) {
         if let Some(info) = read_restore_info(&dir.join("restore-info.json")) {
-            let already_applied = read_last_restore(root)
-                .is_some_and(|r| r.outcome == RestoreOutcome::Applied && r.at == info.started_at);
-            if !already_applied {
-                if let Ok(started) = parse_instant(&info.started_at) {
+            // Only write when the last report is absent, unreadable or older than the swap: a
+            // more recent report (a later restoration, a rollback) must not be overwritten.
+            if let Ok(started) = parse_instant(&info.started_at) {
+                let stale = read_last_restore(root)
+                    .and_then(|r| parse_instant(&r.at).ok())
+                    .is_none_or(|at| at < started);
+                if stale {
                     write_report(
                         root,
                         RestoreOutcome::Applied,
@@ -90,9 +97,9 @@ pub fn startup_sequence_with(
                         Some(info.backup_created_at.clone()),
                         Some(info.backup_kind),
                     );
-                }
-                if let Err(e) = clear_db_missing(root) {
-                    eprintln!("startup: cannot remove db-missing.json: {:?}", e.kind());
+                    if let Err(e) = clear_db_missing(root) {
+                        eprintln!("startup: cannot remove db-missing.json: {:?}", e.kind());
+                    }
                 }
             }
         }
@@ -127,19 +134,19 @@ pub fn startup_sequence_with(
     }
 
     // 4. pending restoration.
-    let mut swapped = false;
+    let mut swap_info = None;
     if present(&root.restore_pending()).unwrap_or(false) {
         match verify_pending(root) {
             Err(invalid) => {
                 eprintln!("startup: restore-pending is not valid, discarded");
-                discard_pending(root, clock, invalid.manifest.as_ref());
+                discard_pending(root, clock, invalid.manifest.as_ref(), faults);
             }
             Ok(manifest) => match swap(root, clock, &manifest, faults) {
-                Ok(()) => swapped = true,
+                Ok(info) => swap_info = Some(info),
                 Err(e) => {
                     eprintln!("startup: swap failed ({:?}), rolling back", e.kind());
                     match rollback(root, faults) {
-                        Ok(()) => discard_pending(root, clock, Some(&manifest)),
+                        Ok(()) => discard_pending(root, clock, Some(&manifest), faults),
                         Err(e) => {
                             eprintln!("startup: rollback after a failed swap failed: {e}");
                             return Err(StartupBlocked { reason: e.reason() });
@@ -163,17 +170,30 @@ pub fn startup_sequence_with(
     // 6 and 7 (R6 detection, `pre-migration`): lot B3.
 
     // 8.
-    Ok(StartupOutcome { swapped })
+    Ok(StartupOutcome {
+        swapped: swap_info.is_some(),
+        swap_info,
+    })
 }
 
-/// Removes `restore-pending\` and records `failed`.
+/// Removes `restore-pending\` and records `failed`. When it cannot be removed it is renamed to
+/// `restore-pending.discarded-<stamp>` so that no later startup can ever apply it.
 fn discard_pending(
     root: &DataRoot,
     clock: &dyn Clock,
     manifest: Option<&super::manifest::Manifest>,
+    faults: &Faults,
 ) {
-    if let Err(e) = remove_with_retry(&root.restore_pending()) {
+    let pending = root.restore_pending();
+    let removed = faults
+        .at_startup(StartupStep::DiscardRemove)
+        .and_then(|()| remove_with_retry(&pending));
+    if let Err(e) = removed {
         eprintln!("startup: cannot remove restore-pending: {:?}", e.kind());
+        let stamp = BackupName::new(clock.now(), BackupKind::Manual).stamp();
+        if let Err(e) = rename_with_retry(&pending, &root.restore_pending_discarded(&stamp)) {
+            eprintln!("startup: cannot set restore-pending aside: {:?}", e.kind());
+        }
     }
     write_report(
         root,
@@ -204,10 +224,16 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("homebase-backup")
         .setup(|app, _api| {
             let root = DataRoot::new(app.path().app_config_dir()?);
+            // Before anything else, and without touching a single file of the root: a second
+            // instance stops here (no marker, no exchange, the SQL plugin never initialises).
+            let process_lock = lock::acquire(&root)?;
             let clock: Arc<dyn Clock> = Arc::new(SystemClock);
             match startup_sequence(&root, clock.as_ref()) {
                 Ok(outcome) => {
-                    app.manage(BackupState::new(root, clock, outcome.swapped));
+                    app.manage(
+                        BackupState::new(root, clock, outcome.swap_info)
+                            .with_process_lock(process_lock),
+                    );
                     Ok(())
                 }
                 Err(blocked) => {
@@ -223,11 +249,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 /// process and propagates the error (Tauri then stops the application).
 pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
     let state = app.state::<BackupState>();
-    if let Err(e) = confirm_restore(
-        &state.root,
-        state.clock.as_ref(),
-        state.swapped_this_process,
-    ) {
+    if let Err(e) = confirm_restore(&state.root, state.clock.as_ref(), state.swap_info.as_ref()) {
         show_blocking_message(&state.root, StartupBlockedReason::ConfirmMarkFailed);
         return Err(Box::new(e));
     }

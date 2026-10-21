@@ -53,7 +53,7 @@ pub async fn backup_open_folder(state: tauri::State<'_, BackupState>) -> Result<
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum RestoreSource {
     Internal {
         id: String,
@@ -102,4 +102,27 @@ pub async fn backup_restore<R: tauri::Runtime>(
     drop(guard);
     app.request_restart();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RestoreSource;
+
+    #[test]
+    fn restore_source_rejects_unknown_fields() {
+        assert!(matches!(
+            serde_json::from_str::<RestoreSource>(r#"{"kind":"internal","id":"x"}"#),
+            Ok(RestoreSource::Internal { .. })
+        ));
+        assert!(matches!(
+            serde_json::from_str::<RestoreSource>(r#"{"kind":"external"}"#),
+            Ok(RestoreSource::External)
+        ));
+        for bad in [
+            r#"{"kind":"internal","id":"x","path":"C:\x.zip"}"#,
+            r#"{"kind":"external","path":"C:\x.zip"}"#,
+        ] {
+            assert!(serde_json::from_str::<RestoreSource>(bad).is_err(), "{bad}");
+        }
+    }
 }

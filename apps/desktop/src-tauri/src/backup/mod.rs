@@ -8,6 +8,7 @@ pub mod create;
 pub mod error;
 pub mod fsutil;
 pub mod list;
+pub mod lock;
 pub mod manifest;
 pub mod names;
 pub mod paths;
@@ -58,7 +59,10 @@ pub struct BackupState {
     pub clock: Arc<dyn Clock>,
     busy: AtomicBool,
     restart_pending: AtomicBool,
-    pub swapped_this_process: bool,
+    /// The exchange done by the startup sequence of this process (confirmed in `.setup()`).
+    pub swap_info: Option<restore::RestoreInfo>,
+    /// Exclusive lock on the data root, held for the whole life of the process.
+    _process_lock: Option<lock::ProcessLock>,
     pub last_auto_error: Mutex<Option<BackupError>>,
 }
 
@@ -74,15 +78,25 @@ impl Drop for BusyGuard<'_> {
 }
 
 impl BackupState {
-    pub fn new(root: DataRoot, clock: Arc<dyn Clock>, swapped: bool) -> Self {
+    pub fn new(
+        root: DataRoot,
+        clock: Arc<dyn Clock>,
+        swap_info: Option<restore::RestoreInfo>,
+    ) -> Self {
         Self {
             root,
             clock,
             busy: AtomicBool::new(false),
             restart_pending: AtomicBool::new(false),
-            swapped_this_process: swapped,
+            swap_info,
+            _process_lock: None,
             last_auto_error: Mutex::new(None),
         }
+    }
+
+    pub fn with_process_lock(mut self, lock: lock::ProcessLock) -> Self {
+        self._process_lock = Some(lock);
+        self
     }
 
     /// `RestartPending` takes priority over `Busy`.
@@ -114,7 +128,7 @@ mod tests {
         BackupState::new(
             DataRoot::new(std::path::PathBuf::from("unused")),
             Arc::new(SystemClock),
-            false,
+            None,
         )
     }
 

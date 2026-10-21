@@ -88,6 +88,14 @@ impl DataRoot {
         self.restore_rollback().join("restore-info.json")
     }
 
+    pub fn restore_pending_discarded(&self, stamp: &str) -> PathBuf {
+        self.root.join(format!("restore-pending.discarded-{stamp}"))
+    }
+
+    pub fn restore_rollback_leftover(&self, stamp: &str) -> PathBuf {
+        self.root.join(format!("restore-rollback.leftover-{stamp}"))
+    }
+
     pub fn restore_rollback_confirmed(&self, stamp: &str) -> PathBuf {
         self.root
             .join(format!("restore-rollback.confirmed-{stamp}"))

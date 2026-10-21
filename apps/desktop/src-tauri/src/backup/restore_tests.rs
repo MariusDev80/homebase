@@ -8,11 +8,12 @@ use super::list::list_backups;
 use super::manifest::{
     Manifest, ManifestFile, DB_ENTRY, MANIFEST_ENTRY, MANIFEST_FORMAT, MANIFEST_VERSION,
 };
-use super::names::BackupKind;
+use super::names::{BackupKind, BackupName};
 use super::paths::DataRoot;
 use super::restore::{
     confirm_restore, confirm_restore_with, read_restore_info, rollback, stage_restore, swap,
-    verify_pending, ConfirmError, ConfirmStep, Faults, Item, RollbackError, RollbackStep, SwapStep,
+    verify_pending, write_report, ConfirmError, ConfirmStep, Faults, Item, RestoreInfo,
+    RollbackError, RollbackStep, StartupStep, SwapStep,
 };
 use super::sqlite::read_schema_version;
 use super::startup::{
@@ -25,7 +26,7 @@ use super::status::{
 use super::test_support::{make_database, run};
 use super::BackupState;
 use crate::time::clock::{Clock, FixedClock};
-use crate::time::formats::parse_instant;
+use crate::time::formats::{format_instant, parse_instant};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
@@ -196,6 +197,11 @@ fn start(root: &DataRoot) -> Result<StartupOutcome, StartupBlocked> {
     startup_sequence(root, &clock())
 }
 
+/// The `restore-info.json` of the swap just done (what the process keeps in memory).
+fn disk_info(root: &DataRoot) -> RestoreInfo {
+    read_restore_info(&root.restore_info()).expect("info")
+}
+
 fn rollback_leftovers(root: &DataRoot) -> Vec<String> {
     fs::read_dir(root.path())
         .expect("root")
@@ -265,7 +271,7 @@ fn nominal_swap_then_confirmation_applies_the_restoration() {
     let info = read_restore_info(&root.restore_info()).expect("info");
     assert!(info.original_had_db && info.original_had_wal && info.original_had_images);
 
-    confirm_restore(&root, &clock(), true).expect("confirm");
+    confirm_restore(&root, &clock(), Some(&disk_info(&root))).expect("confirm");
     assert!(rollback_leftovers(&root).is_empty());
     let report = read_last_restore(&root).expect("report");
     assert_eq!(report.outcome, RestoreOutcome::Applied);
@@ -286,7 +292,7 @@ fn nominal_swap_then_confirmation_applies_the_restoration() {
 fn confirm_without_swap_deletes_nothing() {
     let (_d, root, original) = fixture(FULL, true, true);
     start(&root).expect("swap");
-    confirm_restore(&root, &clock(), false).expect("no-op");
+    confirm_restore(&root, &clock(), None).expect("no-op");
     assert!(root.restore_rollback().is_dir());
     assert!(root.restore_info().is_file());
     assert_eq!(
@@ -318,7 +324,7 @@ fn confirmation_renames_before_any_deletion() {
         confirm: Some(&inspect),
         ..Faults::default()
     };
-    confirm_restore_with(&root, &clock(), true, &faults).expect("confirm");
+    confirm_restore_with(&root, &clock(), Some(&disk_info(&root)), &faults).expect("confirm");
     let seen = seen.into_inner().expect("seen");
     // After the mark: the original name is gone and the confirmed folder is still complete.
     assert_eq!(seen[0], (ConfirmStep::AfterMark, false, 1, Some(true)));
@@ -358,7 +364,7 @@ fn crash_after_the_mark_then_restart_finishes_without_restoring() {
         assert!(crashes(|| confirm_restore_with(
             &root,
             &clock(),
-            true,
+            Some(&disk_info(&root)),
             &faults
         )));
         assert_eq!(rollback_leftovers(&root).len(), 1, "{point:?}");
@@ -408,11 +414,12 @@ fn failure_or_crash_while_deleting_a_confirmed_folder_never_restores() {
                 assert!(crashes(|| confirm_restore_with(
                     &root,
                     &clock(),
-                    true,
+                    Some(&disk_info(&root)),
                     &faults
                 )));
             } else {
-                confirm_restore_with(&root, &clock(), true, &faults).expect("logged only");
+                confirm_restore_with(&root, &clock(), Some(&disk_info(&root)), &faults)
+                    .expect("logged only");
             }
             let leftovers = rollback_leftovers(&root);
             assert_eq!(leftovers.len(), 1, "half-deleted folder stays: {after}");
@@ -1024,7 +1031,7 @@ fn staging_then_startup_installs_the_archive_database() {
     let outcome = startup_sequence(&root, clock.as_ref()).expect("start");
     assert!(outcome.swapped);
     assert_eq!(run(read_schema_version(&root.db())).expect("v"), Some(3));
-    confirm_restore(&root, clock.as_ref(), true).expect("confirm");
+    confirm_restore(&root, clock.as_ref(), Some(&disk_info(&root))).expect("confirm");
     assert_eq!(last_outcome(&root), Some(RestoreOutcome::Applied));
     assert!(rollback_leftovers(&root).is_empty());
 }
@@ -1154,7 +1161,7 @@ fn restart_pending_refuses_any_further_backup_operation() {
     let state = BackupState::new(
         DataRoot::new(std::path::PathBuf::from("unused")),
         Arc::new(clock()),
-        false,
+        None,
     );
     drop(state.try_acquire().expect("free"));
     // What backup_restore does once the restoration is staged.
@@ -1195,7 +1202,8 @@ mod windows_locks {
         assert!(start(&root).expect("swap").swapped);
         let handle = lock(&root.restore_rollback().join(DB_ENTRY));
 
-        let err = confirm_restore(&root, &clock(), true).expect_err("mark must fail");
+        let err =
+            confirm_restore(&root, &clock(), Some(&disk_info(&root))).expect_err("mark must fail");
         assert!(matches!(err, ConfirmError::MarkFailed(_)));
         let marker: serde_json::Value =
             serde_json::from_slice(&fs::read(root.startup_blocked_marker()).expect("marker"))
@@ -1231,7 +1239,8 @@ mod windows_locks {
             confirm: Some(&hook),
             ..Faults::default()
         };
-        confirm_restore_with(&root, &clock(), true, &faults).expect("Ok despite the lock");
+        confirm_restore_with(&root, &clock(), Some(&disk_info(&root)), &faults)
+            .expect("Ok despite the lock");
         assert_eq!(rollback_leftovers(&root).len(), 1, "the folder remains");
         assert_eq!(last_outcome(&root), Some(RestoreOutcome::Applied));
         drop(held.lock().expect("lock").take());
@@ -1292,4 +1301,270 @@ mod windows_locks {
         assert!(!root.restore_pending().exists());
         assert!(rollback_leftovers(&root).is_empty());
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Hardening after the security review
+// ---------------------------------------------------------------------------------------------
+
+/// Two instances starting together: the second one runs `rollback()` in the middle of the first
+/// one's exchange. With the process lock this cannot happen (see `lock::tests`); should it happen
+/// anyway, step 6 refuses to replace the original database and nothing is lost.
+#[test]
+fn a_concurrent_rollback_never_loses_the_original_database() {
+    let (_d, root, original) = fixture(FULL, true, true);
+    let p2_pause = |s: RollbackStep| -> io::Result<()> {
+        if s == RollbackStep::Done(Item::Db) {
+            crash();
+        }
+        Ok(())
+    };
+    let p1_hook = |s: SwapStep| -> io::Result<()> {
+        if s == SwapStep::DbMoved {
+            let faults = Faults {
+                rollback: Some(&p2_pause),
+                ..Faults::default()
+            };
+            assert!(crashes(|| rollback(&root, &faults)));
+        }
+        Ok(())
+    };
+    let faults = Faults {
+        swap: Some(&p1_hook),
+        ..Faults::default()
+    };
+    let outcome = startup_sequence_with(&root, &clock(), &faults).expect("P1 not blocked");
+    assert!(
+        !outcome.swapped,
+        "step 6 must refuse to replace the database"
+    );
+    assert_eq!(snapshot(&root), original);
+    // P2 resumes its rollback.
+    rollback(&root, &Faults::default()).expect("P2 rollback");
+    assert_eq!(snapshot(&root), original);
+    assert!(!root.restore_pending().exists());
+    assert!(rollback_leftovers(&root).is_empty());
+}
+
+#[test]
+fn a_failing_pre_restore_backup_cancels_the_preparation() {
+    let (_d, root, clock) = real_root();
+    let source = run(create_backup(
+        &root,
+        clock.as_ref(),
+        BackupKind::Manual,
+        &[],
+    ))
+    .expect("src");
+    // Same instant: the pre-restore archive name is already taken.
+    let taken = BackupName::new(clock.now(), BackupKind::PreRestore).file_name();
+    fs::write(root.backups().join(&taken), b"occupied").expect("occupied");
+
+    stage(&root, &clock, &source.id, &[&source.id]).expect_err("pre-restore must fail");
+
+    assert!(!root.restore_pending().exists());
+    assert!(!root.restore_staging().exists());
+    assert_eq!(
+        fs::read(root.backups().join(&taken)).expect("untouched"),
+        b"occupied"
+    );
+}
+
+#[test]
+fn unexpected_content_in_the_rollback_folder_is_set_aside_not_blocking() {
+    let (_d, root, original) = fixture(FULL, true, true);
+    assert!(start(&root).expect("swap").swapped);
+    fs::write(root.restore_rollback().join("desktop.ini"), b"[x]").expect("ini");
+
+    // Restart without confirmation: rollback, then the leftover is set aside.
+    let outcome = start(&root).expect("not blocked");
+    assert!(!outcome.swapped);
+    assert_eq!(snapshot(&root), original);
+    assert!(!root.restore_rollback().exists());
+    let leftovers = rollback_leftovers(&root);
+    assert_eq!(leftovers.len(), 1, "{leftovers:?}");
+    assert!(leftovers[0].starts_with("restore-rollback.leftover-"));
+    let kept = root.path().join(&leftovers[0]);
+    assert_eq!(fs::read(kept.join("desktop.ini")).expect("ini"), b"[x]");
+    assert_eq!(last_outcome(&root), Some(RestoreOutcome::RolledBack));
+
+    // Never deleted nor restored afterwards.
+    assert!(!start(&root).expect("again").swapped);
+    assert_eq!(rollback_leftovers(&root), leftovers);
+    assert_eq!(snapshot(&root), original);
+}
+
+#[test]
+fn confirmation_uses_the_info_kept_in_memory() {
+    let (_d, root, _original) = fixture(FULL, true, true);
+    let outcome = start(&root).expect("swap");
+    let info = outcome.swap_info.expect("info of the swap");
+    assert_eq!(info, disk_info(&root));
+    // The file becoming unreadable after the exchange does not matter any more.
+    fs::write(root.restore_info(), b"{garbage").expect("garble");
+
+    confirm_restore(&root, &clock(), Some(&info)).expect("confirm");
+
+    assert!(rollback_leftovers(&root).is_empty());
+    let report = read_last_restore(&root).expect("report");
+    assert_eq!(report.outcome, RestoreOutcome::Applied);
+    assert_eq!(report.at, info.started_at);
+    assert!(!startup_blocked_exists(&root));
+}
+
+#[test]
+fn startup_without_a_swap_has_no_info_to_confirm() {
+    let (_d, root) = new_root();
+    seed_original(&root, FULL);
+    assert_eq!(start(&root).expect("start").swap_info, None);
+}
+
+/// The info is readable as soon as `restore-rollback\` holds anything else, at every point of the
+/// exchange, and a hook exists right before each rename (so that a reordering is caught).
+#[test]
+fn the_info_is_readable_before_anything_is_moved() {
+    let (_d, root, _original) = fixture(FULL, true, true);
+    let seen = Mutex::new(Vec::new());
+    let hook = |step: SwapStep| -> io::Result<()> {
+        seen.lock().expect("seen").push(step);
+        let dir = root.restore_rollback();
+        let holds_other = fs::read_dir(&dir).is_ok_and(|entries| {
+            entries.flatten().any(|e| {
+                let n = e.file_name();
+                n != "restore-info.json" && n != "restore-info.json.tmp"
+            })
+        });
+        let before_move = matches!(
+            step,
+            SwapStep::BeforeDbMove
+                | SwapStep::BeforeCompanionMove
+                | SwapStep::BeforeImagesMove
+                | SwapStep::BeforeDbInstall
+                | SwapStep::BeforeImagesInstall
+        );
+        if holds_other || before_move {
+            assert!(
+                read_restore_info(&root.restore_info()).is_some(),
+                "info unreadable at {step:?}"
+            );
+        }
+        Ok(())
+    };
+    let faults = Faults {
+        swap: Some(&hook),
+        ..Faults::default()
+    };
+    assert!(
+        startup_sequence_with(&root, &clock(), &faults)
+            .expect("start")
+            .swapped
+    );
+    let seen = seen.into_inner().expect("seen");
+    for step in [
+        SwapStep::BeforeDbMove,
+        SwapStep::BeforeCompanionMove,
+        SwapStep::BeforeImagesMove,
+        SwapStep::BeforeDbInstall,
+        SwapStep::BeforeImagesInstall,
+    ] {
+        assert!(seen.contains(&step), "{step:?}");
+    }
+    // Each "before" point comes right before the matching "after" point.
+    let pos = |s| seen.iter().position(|x| *x == s).expect("step");
+    assert!(pos(SwapStep::InfoWritten) < pos(SwapStep::BeforeDbMove));
+    assert!(pos(SwapStep::BeforeDbMove) < pos(SwapStep::DbMoved));
+    assert!(pos(SwapStep::BeforeImagesMove) < pos(SwapStep::ImagesMoved));
+    assert!(pos(SwapStep::BeforeDbInstall) < pos(SwapStep::DbInstalled));
+    assert!(pos(SwapStep::BeforeImagesInstall) < pos(SwapStep::ImagesInstalled));
+}
+
+fn confirmed_with_info(root: &DataRoot, started_at: &str) {
+    let info = RestoreInfo {
+        backup_created_at: "2026-10-20T08:00:00.000Z".into(),
+        backup_kind: BackupKind::Manual,
+        includes_images: true,
+        original_had_db: true,
+        original_had_wal: false,
+        original_had_shm: false,
+        original_had_journal: false,
+        original_had_images: false,
+        started_at: started_at.into(),
+    };
+    let dir = root.restore_rollback_confirmed("20261021T081500.123Z");
+    fs::create_dir_all(&dir).expect("confirmed");
+    fs::write(
+        dir.join("restore-info.json"),
+        serde_json::to_vec(&info).expect("json"),
+    )
+    .expect("info");
+}
+
+#[test]
+fn an_old_confirmed_folder_never_overwrites_a_more_recent_report() {
+    let swap_started = "2026-10-21T08:15:00.123Z";
+    let later = parse_instant("2026-10-21T09:15:00.000Z").expect("later");
+    let earlier = parse_instant("2026-10-21T07:15:00.000Z").expect("earlier");
+    for (existing, expect_applied) in [
+        (Some((later, RestoreOutcome::RolledBack)), false),
+        (Some((later, RestoreOutcome::Failed)), false),
+        (Some((earlier, RestoreOutcome::Failed)), true),
+        (None, true),
+    ] {
+        let (_d, root) = new_root();
+        seed_original(&root, FULL);
+        write_db_missing(&root, clock().now()).expect("db-missing");
+        if let Some((at, kind)) = existing {
+            write_report(&root, kind, at, None, None);
+        }
+        confirmed_with_info(&root, swap_started);
+        start(&root).expect("start");
+        let report = read_last_restore(&root).expect("report");
+        let applied = report.outcome == RestoreOutcome::Applied;
+        assert_eq!(applied, expect_applied, "{existing:?}");
+        if expect_applied {
+            assert_eq!(report.at, swap_started);
+            assert!(!root.db_missing_marker().exists());
+        } else {
+            assert_eq!(report.at, format_instant(existing.expect("existing").0));
+            assert!(root.db_missing_marker().exists(), "{existing:?}");
+        }
+        assert!(
+            rollback_leftovers(&root).is_empty(),
+            "folder deleted anyway"
+        );
+    }
+}
+
+#[test]
+fn a_pending_folder_that_cannot_be_removed_is_set_aside_and_never_applied_later() {
+    let (_d, root, original) = fixture(FULL, true, true);
+    let fail_swap = |s: SwapStep| -> io::Result<()> {
+        if s == SwapStep::DbMoved {
+            return Err(injected());
+        }
+        Ok(())
+    };
+    let fail_remove = |_: StartupStep| -> io::Result<()> { Err(injected()) };
+    let faults = Faults {
+        swap: Some(&fail_swap),
+        startup: Some(&fail_remove),
+        ..Faults::default()
+    };
+    let outcome = startup_sequence_with(&root, &clock(), &faults).expect("not blocked");
+    assert!(!outcome.swapped);
+    assert_eq!(snapshot(&root), original);
+    assert!(!root.restore_pending().exists());
+    assert_eq!(last_outcome(&root), Some(RestoreOutcome::Failed));
+    let discarded: Vec<_> = fs::read_dir(root.path())
+        .expect("root")
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("restore-pending.discarded-"))
+        .collect();
+    assert_eq!(discarded.len(), 1, "{discarded:?}");
+    assert!(root.path().join(&discarded[0]).join(DB_ENTRY).is_file());
+
+    // The next startup does not apply it.
+    assert!(!start(&root).expect("next").swapped);
+    assert_eq!(snapshot(&root), original);
 }

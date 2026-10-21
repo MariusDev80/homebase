@@ -151,6 +151,12 @@ mod tests {
             .find("tauri_plugin_sql::Builder")
             .expect("sql plugin");
         assert!(backup < sql, "backup::startup::init() must come first");
+        let between = &production[backup + ".plugin(backup::startup::init())".len()..sql];
+        assert_eq!(
+            between.trim(),
+            ".plugin(",
+            "backup::startup::init() must be registered right before tauri_plugin_sql"
+        );
         let ready = production
             .find("backup::startup::on_app_ready(")
             .expect("on_app_ready");
