@@ -93,7 +93,9 @@ export function addDuration(instant: InstantIso, durationMs: number): InstantIso
       value: String(durationMs),
     });
   }
-  return formatInstant(parseInstant(instant).add({ milliseconds: durationMs }));
+  const result = formatInstant(parseInstant(instant).add({ milliseconds: durationMs }));
+  parseInstant(result);
+  return result;
 }
 
 /** `end - start` in milliseconds (negative when `end` is earlier). */

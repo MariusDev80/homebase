@@ -151,6 +151,21 @@ describe('SettingsPage time zone section', () => {
     expect(repo.values.has('time.zone')).toBe(false);
   });
 
+  it('resets the select and shows an error when saving fails', async () => {
+    repo.failSet = true;
+    const fixture = await render();
+    const el = fixture.nativeElement as HTMLElement;
+    const select = el.querySelector('[data-testid="timezone-select"]') as HTMLSelectElement;
+    select.value = 'America/Montreal';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(select.value).toBe('');
+    expect(el.querySelector('[data-testid="timezone-error"]')?.textContent).toContain(
+      "Impossible d'enregistrer le fuseau horaire.",
+    );
+  });
+
   it('alerts when the stored value is invalid', async () => {
     repo.values.set('time.zone', 'Mars/Base');
     const fixture = await render();

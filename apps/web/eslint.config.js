@@ -25,6 +25,12 @@ function restrict({ plugin, internals, temporal = true }) {
     });
   }
   const patterns = [{ group: ['node:*'], message: 'Node built-ins are test-only.' }];
+  if (temporal) {
+    patterns.push({
+      group: ['temporal-polyfill', 'temporal-polyfill/*'],
+      message: 'Importer Temporal depuis core/time.',
+    });
+  }
   if (internals) {
     patterns.push({
       group: ['**/data/sqlite/**', '**/data/testing/**'],
@@ -59,8 +65,12 @@ const DATE_RULES = [
 ];
 const TEMPORAL_RULES = [
   {
+    selector: 'ImportExpression[source.value=/^temporal-polyfill/]',
+    message: 'Importer Temporal depuis core/time.',
+  },
+  {
     selector:
-      "MemberExpression[object.name='Temporal'][property.name='Now'], MemberExpression[object.name='Temporal'][property.value='Now'], VariableDeclarator[init.name='Temporal']",
+      "MemberExpression[object.name='Temporal'][property.name='Now'], MemberExpression[object.name='Temporal'][property.value='Now'], MemberExpression[property.name='Now'][object.type='MemberExpression'][object.property.name='Temporal'], VariableDeclarator[init.name='Temporal']",
     message: 'ADR-003 : utiliser CLOCK.',
   },
   {

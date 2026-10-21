@@ -1,3 +1,4 @@
+import { TimeError } from './time-error';
 import { addDays, compareLocalDates, daysBetween } from './local-date';
 
 describe('local-date', () => {
@@ -15,6 +16,12 @@ describe('local-date', () => {
     expect(addDays('2027-02-28', 1)).toBe('2027-03-01');
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+
+  it('addDays rejects non-integers and out-of-range results', () => {
+    expect(() => addDays('2026-01-01', 1.5)).toThrow(TimeError);
+    expect(() => addDays('2026-01-01', Number.NaN)).toThrow(TimeError);
+    expect(() => addDays('2199-12-31', 1)).toThrow(TimeError);
   });
 
   it('compareLocalDates', () => {

@@ -15,7 +15,7 @@ export type { JsonObject, JsonPrimitive, JsonValue } from './json';
 export { parseJsonObject, parseJsonValue } from './json';
 export { DataError } from './data-error';
 export type { DataErrorKind } from './data-error';
-export { randomUuid, systemClock } from './clock';
+export { randomUuid } from './clock';
 export type { Clock, IdGenerator } from './clock';
 export type {
   DashboardRepository,

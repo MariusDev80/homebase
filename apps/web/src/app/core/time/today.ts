@@ -1,5 +1,14 @@
 import { DOCUMENT } from '@angular/common';
-import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Injectable,
+  Signal,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import type { LocalDateIso } from '../../data';
 import { CLOCK } from './clock';
 import { addDays } from './local-date';
@@ -42,6 +51,11 @@ export class Today {
       clearTimeout(this.timer);
     });
     this.schedule();
+    // A zone change moves the next local midnight: re-arm the timer.
+    effect(() => {
+      this.zone.id();
+      untracked(() => this.schedule());
+    });
   }
 
   private schedule(): void {

@@ -63,6 +63,11 @@ describe('zoned', () => {
     expect(durationBetween(end, '2026-10-25T00:50:00.000Z')).toBe(-25 * 60_000);
   });
 
+  it('addDuration revalidates bounds and rejects non-integers', () => {
+    expect(() => addDuration('2199-12-31T23:59:59.000Z', 2000)).toThrow(TimeError);
+    expect(() => addDuration('2026-10-25T00:00:00.000Z', 1.5)).toThrow(TimeError);
+  });
+
   it('todayIn reads the injected clock', () => {
     const clock = new ManualClock('2026-12-31T23:30:00.000Z');
     expect(todayIn(clock, PARIS)).toBe('2027-01-01');

@@ -33,13 +33,6 @@
       "autostart": "Lancer au démarrage de Windows",
       "error": "L'opération a échoué."
     },
-    "system": {
-      "label": "Système (expérimental)",
-      "unavailable": "Disponible uniquement dans l'application Windows.",
-      "testNotification": "Envoyer une notification de test dans 10 s",
-      "autostart": "Lancer au démarrage de Windows",
-      "error": "L'opération a échoué."
-    },
     "timeZone": {
       "label": "Fuseau horaire",
       "followSystem": "Suivre Windows ({{ zone }})",
@@ -48,7 +41,8 @@
       "fallbackUtc": "Fuseau de Windows non reconnu : UTC est utilisé. Choisissez votre fuseau.",
       "sourceSetting": "Source : réglage de l'application",
       "sourceSystem": "Source : Windows",
-      "sourceFallback": "Source : UTC par défaut"
+      "sourceFallback": "Source : UTC par défaut",
+      "error": "Impossible d'enregistrer le fuseau horaire."
     }
   },
   "widgets": {

@@ -1,8 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 import type { InstantIso, LocalDateIso, TimeZoneId } from '../../data';
+import { TimeError } from './time-error';
 import { parseInstant, parseLocalDate } from './time-format';
 import { UserTimeZone } from './time-zone';
+import { normalizeTimeZone } from './zoned';
 
 export type DateStyle = 'short' | 'long' | 'weekday-long';
 export type InstantStyle = 'time' | 'date' | 'date-time';
@@ -42,7 +44,10 @@ export class TimeDisplay {
   }
 
   formatInstant(instant: InstantIso, style: InstantStyle, timeZone?: TimeZoneId): string {
-    const zone = timeZone ?? this.userZone.id();
+    const zone = timeZone === undefined ? this.userZone.id() : normalizeTimeZone(timeZone);
+    if (zone === null) {
+      throw new TimeError('unknown_time_zone', 'Unknown time zone', { value: timeZone });
+    }
     return this.formatter(`instant:${style}`, INSTANT_OPTIONS[style], zone).format(
       parseInstant(instant).epochMilliseconds,
     );
