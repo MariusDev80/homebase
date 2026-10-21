@@ -224,7 +224,8 @@ Conséquences : un quotidien à 02:30 sonne **une fois** le 2026-10-25 (00:30Z) 
 
 ### 3.4 Bibliothèques
 **TypeScript (`apps/web`)**
-- `temporal-polyfill` **^1.0.6**, importé **uniquement** dans `core/time/temporal.ts` (`import { Temporal } from 'temporal-polyfill'`, ponyfill : natif dans la WebView2, polyfill sous Node 24). Tout le reste importe `Temporal` depuis `core/time`, **sans alias**.
+- `temporal-polyfill` **^1.0.6**, référencé **uniquement** dans `core/time/temporal.ts`. Tout le reste importe `Temporal` depuis `core/time`, **sans alias**.
+  - **Amendement (2026-10-21, validé par Marius) : chargement conditionnel.** La forme initiale (`export { Temporal } from 'temporal-polyfill'`, ponyfill) embarquait ~57 kB de polyfill dans le bundle initial alors que la WebView2 a Temporal natif (code mort en production). `temporal.ts` exporte désormais une liaison vivante `export let Temporal = globalThis.Temporal` (fusionnée avec un espace de noms de types seuls, pour que `Temporal.Instant` serve de type et de valeur) et `installTemporal()`, qui fait `import('temporal-polyfill')` (chunk paresseux) **uniquement** si `globalThis.Temporal` est absent. `main.ts` appelle `installTemporal().then(() => bootstrapApplication(…))` (pas un initialiseur Angular : ils tournent en parallèle, un service racine pourrait utiliser `core/time` trop tôt). Tests : `src/test-setup.ts` (cible `test`, `setupFiles`) charge `temporal-polyfill/global` (Node 24 n'a pas Temporal natif) ; exempté de la règle d'import ESLint, comme `import()` dans `temporal.ts`. Risque R3 inchangé : vecteurs vérifiés sous polyfill, production en natif ; contrôle manuel `typeof globalThis.Temporal === 'object'` dans la WebView2.
 - **Aucune** bibliothèque RRULE : codec strict maison (§3.5), qui ne calcule aucune date ; il appelle `parseLocalDate` de `core/time` pour valider la date d'un `UNTIL`.
 - Formatage : `TimeDisplay` uniquement (`Intl.DateTimeFormat` avec `timeZone` explicite). `DatePipe`, `formatDate` et `CommonModule` (qui apporte `| date`) interdits.
 - Saisie de dates (phase 1) : `<input type="date">` natif (valeur `YYYY-MM-DD`, validée par `parseLocalDate`). Le `DatePicker` de PrimeNG (qui produit un `Date`) est **interdit** tant qu'un adaptateur `Date` ↔ `LocalDateIso` n'existe pas dans `core/time` (à concevoir s'il devient nécessaire).
@@ -352,6 +353,7 @@ Deux commandes **pures** (aucun accès disque, réseau ni état), **asynchrones*
 - Saisie : `<input type="date">` (§3.4), valeur validée par `parseLocalDate` ; chaîne vide → `null`.
 - Statut d'échéance calculé par `core/time` : `daysBetween(Today.date(), dueOn)` < 0 → en retard de N jours ; = 0 → aujourd'hui ; = 1 → demain ; sinon `TimeDisplay.formatLocalDate`.
 - Tri SQL direct sur `due_on`, `NULLS LAST` explicite.
+- **Amendement (2026-10-21, implémentation du widget TODO)** : le widget trie par ordre manuel (`sort_order`, tâches non terminées d'abord, puis terminées par `completed_at` décroissant) et non par échéance ; l'échéance n'est qu'une étiquette. Un tri par `due_on` (`NULLS LAST`) reste possible plus tard comme option d'affichage. Une tâche terminée n'est jamais « en retard ».
 - Une échéance avec heure et rappel arrivera en phase 2 sous forme d'un **rappel** lié (ancre horodatée).
 
 ### 3.10 Ce qui reste pour la phase 2 et l'ADR-004
@@ -515,7 +517,10 @@ export const CLOCK: InjectionToken<Clock>; // providedIn 'root', factory: () => 
 
 ```ts
 // core/time/temporal.ts
-export { Temporal } from 'temporal-polyfill';
+// liaison vivante + espace de noms de types ; voir §3.4 (amendement 2026-10-21)
+export let Temporal: typeof import('temporal-polyfill').Temporal;
+export declare namespace Temporal { type Instant = …; type PlainDate = …; type PlainDateTime = …; type ZonedDateTime = …; }
+export function installTemporal(): Promise<void>; // import('temporal-polyfill') si globalThis.Temporal est absent
 
 // core/time/time-error.ts
 export type TimeErrorCode =

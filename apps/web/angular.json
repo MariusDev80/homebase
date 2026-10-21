@@ -77,7 +77,9 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "exclude": ["src/app/data/**"]
+            "exclude": ["src/app/data/**"],
+            "setupFiles": ["src/test-setup.ts"],
+            "runnerConfig": "vitest.unit.config.ts"
           }
         },
         "lint": {

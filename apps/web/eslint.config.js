@@ -63,11 +63,11 @@ const DATE_RULES = [
     message: 'ADR-003 : passer par TimeDisplay.',
   },
 ];
-const TEMPORAL_RULES = [
-  {
-    selector: 'ImportExpression[source.value=/^temporal-polyfill/]',
-    message: 'Importer Temporal depuis core/time.',
-  },
+const TEMPORAL_IMPORT_RULE = {
+  selector: 'ImportExpression[source.value=/^temporal-polyfill/]',
+  message: 'Importer Temporal depuis core/time.',
+};
+const TEMPORAL_USAGE_RULES = [
   {
     selector:
       "MemberExpression[object.name='Temporal'][property.name='Now'], MemberExpression[object.name='Temporal'][property.value='Now'], MemberExpression[property.name='Now'][object.type='MemberExpression'][object.property.name='Temporal'], VariableDeclarator[init.name='Temporal']",
@@ -78,6 +78,7 @@ const TEMPORAL_RULES = [
     message: "ADR-003 : pas d'alias pour Temporal.",
   },
 ];
+const TEMPORAL_RULES = [TEMPORAL_IMPORT_RULE, ...TEMPORAL_USAGE_RULES];
 const DATE_RULES_EXEMPT = [
   'src/app/core/time/**',
   'src/app/data/clock.ts',
@@ -131,6 +132,7 @@ module.exports = defineConfig([
     rules: { 'no-restricted-imports': 'off' },
   },
   {
+    // The only file that may load temporal-polyfill, lazily (ADR-003 section 3.4, amended).
     files: ['src/app/core/time/temporal.ts'],
     rules: {
       'no-restricted-imports': [
@@ -138,6 +140,11 @@ module.exports = defineConfig([
         restrict({ plugin: true, internals: true, temporal: false }),
       ],
     },
+  },
+  {
+    // Test setup: installs the polyfill as a global because Node 24 has no native Temporal.
+    files: ['src/test-setup.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   // ADR-003 section 8.3: no hand-made date arithmetic, one clock, one formatter.
   {
@@ -148,6 +155,10 @@ module.exports = defineConfig([
     files: ['src/**/*.ts'],
     ignores: DATE_RULES_EXEMPT,
     rules: { 'no-restricted-syntax': ['error', ...DATE_RULES, ...TEMPORAL_RULES] },
+  },
+  {
+    files: ['src/app/core/time/temporal.ts', 'src/test-setup.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...TEMPORAL_USAGE_RULES] },
   },
   {
     files: ['src/app/core/time/clock.ts'],
