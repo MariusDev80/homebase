@@ -1,8 +1,12 @@
+#[allow(dead_code)] // used from lot B1b
+mod backup;
 #[cfg(test)]
 mod capability_tests;
 mod db;
 mod net;
 mod spike;
+#[allow(dead_code)] // used from lot B1b
+mod time;
 mod tray;
 mod weather;
 
