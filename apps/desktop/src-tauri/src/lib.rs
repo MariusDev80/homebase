@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod capability_tests;
 mod db;
+mod net;
 mod spike;
 mod tray;
+mod weather;
 
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_autostart::MacosLauncher;
@@ -15,18 +17,26 @@ fn invoke_handler<R: tauri::Runtime>(
         spike::schedule_test_notification,
         spike::get_autostart,
         spike::set_autostart,
+        weather::weather_forecast,
+        weather::weather_geocode,
     ]
 }
 
 #[cfg(not(debug_assertions))]
 fn invoke_handler<R: tauri::Runtime>(
 ) -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
-    tauri::generate_handler![spike::get_autostart, spike::set_autostart]
+    tauri::generate_handler![
+        spike::get_autostart,
+        spike::set_autostart,
+        weather::weather_forecast,
+        weather::weather_geocode,
+    ]
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(net::NetClient::new())
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_opener::Builder::new()

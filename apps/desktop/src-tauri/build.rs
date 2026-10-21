@@ -22,6 +22,8 @@ fn main() {
                 "schedule_test_notification",
                 "get_autostart",
                 "set_autostart",
+                "weather_forecast",
+                "weather_geocode",
             ])),
     )
     .expect("failed to run tauri-build");

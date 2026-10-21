@@ -432,7 +432,7 @@ Les tests asynchrones utilisent `tauri::async_runtime::block_on`.
 
 `src/capability_tests.rs` :
 - `main_window_permissions_are_exactly_the_expected_ones` : nouvelle liste (§6.5).
-- `no_http_plugin_permission` : aucune permission ne commence par `http:` ; la sérialisation ne contient pas `"http:`.
+- `no_http_plugin_permission` : aucune permission ne commence par `http:` ; la sérialisation ne contient pas `"http:` suivi d'autre chose que `/` (la portée opener `"http://*"` est légitime) ; les fichiers `capabilities/*.json` sont exactement `default.json` et `debug.json` ; `Cargo.toml` ne contient pas `tauri-plugin-http`.
 - `csp_keeps_network_local` : `app.security.csp` de `tauri.conf.json` contient exactement `connect-src 'self' ipc: http://ipc.localhost;` et ne contient pas `open-meteo`.
 
 ### 6.7 Dépendances et `cargo audit`
@@ -442,7 +442,7 @@ Les tests asynchrones utilisent `tauri::async_runtime::block_on`.
 ### 6.8 Critères d'acceptation W1
 - **CA-W1-1** `npm run rust:test` vert avec tous les tests de §6.6.
 - **CA-W1-2** `npm run rust:fmt:check`, `npm run rust:lint` (clippy `-D warnings`) et `npm run format:check` propres (fixtures exclues par `.prettierignore`, contenu verbatim).
-- **CA-W1-3** `default.json` = liste §6.5 ; `rg -n "\"http:" apps/desktop/src-tauri/capabilities` vide ; `rg -n "tauri-plugin-http|plugin-http" apps package.json` vide.
+- **CA-W1-3** `default.json` = liste §6.5 ; `rg -n '"http:[^/]' apps/desktop/src-tauri/capabilities` vide (la portée opener `"http://*"` est attendue) ; `rg -n "tauri-plugin-http|plugin-http" apps package.json` vide.
 - **CA-W1-4** `git diff --stat -- apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/capabilities/debug.json apps/desktop/src-tauri/migrations apps/web` vide.
 - **CA-W1-5** `rg -n "api\.open-meteo\.com|geocoding-api\.open-meteo\.com" apps --glob '!**/fixtures/**'` : uniquement `apps/desktop/src-tauri/src/net/mod.rs`.
 - **CA-W1-6** `Cargo.toml` contient exactement la ligne `reqwest` de §6.1. Sorties attendues (depuis la racine) :

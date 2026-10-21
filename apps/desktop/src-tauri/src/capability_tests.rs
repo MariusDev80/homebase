@@ -47,6 +47,8 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
         [
             "allow-get-autostart",
             "allow-set-autostart",
+            "allow-weather-forecast",
+            "allow-weather-geocode",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",
@@ -78,6 +80,66 @@ fn opener_is_limited_to_http_and_https_open_url() {
         .expect("scoped opener permission");
     assert_eq!(urls(opener, "allow"), ["https://*", "http://*"]);
     assert_eq!(urls(opener, "deny"), ["*\"*", "* *"]);
+}
+
+/// True if `text` contains `"http:` followed by something other than `/` (a permission
+/// identifier such as `"http:default"`), as opposed to an `"http://*"` URL pattern.
+fn mentions_http_permission(text: &str) -> bool {
+    text.match_indices("\"http:")
+        .any(|(index, found)| !text[index + found.len()..].starts_with('/'))
+}
+
+fn read_capability(name: &str) -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("capabilities")
+        .join(name);
+    fs::read_to_string(path).expect("read capability")
+}
+
+#[test]
+fn no_http_plugin_permission() {
+    for name in ["default.json", "debug.json"] {
+        assert!(!mentions_http_permission(&read_capability(name)), "{name}");
+    }
+    assert!(mentions_http_permission(r#"["http:default"]"#));
+    assert!(!mentions_http_permission(r#"[{"url":"http://*"}]"#));
+}
+
+#[test]
+fn capability_files_are_exactly_default_and_debug() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("capabilities");
+    let mut names: Vec<String> = fs::read_dir(dir)
+        .expect("read capabilities dir")
+        .map(|entry| {
+            entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    names.sort();
+    assert_eq!(names, ["debug.json", "default.json"]);
+}
+
+#[test]
+fn cargo_toml_has_no_http_plugin() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let manifest = fs::read_to_string(path).expect("read Cargo.toml");
+    assert!(!manifest.contains("tauri-plugin-http"));
+}
+
+#[test]
+fn csp_keeps_network_local() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json");
+    let config: Value =
+        serde_json::from_str(&fs::read_to_string(path).expect("read tauri.conf.json"))
+            .expect("valid json");
+    let csp = config["app"]["security"]["csp"]
+        .as_str()
+        .expect("csp string");
+    assert!(csp.contains("connect-src 'self' ipc: http://ipc.localhost;"));
+    assert!(!csp.contains("open-meteo"));
 }
 
 #[test]
