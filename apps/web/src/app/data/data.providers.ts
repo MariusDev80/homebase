@@ -1,12 +1,13 @@
 import {
   EnvironmentProviders,
   InjectionToken,
+  inject,
   isDevMode,
   makeEnvironmentProviders,
   provideAppInitializer,
 } from '@angular/core';
 import { isTauriRuntime } from '../tauri-runtime';
-import { randomUuid, systemClock } from './clock';
+import { Clock, randomUuid, systemClock } from './clock';
 import { DataError } from './data-error';
 import {
   DashboardRepository,
@@ -23,6 +24,15 @@ import { SqliteSettingsRepository } from './sqlite/sqlite-settings.repository';
 import { SqliteShortcutRepository } from './sqlite/sqlite-shortcut.repository';
 import { SqliteWidgetInstanceRepository } from './sqlite/sqlite-widget-instance.repository';
 import { TauriSqlExecutor } from './sqlite/tauri-sql-executor';
+
+/**
+ * The single source of "now" (ADR-003 section 3.6). Providing another Clock here also drives
+ * `created_at` / `updated_at` of every repository.
+ */
+export const CLOCK = new InjectionToken<Clock>('CLOCK', {
+  providedIn: 'root',
+  factory: () => systemClock,
+});
 
 export const SETTINGS_REPOSITORY = new InjectionToken<SettingsRepository>('SETTINGS_REPOSITORY');
 export const DASHBOARD_REPOSITORY = new InjectionToken<DashboardRepository>('DASHBOARD_REPOSITORY');
@@ -49,23 +59,23 @@ export function provideDataLayer(): EnvironmentProviders {
   return makeEnvironmentProviders([
     {
       provide: SETTINGS_REPOSITORY,
-      useFactory: () => new SqliteSettingsRepository(guarded, systemClock, randomUuid),
+      useFactory: () => new SqliteSettingsRepository(guarded, inject(CLOCK), randomUuid),
     },
     {
       provide: DASHBOARD_REPOSITORY,
-      useFactory: () => new SqliteDashboardRepository(guarded, systemClock, randomUuid),
+      useFactory: () => new SqliteDashboardRepository(guarded, inject(CLOCK), randomUuid),
     },
     {
       provide: WIDGET_INSTANCE_REPOSITORY,
-      useFactory: () => new SqliteWidgetInstanceRepository(guarded, systemClock, randomUuid),
+      useFactory: () => new SqliteWidgetInstanceRepository(guarded, inject(CLOCK), randomUuid),
     },
     {
       provide: NOTE_REPOSITORY,
-      useFactory: () => new SqliteNoteRepository(guarded, systemClock, randomUuid),
+      useFactory: () => new SqliteNoteRepository(guarded, inject(CLOCK), randomUuid),
     },
     {
       provide: SHORTCUT_REPOSITORY,
-      useFactory: () => new SqliteShortcutRepository(guarded, systemClock, randomUuid),
+      useFactory: () => new SqliteShortcutRepository(guarded, inject(CLOCK), randomUuid),
     },
     provideAppInitializer(() =>
       health.initialize(() => {

@@ -25,6 +25,7 @@ export type {
   WidgetInstanceRepository,
 } from './repositories';
 export {
+  CLOCK,
   DASHBOARD_REPOSITORY,
   NOTE_REPOSITORY,
   SETTINGS_REPOSITORY,
@@ -32,3 +33,16 @@ export {
   WIDGET_INSTANCE_REPOSITORY,
   provideDataLayer,
 } from './data.providers';
+export type { InstantIso, LocalDateIso, LocalDateTimeIso, TimeZoneId } from './time-formats';
+export {
+  INSTANT_ISO_PATTERN,
+  LOCAL_DATE_PATTERN,
+  LOCAL_DATE_TIME_PATTERN,
+  MAX_LOCAL_DATE,
+  MIN_LOCAL_DATE,
+  TIME_ZONE_ID_PATTERN,
+  hasInstantShape,
+  hasLocalDateShape,
+  hasLocalDateTimeShape,
+  hasTimeZoneIdShape,
+} from './time-formats';

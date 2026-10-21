@@ -6,8 +6,18 @@ const angular = require('angular-eslint');
 const prettier = require('eslint-config-prettier');
 
 /** Builds the no-restricted-imports options (test-only modules are always restricted). */
-function restrict({ plugin, internals }) {
-  const paths = [{ name: 'better-sqlite3', message: 'Test-only dependency (data/testing).' }];
+function restrict({ plugin, internals, temporal = true }) {
+  const paths = [
+    { name: 'better-sqlite3', message: 'Test-only dependency (data/testing).' },
+    {
+      name: '@angular/common',
+      importNames: ['DatePipe', 'formatDate', 'CommonModule'],
+      message: 'ADR-003 : TimeDisplay (CommonModule apporte | date).',
+    },
+  ];
+  if (temporal) {
+    paths.push({ name: 'temporal-polyfill', message: 'Importer Temporal depuis core/time.' });
+  }
   if (plugin) {
     paths.push({
       name: '@tauri-apps/plugin-sql',
@@ -23,6 +33,47 @@ function restrict({ plugin, internals }) {
   }
   return { paths, patterns };
 }
+
+// ADR-003 section 8.3. Only one option list is effective per file: build the merged lists here.
+const DATE_RULES = [
+  {
+    selector:
+      "Identifier[name='Date']:not([parent.type='TSTypeReference']):not([parent.type='TSTypeQuery'])",
+    message: 'ADR-003 : utiliser core/time (Temporal) et CLOCK.',
+  },
+  {
+    selector:
+      'CallExpression[callee.property.name=/^(get|set)(UTC)?(FullYear|Month|Date|Day|Hours|Minutes|Seconds|Milliseconds|Time)$/]',
+    message: 'ADR-003 : pas de calcul de date à la main.',
+  },
+  {
+    selector:
+      'CallExpression[callee.property.name=/^(getTimezoneOffset|toLocaleDateString|toLocaleTimeString)$/]',
+    message: 'ADR-003 : passer par TimeDisplay.',
+  },
+  {
+    selector:
+      "MemberExpression[object.name='Intl'][property.name='DateTimeFormat'], MemberExpression[object.name='Intl'][property.value='DateTimeFormat'], VariableDeclarator[init.name='Intl']",
+    message: 'ADR-003 : passer par TimeDisplay.',
+  },
+];
+const TEMPORAL_RULES = [
+  {
+    selector:
+      "MemberExpression[object.name='Temporal'][property.name='Now'], MemberExpression[object.name='Temporal'][property.value='Now'], VariableDeclarator[init.name='Temporal']",
+    message: 'ADR-003 : utiliser CLOCK.',
+  },
+  {
+    selector: "ImportSpecifier[imported.name='Temporal'][local.name!='Temporal']",
+    message: "ADR-003 : pas d'alias pour Temporal.",
+  },
+];
+const DATE_RULES_EXEMPT = [
+  'src/app/core/time/**',
+  'src/app/data/clock.ts',
+  'src/**/*.spec.ts',
+  'src/**/testing/**',
+];
 
 module.exports = defineConfig([
   {
@@ -68,6 +119,29 @@ module.exports = defineConfig([
   {
     files: ['src/app/data/testing/**/*.ts', 'src/app/data/**/*.spec.ts'],
     rules: { 'no-restricted-imports': 'off' },
+  },
+  {
+    files: ['src/app/core/time/temporal.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        restrict({ plugin: true, internals: true, temporal: false }),
+      ],
+    },
+  },
+  // ADR-003 section 8.3: no hand-made date arithmetic, one clock, one formatter.
+  {
+    files: ['src/**/*.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...TEMPORAL_RULES] },
+  },
+  {
+    files: ['src/**/*.ts'],
+    ignores: DATE_RULES_EXEMPT,
+    rules: { 'no-restricted-syntax': ['error', ...DATE_RULES, ...TEMPORAL_RULES] },
+  },
+  {
+    files: ['src/app/core/time/clock.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
   },
   {
     files: ['**/*.html'],

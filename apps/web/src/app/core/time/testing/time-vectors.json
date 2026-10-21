@@ -1,0 +1,162 @@
+{
+  "formatVersion": 1,
+  "timeZoneValidity": [
+    { "id": "Z-PARIS", "value": "Europe/Paris", "valid": true },
+    { "id": "Z-UTC", "value": "UTC", "valid": true },
+    { "id": "Z-NEW-YORK", "value": "America/New_York", "valid": true },
+    { "id": "Z-KOLKATA", "value": "Asia/Kolkata", "valid": true },
+    { "id": "Z-CALCUTTA", "value": "Asia/Calcutta", "valid": true },
+    { "id": "Z-ETC-GMT-PLUS-5", "value": "Etc/GMT+5", "valid": true },
+    { "id": "Z-OFFSET-SHORT", "value": "+02", "valid": false },
+    { "id": "Z-OFFSET-COLON", "value": "+02:00", "valid": false },
+    { "id": "Z-OFFSET-NEGATIVE", "value": "-03", "valid": false },
+    { "id": "Z-OFFSET-COMPACT", "value": "+0200", "valid": false },
+    { "id": "Z-ETC-UNKNOWN", "value": "Etc/Unknown", "valid": false },
+    { "id": "Z-MARS", "value": "Mars/Base", "valid": false },
+    { "id": "Z-EMPTY", "value": "", "valid": false }
+  ],
+  "resolveLocal": [
+    {
+      "id": "R-PARIS-FOLD",
+      "timeZone": "Europe/Paris",
+      "local": "2026-10-25T02:30:00",
+      "expected": "2026-10-25T00:30:00.000Z",
+      "kind": "fold"
+    },
+    {
+      "id": "R-PARIS-FOLD-START",
+      "timeZone": "Europe/Paris",
+      "local": "2026-10-25T02:00:00",
+      "expected": "2026-10-25T00:00:00.000Z",
+      "kind": "fold"
+    },
+    {
+      "id": "R-PARIS-BEFORE-FOLD",
+      "timeZone": "Europe/Paris",
+      "local": "2026-10-25T01:59:59",
+      "expected": "2026-10-24T23:59:59.000Z",
+      "kind": "unique"
+    },
+    {
+      "id": "R-PARIS-AFTER-FOLD",
+      "timeZone": "Europe/Paris",
+      "local": "2026-10-25T03:00:00",
+      "expected": "2026-10-25T02:00:00.000Z",
+      "kind": "unique"
+    },
+    {
+      "id": "R-PARIS-GAP",
+      "timeZone": "Europe/Paris",
+      "local": "2027-03-28T02:30:00",
+      "expected": "2027-03-28T01:30:00.000Z",
+      "kind": "gap"
+    },
+    {
+      "id": "R-PARIS-GAP-START",
+      "timeZone": "Europe/Paris",
+      "local": "2027-03-28T02:00:00",
+      "expected": "2027-03-28T01:00:00.000Z",
+      "kind": "gap"
+    },
+    {
+      "id": "R-PARIS-AFTER-GAP",
+      "timeZone": "Europe/Paris",
+      "local": "2027-03-28T03:00:00",
+      "expected": "2027-03-28T01:00:00.000Z",
+      "kind": "unique"
+    },
+    {
+      "id": "R-NEW-YORK-FOLD",
+      "timeZone": "America/New_York",
+      "local": "2026-11-01T01:30:00",
+      "expected": "2026-11-01T05:30:00.000Z",
+      "kind": "fold"
+    },
+    {
+      "id": "R-NEW-YORK-GAP",
+      "timeZone": "America/New_York",
+      "local": "2026-03-08T02:30:00",
+      "expected": "2026-03-08T07:30:00.000Z",
+      "kind": "gap"
+    },
+    {
+      "id": "R-UTC",
+      "timeZone": "UTC",
+      "local": "2026-06-01T12:00:00",
+      "expected": "2026-06-01T12:00:00.000Z",
+      "kind": "unique"
+    },
+    {
+      "id": "R-KOLKATA",
+      "timeZone": "Asia/Kolkata",
+      "local": "2026-06-01T12:00:00",
+      "expected": "2026-06-01T06:30:00.000Z",
+      "kind": "unique"
+    },
+    {
+      "id": "R-CALCUTTA",
+      "timeZone": "Asia/Calcutta",
+      "local": "2026-06-01T12:00:00",
+      "expected": "2026-06-01T06:30:00.000Z",
+      "kind": "unique"
+    }
+  ],
+  "toLocal": [
+    {
+      "id": "L-PARIS-FOLD-1ST",
+      "timeZone": "Europe/Paris",
+      "instant": "2026-10-25T00:30:00.000Z",
+      "expected": "2026-10-25T02:30:00"
+    },
+    {
+      "id": "L-PARIS-FOLD-2ND",
+      "timeZone": "Europe/Paris",
+      "instant": "2026-10-25T01:30:00.000Z",
+      "expected": "2026-10-25T02:30:00"
+    },
+    {
+      "id": "L-PARIS-NEW-YEAR",
+      "timeZone": "Europe/Paris",
+      "instant": "2026-12-31T23:30:00.000Z",
+      "expected": "2027-01-01T00:30:00"
+    },
+    {
+      "id": "L-NEW-YORK-NEW-YEAR",
+      "timeZone": "America/New_York",
+      "instant": "2026-12-31T23:30:00.000Z",
+      "expected": "2026-12-31T18:30:00"
+    },
+    {
+      "id": "L-UTC-TRUNCATION",
+      "timeZone": "UTC",
+      "instant": "2026-10-20T08:15:30.999Z",
+      "expected": "2026-10-20T08:15:30"
+    }
+  ],
+  "startOfDay": [
+    {
+      "id": "S-PARIS-25H",
+      "timeZone": "Europe/Paris",
+      "date": "2026-10-25",
+      "expected": "2026-10-24T22:00:00.000Z"
+    },
+    {
+      "id": "S-PARIS-AFTER-25H",
+      "timeZone": "Europe/Paris",
+      "date": "2026-10-26",
+      "expected": "2026-10-25T23:00:00.000Z"
+    },
+    {
+      "id": "S-PARIS-23H",
+      "timeZone": "Europe/Paris",
+      "date": "2027-03-28",
+      "expected": "2027-03-27T23:00:00.000Z"
+    },
+    {
+      "id": "S-SANTIAGO",
+      "timeZone": "America/Santiago",
+      "date": "2026-09-06",
+      "expected": "2026-09-06T04:00:00.000Z"
+    }
+  ]
+}

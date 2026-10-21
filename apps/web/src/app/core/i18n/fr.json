@@ -32,6 +32,23 @@
       "testNotification": "Envoyer une notification de test dans 10 s",
       "autostart": "Lancer au démarrage de Windows",
       "error": "L'opération a échoué."
+    },
+    "system": {
+      "label": "Système (expérimental)",
+      "unavailable": "Disponible uniquement dans l'application Windows.",
+      "testNotification": "Envoyer une notification de test dans 10 s",
+      "autostart": "Lancer au démarrage de Windows",
+      "error": "L'opération a échoué."
+    },
+    "timeZone": {
+      "label": "Fuseau horaire",
+      "followSystem": "Suivre Windows ({{ zone }})",
+      "effective": "Fuseau utilisé : {{ zone }}",
+      "invalidStored": "Le fuseau enregistré ({{ value }}) est invalide : le fuseau de Windows est utilisé.",
+      "fallbackUtc": "Fuseau de Windows non reconnu : UTC est utilisé. Choisissez votre fuseau.",
+      "sourceSetting": "Source : réglage de l'application",
+      "sourceSystem": "Source : Windows",
+      "sourceFallback": "Source : UTC par défaut"
     }
   },
   "widgets": {
@@ -122,5 +139,12 @@
     "loadError": "Impossible de charger ce widget",
     "retry": "Réessayer",
     "actionError": "L'opération a échoué."
+  },
+  "time": {
+    "ambiguous": "Cette heure existe deux fois ce jour-là : la première sera utilisée.",
+    "nonexistent": "Cette heure n'existe pas ce jour-là (changement d'heure) : {{ time }} sera utilisée.",
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "overdue": "En retard de {{ days }} j"
   }
 }
