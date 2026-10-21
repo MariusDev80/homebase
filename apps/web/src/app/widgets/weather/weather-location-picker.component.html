@@ -1,0 +1,77 @@
+<label class="text-sm font-semibold" [for]="inputId">{{
+  'widgets.weather.search.label' | transloco
+}}</label>
+<input
+  #field
+  type="text"
+  class="field"
+  autocomplete="off"
+  spellcheck="false"
+  data-testid="weather-search-input"
+  [id]="inputId"
+  [attr.maxlength]="maxLength"
+  [attr.aria-describedby]="hintId"
+  (input)="onInput($event)"
+  (keydown.escape)="onEscape()"
+/>
+<p class="text-xs text-fg-muted" [id]="hintId">{{ 'widgets.weather.search.hint' | transloco }}</p>
+
+<p
+  aria-live="polite"
+  class="text-xs"
+  data-testid="weather-search-status"
+  [class.field-error]="state() === 'error'"
+  [class.text-fg-muted]="state() !== 'error'"
+>
+  @switch (state()) {
+    @case ('too-short') {
+      {{ 'widgets.weather.search.hint' | transloco }}
+    }
+    @case ('searching') {
+      {{ 'widgets.weather.search.searching' | transloco }}
+    }
+    @case ('results') {
+      {{ 'widgets.weather.search.resultsCount' | transloco: { count: entries().length } }}
+    }
+    @case ('empty') {
+      {{ 'widgets.weather.search.noResults' | transloco }}
+    }
+    @case ('error') {
+      {{ 'widgets.weather.search.error' | transloco }}
+    }
+  }
+</p>
+
+@if (state() === 'results') {
+  <ul class="m-0 min-h-0 list-none overflow-y-auto p-0" data-testid="weather-search-results">
+    @for (entry of entries(); track entry.place.id) {
+      <li>
+        <button
+          type="button"
+          class="btn btn-invisible w-full justify-start text-left"
+          data-testid="weather-search-result"
+          [disabled]="disabled()"
+          (click)="picked.emit(entry.place)"
+        >
+          {{ entry.label }}
+        </button>
+      </li>
+    }
+  </ul>
+}
+
+<div class="flex items-center gap-2 text-xs text-fg-muted">
+  <button
+    type="button"
+    class="btn btn-invisible btn-compact"
+    data-testid="weather-geonames"
+    (click)="openGeonames()"
+  >
+    {{ 'widgets.weather.search.attribution' | transloco }}
+  </button>
+  @if (linkError()) {
+    <span class="field-error" role="alert">{{
+      'widgets.weather.errors.openLink' | transloco
+    }}</span>
+  }
+</div>

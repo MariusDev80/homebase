@@ -73,6 +73,55 @@ describe('WeatherService', () => {
   });
 
   describe('forecast', () => {
+    it('bounds the memorised failures like the snapshots', async () => {
+      const { api, service } = await setup();
+      for (let i = 0; i <= WEATHER_CACHE_MAX_ENTRIES; i++) {
+        api.failForecast({ kind: 'network' });
+        await kindOf(service.forecast(allowed, { latitude: i, longitude: 0 }));
+      }
+      // The oldest failure was purged: no throttling for it any more.
+      api.respondForecast(fakeForecastPayload());
+      await service.forecast(allowed, { latitude: 0, longitude: 0 });
+      expect(api.callCount).toBe(WEATHER_CACHE_MAX_ENTRIES + 2);
+    });
+
+    it('skips a fresh cache when the last attempt failed (retry delay bypassed or elapsed)', async () => {
+      const { api, clock, service } = await setup();
+      api.respondForecast(fakeForecastPayload());
+      await service.forecast(allowed, paris);
+      api.failForecast({ kind: 'network' });
+      await expect(service.forecast(allowed, paris, { force: true })).rejects.toBeInstanceOf(
+        WeatherError,
+      );
+      expect(api.callCount).toBe(2);
+
+      // Within the retry delay, a plain call is throttled: no call, backoff untouched.
+      clock.advance(30_000);
+      expect(await kindOf(service.forecast(allowed, paris))).toBe('throttled');
+      expect(api.callCount).toBe(2);
+
+      // Bypassing the delay reaches the API although the snapshot is only 30 s old.
+      api.respondForecast(fakeForecastPayload());
+      await service.forecast(allowed, paris, { ignoreRetryDelay: true });
+      expect(api.callCount).toBe(3);
+
+      // After a success the fresh cache is served again.
+      await service.forecast(allowed, paris);
+      expect(api.callCount).toBe(3);
+    });
+
+    it('calls the api after the retry delay without any option when the last attempt failed', async () => {
+      const { api, clock, service } = await setup();
+      api.respondForecast(fakeForecastPayload());
+      await service.forecast(allowed, paris);
+      api.failForecast({ kind: 'network' });
+      await kindOf(service.forecast(allowed, paris, { force: true }));
+      clock.advance(61_000);
+      api.respondForecast(fakeForecastPayload());
+      await service.forecast(allowed, paris);
+      expect(api.callCount).toBe(3);
+    });
+
     it('rejects invalid coordinates without a call', async () => {
       const { api, service } = await setup();
       for (const bad of [

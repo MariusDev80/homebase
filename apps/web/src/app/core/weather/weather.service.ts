@@ -75,7 +75,7 @@ export class WeatherService {
 
     if (!options.force) {
       const snapshot = this.snapshots.get(key);
-      if (snapshot) {
+      if (snapshot && !this.failures.has(key)) {
         const age = durationBetween(snapshot.fetchedAt, now);
         if (age >= 0 && age < WEATHER_MAX_AGE_MS) {
           return snapshot;
@@ -141,7 +141,13 @@ export class WeatherService {
       this.failures.delete(key);
       return snapshot;
     } catch (error) {
+      this.failures.delete(key);
       this.failures.set(key, this.clock.nowIso());
+      while (this.failures.size > WEATHER_CACHE_MAX_ENTRIES) {
+        const oldest = this.failures.keys().next();
+        if (oldest.done) break;
+        this.failures.delete(oldest.value);
+      }
       throw toWeatherError(error);
     }
   }
