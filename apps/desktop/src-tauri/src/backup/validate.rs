@@ -14,7 +14,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteRow};
 use sqlx::{Connection, Row, SqliteConnection};
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 const COPY_BLOCK: usize = 64 * 1024;
@@ -72,15 +72,15 @@ fn to_hex(digest: &[u8]) -> String {
 }
 
 /// Removes the directory on drop unless disarmed: also runs on panic or cancellation.
-struct DestGuard<'a> {
-    path: &'a Path,
+struct DestGuard {
+    path: PathBuf,
     armed: bool,
 }
 
-impl Drop for DestGuard<'_> {
+impl Drop for DestGuard {
     fn drop(&mut self) {
         if self.armed {
-            let _ = remove_with_retry(self.path);
+            let _ = remove_with_retry(&self.path);
         }
     }
 }
@@ -98,22 +98,43 @@ pub async fn extract_validated_with(
 ) -> Result<Manifest, BackupError> {
     // Fails with AlreadyExists when `dest` is there: nothing of ours to clean up then.
     fs::create_dir(dest)?;
+    extract_and_inspect(archive.to_owned(), dest.to_owned(), *limits).await
+}
+
+async fn extract_and_inspect(
+    archive: PathBuf,
+    dest: PathBuf,
+    limits: Limits,
+) -> Result<Manifest, BackupError> {
     let mut guard = DestGuard {
-        path: dest,
+        path: dest.clone(),
         armed: true,
     };
-    let (archive, limits) = (archive.to_owned(), *limits);
-    let result = async {
-        let manifest = {
-            let dest = dest.to_owned();
-            blocking(move || extract(&archive, &dest, &limits)).await??
-        };
-        inspect_restored_database(&dest.join(DB_ENTRY), &manifest).await?;
-        Ok(manifest)
-    }
-    .await;
+    let extracted = {
+        let (archive, dest) = (archive, dest.clone());
+        blocking(move || extract(&archive, &dest, &limits)).await
+    };
+    let result = match extracted {
+        Ok(Ok(manifest)) => {
+            // The inspection runs on a blocking thread with its own `block_on`: its sqlx future
+            // cannot be proven `Send` by rustc ("not general enough") and must not be part of
+            // the futures the Tauri commands await.
+            let db = dest.join(DB_ENTRY);
+            let inspected = blocking(move || {
+                tauri::async_runtime::block_on(inspect_restored_database(&db, &manifest))
+                    .map(|_| manifest)
+            })
+            .await;
+            match inspected {
+                Ok(result) => result,
+                Err(e) => Err(e),
+            }
+        }
+        Ok(Err(e)) => Err(e),
+        Err(e) => Err(e),
+    };
     if result.is_err() {
-        let path = dest.to_owned();
+        let path = dest;
         let _ = blocking(move || remove_with_retry(&path)).await;
     }
     guard.armed = false;

@@ -52,6 +52,7 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-backup-list",
             "allow-backup-create",
             "allow-backup-open-folder",
+            "allow-backup-restore",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",

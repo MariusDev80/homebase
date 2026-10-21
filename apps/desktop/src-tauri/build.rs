@@ -27,6 +27,7 @@ fn main() {
                 "backup_list",
                 "backup_create",
                 "backup_open_folder",
+                "backup_restore",
             ])),
     )
     .expect("failed to run tauri-build");

@@ -24,6 +24,7 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::backup_list,
         backup::commands::backup_create,
         backup::commands::backup_open_folder,
+        backup::commands::backup_restore,
     ]
 }
 
@@ -38,6 +39,7 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::backup_list,
         backup::commands::backup_create,
         backup::commands::backup_open_folder,
+        backup::commands::backup_restore,
     ]
 }
 
@@ -56,6 +58,9 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        // Must stay right before the SQL plugin: its setup runs the startup sequence (restore
+        // exchange) and, on `StartupBlocked`, fails so that the SQL plugin never initialises.
+        .plugin(backup::startup::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(db::DB_URL, db::migrations())
@@ -63,12 +68,8 @@ pub fn run() {
         )
         .invoke_handler(invoke_handler())
         .setup(|app| {
-            // Lot B2b moves this into the internal `homebase-backup` plugin.
-            app.manage(backup::BackupState::new(
-                backup::paths::DataRoot::new(app.path().app_config_dir()?),
-                std::sync::Arc::new(time::clock::SystemClock),
-                false,
-            ));
+            // First, before anything else: confirms a restoration done in this process.
+            backup::startup::on_app_ready(app.handle())?;
             tray::setup(app.handle())?;
             Ok(())
         })
@@ -109,6 +110,7 @@ mod tests {
             "backup::commands::backup_list",
             "backup::commands::backup_create",
             "backup::commands::backup_open_folder",
+            "backup::commands::backup_restore",
             "weather::weather_forecast",
             "weather::weather_geocode",
         ] {
@@ -129,8 +131,32 @@ mod tests {
             "backup_list",
             "backup_create",
             "backup_open_folder",
+            "backup_restore",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }
+    }
+
+    #[test]
+    fn backup_plugin_is_before_sql_and_confirmation_before_tray() {
+        let source = include_str!("lib.rs");
+        let production = source
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production part");
+        let backup = production
+            .find(".plugin(backup::startup::init())")
+            .expect("backup plugin");
+        let sql = production
+            .find("tauri_plugin_sql::Builder")
+            .expect("sql plugin");
+        assert!(backup < sql, "backup::startup::init() must come first");
+        let ready = production
+            .find("backup::startup::on_app_ready(")
+            .expect("on_app_ready");
+        let tray = production.find("tray::setup(").expect("tray");
+        assert!(ready < tray, "on_app_ready must come before tray::setup");
+        assert!(!production.contains("app_restart"));
+        assert!(!production.contains("tauri_plugin_process"));
     }
 }

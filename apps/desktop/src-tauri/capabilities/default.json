@@ -11,6 +11,7 @@
     "allow-backup-list",
     "allow-backup-create",
     "allow-backup-open-folder",
+    "allow-backup-restore",
     "sql:allow-execute",
     "sql:allow-select",
     {

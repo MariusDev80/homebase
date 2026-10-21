@@ -11,12 +11,15 @@ pub mod list;
 pub mod manifest;
 pub mod names;
 pub mod paths;
+pub mod restore;
+#[cfg(test)]
+mod restore_tests;
 pub mod retention;
 pub mod sqlite;
+pub mod startup;
 pub mod status;
 #[cfg(test)]
 pub mod test_support;
-#[allow(dead_code)] // used from lot B2b
 pub mod validate;
 #[cfg(test)]
 mod validate_tests;
@@ -55,7 +58,6 @@ pub struct BackupState {
     pub clock: Arc<dyn Clock>,
     busy: AtomicBool,
     restart_pending: AtomicBool,
-    #[allow(dead_code)] // used from lot B2b
     pub swapped_this_process: bool,
     pub last_auto_error: Mutex<Option<BackupError>>,
 }
@@ -98,7 +100,6 @@ impl BackupState {
         Ok(BusyGuard { busy: &self.busy })
     }
 
-    #[allow(dead_code)] // used from lot B2b
     pub fn mark_restart_pending(&self) {
         self.restart_pending.store(true, Ordering::SeqCst);
     }

@@ -1,0 +1,235 @@
+//! Startup sequence (spec 4.8): cleanup, confirmed folders, rollback, swap. Runs in the setup of
+//! the internal `homebase-backup` plugin, registered **before** `tauri_plugin_sql`.
+//!
+//! Lot B3 adds steps 6 (R6 detection) and 7 (`pre-migration`), the native message of
+//! `StartupBlocked` and the daily thread.
+
+use super::fsutil::remove_with_retry;
+use super::paths::DataRoot;
+use super::restore::{
+    confirm_restore, confirmed_dirs, present, read_restore_info, remove_confirmed_dir, rollback,
+    swap, verify_pending, write_report, Faults,
+};
+use super::status::{
+    clear_db_missing, clear_startup_blocked, read_last_restore, startup_blocked_exists,
+    write_startup_blocked, RestoreOutcome, StartupBlockedReason,
+};
+use super::BackupState;
+use crate::time::clock::{Clock, SystemClock};
+use crate::time::formats::parse_instant;
+use std::fmt;
+use std::fs;
+use std::sync::Arc;
+use tauri::plugin::{Builder, TauriPlugin};
+use tauri::{AppHandle, Manager, Runtime};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StartupOutcome {
+    /// An exchange took place in this process (the confirmation is due in `.setup()`).
+    pub swapped: bool,
+}
+
+/// The original state could not be put back (or its description is unreadable): the application
+/// must not start, and nothing has been deleted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StartupBlocked {
+    pub reason: StartupBlockedReason,
+}
+
+impl fmt::Display for StartupBlocked {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "startup blocked: {:?}", self.reason)
+    }
+}
+
+impl std::error::Error for StartupBlocked {}
+
+/// Empties a folder but keeps it. Failures are only logged.
+fn empty_dir(dir: &std::path::Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if let Err(e) = remove_with_retry(&entry.path()) {
+            eprintln!("startup: cleanup failed: {:?}", e.kind());
+        }
+    }
+}
+
+pub fn startup_sequence(
+    root: &DataRoot,
+    clock: &dyn Clock,
+) -> Result<StartupOutcome, StartupBlocked> {
+    startup_sequence_with(root, clock, &Faults::default())
+}
+
+/// Steps 1 to 5 and 8 of spec 4.8.
+pub fn startup_sequence_with(
+    root: &DataRoot,
+    clock: &dyn Clock,
+    faults: &Faults,
+) -> Result<StartupOutcome, StartupBlocked> {
+    // 1. cleanup
+    empty_dir(&root.backups_tmp());
+    empty_dir(&root.incoming());
+    if let Err(e) = remove_with_retry(&root.restore_staging()) {
+        eprintln!("startup: cannot remove the staging folder: {:?}", e.kind());
+    }
+
+    // 2. confirmed restorations: finish the deletion, never restore.
+    for dir in confirmed_dirs(root) {
+        if let Some(info) = read_restore_info(&dir.join("restore-info.json")) {
+            let already_applied = read_last_restore(root)
+                .is_some_and(|r| r.outcome == RestoreOutcome::Applied && r.at == info.started_at);
+            if !already_applied {
+                if let Ok(started) = parse_instant(&info.started_at) {
+                    write_report(
+                        root,
+                        RestoreOutcome::Applied,
+                        started,
+                        Some(info.backup_created_at.clone()),
+                        Some(info.backup_kind),
+                    );
+                }
+                if let Err(e) = clear_db_missing(root) {
+                    eprintln!("startup: cannot remove db-missing.json: {:?}", e.kind());
+                }
+            }
+        }
+        if let Err(e) = remove_confirmed_dir(&dir, &Faults::default()) {
+            eprintln!(
+                "startup: confirmed folder not deleted ({:?}), retry at next startup",
+                e.kind()
+            );
+        }
+    }
+
+    // 3. unconfirmed exchange: back to the original state.
+    if present(&root.restore_rollback()).unwrap_or(true) {
+        let info = read_restore_info(&root.restore_info());
+        match rollback(root, faults) {
+            Ok(()) => {
+                if !present(&root.restore_pending()).unwrap_or(true) {
+                    write_report(
+                        root,
+                        RestoreOutcome::RolledBack,
+                        clock.now(),
+                        info.as_ref().map(|i| i.backup_created_at.clone()),
+                        info.as_ref().map(|i| i.backup_kind),
+                    );
+                }
+            }
+            Err(e) => {
+                eprintln!("startup: rollback failed: {e}");
+                return Err(StartupBlocked { reason: e.reason() });
+            }
+        }
+    }
+
+    // 4. pending restoration.
+    let mut swapped = false;
+    if present(&root.restore_pending()).unwrap_or(false) {
+        match verify_pending(root) {
+            Err(invalid) => {
+                eprintln!("startup: restore-pending is not valid, discarded");
+                discard_pending(root, clock, invalid.manifest.as_ref());
+            }
+            Ok(manifest) => match swap(root, clock, &manifest, faults) {
+                Ok(()) => swapped = true,
+                Err(e) => {
+                    eprintln!("startup: swap failed ({:?}), rolling back", e.kind());
+                    match rollback(root, faults) {
+                        Ok(()) => discard_pending(root, clock, Some(&manifest)),
+                        Err(e) => {
+                            eprintln!("startup: rollback after a failed swap failed: {e}");
+                            return Err(StartupBlocked { reason: e.reason() });
+                        }
+                    }
+                }
+            },
+        }
+    }
+
+    // 5. no blocking on steps 3 and 4.
+    if startup_blocked_exists(root) {
+        if let Err(e) = clear_startup_blocked(root) {
+            eprintln!(
+                "startup: cannot remove startup-blocked.json: {:?}",
+                e.kind()
+            );
+        }
+    }
+
+    // 6 and 7 (R6 detection, `pre-migration`): lot B3.
+
+    // 8.
+    Ok(StartupOutcome { swapped })
+}
+
+/// Removes `restore-pending\` and records `failed`.
+fn discard_pending(
+    root: &DataRoot,
+    clock: &dyn Clock,
+    manifest: Option<&super::manifest::Manifest>,
+) {
+    if let Err(e) = remove_with_retry(&root.restore_pending()) {
+        eprintln!("startup: cannot remove restore-pending: {:?}", e.kind());
+    }
+    write_report(
+        root,
+        RestoreOutcome::Failed,
+        clock.now(),
+        manifest.map(|m| m.created_at.clone()),
+        manifest.map(|m| m.kind),
+    );
+}
+
+/// Extension point of lot B3: native blocking message (`rfd::MessageDialog`, level Error, button
+/// OK, French text of spec 4.8). Until then the user only gets the setup error and the marker.
+fn show_blocking_message(_root: &DataRoot, _reason: StartupBlockedReason) {}
+
+/// What the plugin does on `StartupBlocked`, before returning the setup error: journal, marker,
+/// (B3) native message.
+pub fn report_blocked(root: &DataRoot, clock: &dyn Clock, blocked: &StartupBlocked) {
+    eprintln!("startup: {blocked}");
+    if let Err(e) = write_startup_blocked(root, clock.now(), blocked.reason) {
+        eprintln!("startup: cannot write startup-blocked.json: {:?}", e.kind());
+    }
+    show_blocking_message(root, blocked.reason);
+}
+
+/// Internal plugin: runs the startup sequence in its setup and manages `BackupState`. An `Err`
+/// aborts the plugin initialisation, so `tauri_plugin_sql` (registered after it) never runs.
+pub fn init<R: Runtime>() -> TauriPlugin<R> {
+    Builder::new("homebase-backup")
+        .setup(|app, _api| {
+            let root = DataRoot::new(app.path().app_config_dir()?);
+            let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+            match startup_sequence(&root, clock.as_ref()) {
+                Ok(outcome) => {
+                    app.manage(BackupState::new(root, clock, outcome.swapped));
+                    Ok(())
+                }
+                Err(blocked) => {
+                    report_blocked(&root, clock.as_ref(), &blocked);
+                    Err(Box::new(blocked))
+                }
+            }
+        })
+        .build()
+}
+
+/// First call of the app `.setup()`, before `tray::setup`: confirms a restoration done in this
+/// process and propagates the error (Tauri then stops the application).
+pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
+    let state = app.state::<BackupState>();
+    if let Err(e) = confirm_restore(
+        &state.root,
+        state.clock.as_ref(),
+        state.swapped_this_process,
+    ) {
+        show_blocking_message(&state.root, StartupBlockedReason::ConfirmMarkFailed);
+        return Err(Box::new(e));
+    }
+    Ok(())
+}
