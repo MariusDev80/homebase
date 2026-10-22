@@ -5,7 +5,7 @@
 - **Auteur** : architect (Opus)
 - **Tâche** : `docs/ROADMAP.md`, phase 1 : « Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration »
 - **Liens** : ADR-002 §2.7, §3.1, §3.5, R1, R4 à R6, O1, O2 ; ADR-001 §3.4, §3.5, §3.8, §7.4 ; ADR-003 §3.6, §8.8, §8.9 ; `CLAUDE.md` (sécurité)
-- **Destinataire** : `implementer` (Sonnet), en 8 lots exécutés dans l'ordre **B1a → B1b → B2a → B2b → B3 → B4a → B4b → B5** (§11). Chaque lot fait environ 40 étapes et se suffit à lui-même. **Ne pas improviser** : si une supposition (§2.2) se révèle fausse ou si une condition d'arrêt du lot se présente, s'arrêter et rapporter.
+- **Destinataire** : `implementer` (Sonnet), en 8 lots exécutés dans l'ordre **B1a → B1b → B2a → B2b → B3 → B4a → B4b → B5** (§11), plus un lot B6 ajouté après revue (copies brutes visibles, §4.8). Chaque lot fait environ 40 étapes et se suffit à lui-même. **Ne pas improviser** : si une supposition (§2.2) se révèle fausse ou si une condition d'arrêt du lot se présente, s'arrêter et rapporter.
 - **Hors de ce fichier** (fait par le coordinateur) : amendements d'ADR et de PLAN (§10), case de la ROADMAP.
 
 Cette spec tient aussi lieu d'ADR pour la sauvegarde : contexte, options, décisions, conséquences et risques. Elle précise, et amende parfois (§10), les décisions de principe de l'ADR-002 §2.7.
