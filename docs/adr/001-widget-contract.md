@@ -1,6 +1,6 @@
 # ADR-001 : contrat `Widget`, registre et format de configuration
 
-- **Statut** : proposé (à valider par Marius)
+- **Statut** : accepté (2026-10-22, par Marius, en fin de phase 1 ; les changements passent par des amendements explicites)
 - **Date** : 2026-10-20 (amendé le même jour pour alignement sur l'ADR-002, puis en phase 1 : `removeConfirmKey`, durcissement de l'opener)
 - **Auteur** : architect (Opus)
 - **Liens** : `docs/PLAN.md` §3 « Contrat Widget », §4, §5, §6 ; `docs/ROADMAP.md` phases 0 et 1 ; `docs/adr/002-data-layer.md` (couche de données)

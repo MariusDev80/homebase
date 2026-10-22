@@ -24,7 +24,9 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 - [x] (S) Widgets : TODO, notes, raccourcis (liens), recherche (`UrlOpener` + opener restreint ; recherche insensible à la casse ASCII seulement, pas aux accents)
 - [x] (S) Widget météo Open-Meteo (+ géocodage) (`docs/specs/weather-widget.md` ; commandes Rust `weather_*` sur le module `net` ; vérifications manuelles CA-W1-M et CA-M* à faire par Marius)
 - [x] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration (spec `docs/specs/backup-restore.md`, lots B1a à B6, chaque lot revu ; vérifications manuelles M1 à M9 et M11 à faire par Marius ; M10 (sauvegarde avant migration) à vérifier à la première migration V4, en phase 2)
-- [x] (O) ADR-003 : modèle de temps (UTC + IANA + RRULE) (`docs/adr/003-time-model.md`, statut proposé ; revu, décisions D1 à D3 validées par Marius)
+- [x] (O) ADR-003 : modèle de temps (UTC + IANA + RRULE) (`docs/adr/003-time-model.md`, accepté ; décisions D1 à D3 validées par Marius)
+- [ ] (S) Instance unique : `tauri-plugin-single-instance` enregistré avant le plugin de sauvegarde ; relancer Homebase remet au premier plan la fenêtre existante (revue de fin de phase 1, I2)
+- [x] (O) Revue de fin de phase 1 (jalon atteint sous réserve des vérifications manuelles de Marius ; ADR-001 à 003 acceptés)
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
 
 ## Phase 2 : Temps
@@ -38,6 +40,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.
 
 ## Phase 3 : Données externes et applications locales
+- [ ] (O→S) **Avant tout contenu externe** : O3 de l'ADR-002, remplacer `sql:allow-execute`/`sql:allow-select` par des commandes Rust typées (un XSS ne doit plus donner d'accès SQL complet ni d'écriture de fichier via `ATTACH`/`VACUUM INTO`) ; durcir les tests de capabilities (CSP comparée en chaîne exacte, liste exacte de `debug.json`)
 - [ ] (H, scout) Lister les flux RSS des sources de Marius
 - [ ] (O) Spec du client HTTP sortant en Rust (liste d'hôtes, anti-SSRF, exception NAS)
 - [ ] (S) Widget RSS

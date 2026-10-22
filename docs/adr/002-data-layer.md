@@ -1,6 +1,6 @@
 # ADR-002 : Couche de données (SQLite, migrations, repositories)
 
-- **Statut** : proposé (à valider par Marius)
+- **Statut** : accepté (2026-10-22, par Marius, en fin de phase 1 ; les changements passent par des amendements explicites)
 - **Date** : 2026-10-20 (amendé le 2026-10-22 : sauvegarde/restauration)
 - **Décideur** : architect (Opus), validation Marius
 - **Liens** : `docs/PLAN.md` §3, §4, §6, §9 ; `docs/ROADMAP.md` phase 0 ; ADR-001 (contrat Widget, rédigé en parallèle, non modifié ici)
@@ -620,6 +620,6 @@ Commandes de sauvegarde et de restauration, images, écran d'erreur de démarrag
 ## 7. Points ouverts
 - **O1** (phase 1) : sauvegarde automatique avant migration et message d'erreur natif si une migration échoue au `preload` (au lieu d'une panique). **Partiellement traité (sauvegarde avant migration ; écran d'erreur natif complet en phase 6).**
 - **O2** (phase 2) : accès du planificateur Rust à la base (connexion sqlx séparée sur le même fichier, ou réutilisation de l'état `DbInstances` du plugin), à trancher dans la spec du planificateur. **Partiellement traité : connexion sqlx dédiée par opération en place (spec backup-restore).**
-- **O3** (phase 6, audit) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1.
+- **O3** (avancé avant la phase 3, décision de Marius du 2026-10-22 : à faire avant le premier contenu externe affiché, RSS ou Markdown) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1.
 - **O4** (phase 6, E2E Playwright) : tests contre l'application Tauri (`tauri-driver`) ou un `SqlExecutor` navigateur (sql.js). Le front hors Tauri n'a pas de base aujourd'hui.
 - **O5** (clos : ADR-001 l.87 y répond) : alignement avec l'ADR-001 sur le format de `widget_type` et la représentation de la config versionnée, à faire **avant** la fusion de V1 sur `main`.

@@ -1,6 +1,6 @@
 # ADR-003 : Modèle de temps (instants UTC, dates murales, fuseau IANA, RRULE)
 
-- **Statut** : proposé (P1 à P3 validés par Marius le 2026-10-20 ; acceptation globale en attente)
+- **Statut** : accepté (2026-10-22, par Marius, en fin de phase 1 ; les changements passent par des amendements explicites)
 - **Date** : 2026-10-20 (révisé le même jour après revue indépendante)
 - **Auteur** : architect (Opus)
 - **Liens** : `docs/PLAN.md` §2 (Récurrence, Timers), §4 « Temps », §9 ; `docs/ROADMAP.md` phases 1 et 2 ; `docs/adr/001-widget-contract.md` §3.2, §3.8, §7.1 (`CalendarSource` provisoire) ; `docs/adr/002-data-layer.md` §3.3 (conventions de colonnes), §3.2 (migrations), §6.6 (`Clock`, `provideDataLayer`), O2 (accès Rust à la base)
