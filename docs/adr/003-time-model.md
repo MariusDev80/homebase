@@ -759,6 +759,8 @@ src/time/recurrence/mod.rs        (types, parse/format canoniques, validation)
 src/time/recurrence/engine.rs     (SEUL fichier qui importe la crate rrule / chrono)
 src/time/commands.rs
 ```
+> `src/time/mod.rs`, `clock.rs`, `error.rs` (enum `TimeError` complète de l'ADR-003 §8.9, conformément à D4), `formats.rs` (`format_instant`, `parse_instant`) et `clippy.toml` existent déjà (spec backup-restore, B1a), ainsi que `jiff = "0.2"`. Le lot B les complète sans en changer les signatures.
+
 Modifier : `Cargo.toml` (`jiff`, `rrule = "=0.14.0"`, `chrono` seulement si nécessaire) ; `src/lib.rs` (`mod time;` + enregistrement des 2 commandes dans `invoke_handler`) ; `build.rs` (ajouter `"time_validate"`, `"time_expand"` à `AppManifest::commands`) ; `capabilities/default.json` (ajouter `"allow-time-validate"`, `"allow-time-expand"`).
 
 TS, créer :

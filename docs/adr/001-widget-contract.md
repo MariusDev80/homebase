@@ -152,7 +152,9 @@ Format JSON d'export de la configuration (implémenté en phase 1, figé ici) :
   ]
 }
 ```
-Règles d'import (à détailler en phase 1, principes figés ici) : le fichier est une **donnée non fiable** ; taille max 1 Mio ; `format` exact et `formatVersion` ≤ supportée sinon refus ; ids en double dans le fichier → refus ; chaque config passe par `resolveConfig` ; type inconnu → instance conservée telle quelle (placeholder) ; import = **remplacement complet** des dashboards. Comme le front n'a pas de transaction (ADR-002 §2.3), ce remplacement atomique nécessitera **une commande Rust dédiée (transaction sqlx) ou une instruction SQL unique**, à concevoir en phase 1 (spec Opus).
+*Amendement phase 1 (spec backup-restore)* : `exportedAt`, `dashboards` et `"settings": { "<clé>": <JsonValue> }` (éventuellement vide) sont **obligatoires**. L'enveloppe est stricte. Les clés secrètes sont exclues à l'export et refusées à l'import. Import = **remplacement par identifiant** (décision de Marius) : lignes existantes mises à jour en place, y compris une instance qui change de dashboard ; `widgetType` différent → suppression puis recréation ; dashboards et widgets absents supprimés avec leurs données, après aperçu et sauvegarde `pre-import` ; `settings` fusionné ; au moins un dashboard. Le tout est appliqué atomiquement par `config_import_apply` (`BEGIN IMMEDIATE`). `future-version` et types inconnus sont conservés tels quels ; toute autre config invalide fait refuser le fichier. Les longueurs se comptent en points de code ; `trim` = `HB_TRIM`. U+0000 est refusé dans les noms et les types ; la profondeur JSON est limitée à 127.
+
+Règles d'import (principes ; détail et implémentation : amendement ci-dessus et `docs/specs/backup-restore.md` §4.12) : le fichier est une **donnée non fiable** ; taille max 1 Mio ; `format` exact et `formatVersion` ≤ supportée sinon refus ; ids en double dans le fichier → refus ; chaque config passe par `resolveConfig` ; type inconnu → instance conservée telle quelle (placeholder) ; import = **remplacement par identifiant** (voir l'amendement), appliqué atomiquement par la commande Rust `config_import_apply` (transaction sqlx `BEGIN IMMEDIATE`), le front n'ayant pas de transaction (ADR-002 §2.3).
 
 ### 3.6 Communication widget ↔ core
 - Le widget obtient tout ce qui le concerne via `injectWidgetContext<TConfig>()` : `instanceId`, `type`, `config` (signal typé), `size` (signal), `permissions`, `updateConfig(next)`.
@@ -244,7 +246,7 @@ Config v1 `{ name: string }` (1 à 40 caractères après `trim`, défaut `"monde
 1. Forme définitive de `CalendarSource` / `CalendarEvent` : ADR-003/004.
 2. Plusieurs dashboards affichés (navigation entre dashboards) : le modèle de données les supporte (ADR-002), l'interface reste mono-dashboard en phases 0 et 1.
 3. Permission `secrets` (GitHub, phase 6) : à ajouter par amendement quand le besoin arrive.
-4. Import/remplacement atomique (phase 1) : commande Rust ou instruction unique (§3.5).
+4. Import/remplacement atomique (phase 1) : commande Rust ou instruction unique (§3.5). **Clos (spec backup-restore).**
 
 Points clos : mécanisme i18n (Transloco, clés runtime) ; nommage SQL/TS de la couche données (ADR-002) ; lib de grille de phase 1 (angular-gridster2 21.x, repli gridstack).
 

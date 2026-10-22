@@ -52,7 +52,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 - [ ] (H, scout) Réévaluer les agrégateurs bancaires (Bridge, Enable Banking, Powens)
 
 ## Phase 5 : Page « Ressources » (blog perso)
-- [ ] (O) ADR-006 : modèle (article Markdown, catégories hiérarchiques, tags, images), index de recherche
+- [ ] (O) ADR-006 : modèle (article Markdown, catégories hiérarchiques, tags, images), index de recherche (images : png, jpg, jpeg, webp, gif, avif avec signature binaire, écriture temporaire puis renommage — voir spec backup-restore §10.7)
 - [ ] (S) CRUD articles : éditeur Markdown avec aperçu, rendu assaini
 - [ ] (S) Catégories en arbre + tags, navigation et filtres
 - [ ] (S) Images : ajout/collage, redimensionnement, fichiers dans le dossier de données
@@ -64,7 +64,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 - [ ] (S) GitHub stats (jeton dans le coffre du système), ressources système (basse priorité)
 - [ ] (S) Accessibilité, raccourcis clavier, tests E2E des parcours critiques
 - [ ] (O) Audit sécurité global (capacités Tauri, CSP, dépendances Rust et npm)
-- [ ] (S) Sauvegardes automatiques (base + images, copie vers le NAS), documentation d'utilisation
+- [ ] (S) Sauvegardes automatiques (base + images, copie vers le NAS ; rétention configurable, emplacement secondaire, écran d'erreur natif complet), documentation d'utilisation
 
 ## Hors périmètre (volontairement)
 Serveur, Spring Boot, PostgreSQL/Flyway, Docker, synchronisation multi-appareils, mobile : l'application n'est utilisée que sur le PC de Marius. À rouvrir uniquement si ce besoin change (ADR dédié).

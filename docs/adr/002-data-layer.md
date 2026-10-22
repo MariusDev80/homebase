@@ -1,7 +1,7 @@
 # ADR-002 : Couche de données (SQLite, migrations, repositories)
 
 - **Statut** : proposé (à valider par Marius)
-- **Date** : 2026-10-20
+- **Date** : 2026-10-20 (amendé le 2026-10-22 : sauvegarde/restauration)
 - **Décideur** : architect (Opus), validation Marius
 - **Liens** : `docs/PLAN.md` §3, §4, §6, §9 ; `docs/ROADMAP.md` phase 0 ; ADR-001 (contrat Widget, rédigé en parallèle, non modifié ici)
 
@@ -99,9 +99,9 @@ Les tests de `data/` tournent dans une config Vitest séparée (environnement `n
 ### 2.7 Images et sauvegardes (décision de principe ; implémentation en phase 1, 5 et 6)
 - **Racine des données Homebase** = dossier de la base = `app_config_dir()` = `%APPDATA%\<identifier>\` (F6, F7). Les images vont dans `<racine>\images\`, nommées `<uuid>.<ext>`, jamais modifiées sur place (une nouvelle version = un nouveau fichier). On n'utilise volontairement pas `app_data_dir()`, identique sous Windows (F7), pour garder une racine unique et une sauvegarde simple.
 - En base : **chemin relatif POSIX** (`images/<uuid>.webp`), jamais absolu. Côté Rust, résolution par rapport à la racine avec refus de `..`, des chemins absolus et des lecteurs ; le chemin canonique doit rester sous `<racine>\images`. Aucune table d'images en V1 (ADR-006, phase 5).
-- **Sauvegarde** : `VACUUM INTO '<racine>\backups\homebase-<horodatage UTC>.db'` exécuté par une **commande Rust** (pas par le front), puis archive zip avec `images/`, puis copie vers le NAS en phase 6, en gardant les N dernières. Une copie brute du fichier en WAL est interdite tant que l'application tourne (le fichier `-wal` contient des transactions validées).
-- **Restauration** : jamais à chaud. On dépose `homebase.db.restore`. Au démarrage suivant, **avant** l'enregistrement du plugin SQL, Rust remplace `homebase.db` et supprime `-wal` et `-shm`.
-- **Avant migration** (phase 1, O1) : copie de `homebase.db` (+ `-wal` si présent) avant le `preload`, quand le binaire embarque une version de schéma supérieure à celle de la base.
+- **Sauvegarde** (phase 1, `docs/specs/backup-restore.md`) : commande Rust ; instantané `VACUUM INTO` par une connexion sqlx dédiée en lecture seule (`sqlx` 0.8 direct) ; archive `backupshomebase-<stamp UTC>-<kind>.zip` (base, `images/`, `manifest.json` avec version de schéma et SHA-256), écrite en `.tmp` puis renommée. Rétention : 10 manuelles, 7 quotidiennes, 5 de sécurité, 3 avant migration. Automatiques : quotidienne (application ouverte), avant migration et avant import (base seule), avant restauration. NAS en phase 6. Une copie brute du fichier en WAL reste interdite tant que l'application tourne, sauf la copie de secours `pre-restore-raw` décrite ci-dessous.
+- **Restauration** : jamais à chaud. Validation complète (liste blanche, limites, SHA-256, signatures d'images, `integrity_check`, `_sqlx_migrations` vérifiée, toutes les lignes de `sqlite_schema` comparées aux migrations du binaire, version ≤ courante), sauvegarde `pre-restore`, dépôt du **dossier** `restore-pending\`, puis redémarrage. Au démarrage, un plugin interne enregistré **avant** le plugin SQL échange les fichiers ; les originaux et leurs compagnons `-wal`/`-shm`/`-journal` vont dans `restore-rollback\`. La confirmation (dans le setup de l'app, seulement si l'échange a eu lieu dans ce processus) renomme atomiquement ce dossier en `restore-rollback.confirmed-*` avant de le supprimer. Sans confirmation : retour à l'état d'origine. Si le retour arrière est impossible, le démarrage est refusé (message natif). Un verrou de processus `homebase.lock` fait refuser toute seconde instance avant toute opération. Un rollback qui laisse des résidus les conserve dans `restore-rollback.leftover-*`, et une restauration abandonnée dont `restore-pending\` ne peut être supprimé devient `restore-pending.discarded-*` (jamais réappliquée). Quand l'instantané `pre-restore` échoue pour cause de corruption (codes SQLite 11 et 26, étendus 776, 264, 1288, 522), une copie brute `pre-restore-raw` de la base et de ses compagnons sert de filet de secours (détails : spec backup-restore §4.8).
+- **Avant migration** : instantané (base seule) avant le `preload` quand le binaire est plus récent que la base. Rien si la base est absente.
 - Exports JSON (phase 1) : configuration seulement, jamais de secrets (aucun secret n'est stocké en base, §3.4).
 
 ---
@@ -179,7 +179,7 @@ Négatives et coûts :
 | R3. Migration modifiée après application | Démarrage impossible (F4) | Manifeste de checksums en CI + revue |
 | R4. Rétrogradation (ancien binaire sur une base plus récente) : `VersionMissing` | Démarrage impossible | Ne jamais rétrograder sans restaurer une sauvegarde. Le documenter en phase 6 |
 | R5. Échec de migration (bug SQL non couvert) | Démarrage impossible, base intacte (transaction annulée, F3) | Tests de migration sur une base vierge **et** sur une base au schéma précédent avec données (à partir de V2). O1 : écran d'erreur natif + sauvegarde avant migration |
-| R6. Fichier de base supprimé ou corrompu : le plugin recrée une base vide (`auto_create`) | Perte apparente des données | Sauvegardes (phase 1/6). Signaler à l'interface une base vide quand une sauvegarde existe (phase 1) |
+| R6. Fichier de base supprimé ou corrompu : le plugin recrée une base vide (`auto_create`) | Perte apparente des données | Sauvegardes (phase 1/6, voir `docs/specs/backup-restore.md`). Signaler à l'interface une base vide quand une sauvegarde existe (phase 1) |
 | R7. Changement d'`identifier` : nouveau dossier de données | Données « perdues » | Figer l'`identifier` à l'initialisation. Le changer exige une migration de dossier |
 | R8. SQLite embarquée par sqlx plus ancienne que 3.38 (S1) | V1 échoue (STRICT, `json_valid`, `UPDATE FROM`) | Critère A10 : contrôle de `sqlite_version()` au premier lancement |
 | R9. better-sqlite3 sans binaire précompilé pour la version de Node | `test:data` ne s'installe pas | Build Tools C++ déjà présents. Repli `node:sqlite` (même interface `SqlExecutor`) |
@@ -618,8 +618,8 @@ Commandes de sauvegarde et de restauration, images, écran d'erreur de démarrag
 ---
 
 ## 7. Points ouverts
-- **O1** (phase 1) : sauvegarde automatique avant migration et message d'erreur natif si une migration échoue au `preload` (au lieu d'une panique).
-- **O2** (phase 2) : accès du planificateur Rust à la base (connexion sqlx séparée sur le même fichier, ou réutilisation de l'état `DbInstances` du plugin), à trancher dans la spec du planificateur.
+- **O1** (phase 1) : sauvegarde automatique avant migration et message d'erreur natif si une migration échoue au `preload` (au lieu d'une panique). **Partiellement traité (sauvegarde avant migration ; écran d'erreur natif complet en phase 6).**
+- **O2** (phase 2) : accès du planificateur Rust à la base (connexion sqlx séparée sur le même fichier, ou réutilisation de l'état `DbInstances` du plugin), à trancher dans la spec du planificateur. **Partiellement traité : connexion sqlx dédiée par opération en place (spec backup-restore).**
 - **O3** (phase 6, audit) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1.
 - **O4** (phase 6, E2E Playwright) : tests contre l'application Tauri (`tauri-driver`) ou un `SqlExecutor` navigateur (sql.js). Le front hors Tauri n'a pas de base aujourd'hui.
 - **O5** : alignement avec l'ADR-001 sur le format de `widget_type` et la représentation de la config versionnée, à faire **avant** la fusion de V1 sur `main`.

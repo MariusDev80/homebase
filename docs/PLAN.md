@@ -32,6 +32,7 @@ Ce que Tauri complique :
 | Timers | Web Worker (UI) + horloge Rust (rappels) | Fiable même fenêtre réduite |
 | Notifications | `tauri-plugin-notification`, tray, `autostart` | Natif Windows |
 | HTTP sortant | `reqwest` 0.13.5 (`default-features = false`, feature `native-tls` : TLS de Windows), module Rust `net`, appelé uniquement par des commandes dédiées | Pas de `tauri-plugin-http` ni de réseau depuis le front (CSP inchangée) ; rustls par défaut écarté (aws-lc exige NASM sous Windows). Voir `docs/specs/weather-widget.md` (décidé le 21/10/2026) |
+| Sauvegarde et fichiers natifs | `tauri-plugin-dialog` (dialogues ouverts par Rust uniquement, aucune permission JS ; ESLint `no-alert` car son script injecté remplace `alert`/`confirm`) ; `rfd` direct pour le message natif de démarrage bloqué ; archives `zip` 9 ; accès Rust à la base via `sqlx` 0.8 (même version que `tauri-plugin-sql`) | Voir `docs/specs/backup-restore.md` |
 | Mise à jour | `tauri-plugin-updater` (binaires signés) | Phase finitions |
 | CI | GitHub Actions, runner `windows-latest` | Build de l'installateur |
 
