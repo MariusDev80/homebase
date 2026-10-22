@@ -28,4 +28,5 @@ export { BackupStatusStore } from './backup-status.store';
 export type { ExclusiveOperation } from './backup-status.store';
 export { backupErrorText, importIssueText } from './backup-error-text';
 export { formatBytes } from './format-bytes';
+export { RAW_SAFETY_COPY_PATTERN, rawSafetyCopyInstant } from './raw-safety-copy';
 export { RELOAD_PAGE } from './reload-page';

@@ -2,7 +2,7 @@
 
 use super::error::BackupError;
 use super::fsutil::{remove_with_retry, write_json_atomic};
-use super::names::BackupKind;
+use super::names::{is_raw_copy_dir_name, BackupKind};
 use super::paths::DataRoot;
 use crate::time::formats::format_instant;
 use jiff::Timestamp;
@@ -34,6 +34,8 @@ pub struct BackupStatus {
     pub db_missing_alert: bool,
     pub pre_migration_failed: bool,
     pub last_auto_error: Option<BackupError>,
+    /// Names (never paths) of the `homebase-<stamp>-pre-restore-raw` folders, newest first.
+    pub raw_safety_copies: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,7 +133,34 @@ pub fn read_status(root: &DataRoot, last_auto_error: Option<BackupError>) -> Bac
         db_missing_alert: db_missing_alert(root),
         pre_migration_failed: pre_migration_failed(root),
         last_auto_error,
+        raw_safety_copies: list_raw_safety_copies(root),
     }
+}
+
+/// Upper bound of the raw safety copies reported to the front.
+const MAX_RAW_SAFETY_COPIES: usize = 20;
+
+/// Names of the valid raw safety copy folders directly under `backups\`, newest first, bounded.
+/// Files, symbolic links and invalid names are ignored. Blocking.
+pub fn list_raw_safety_copies(root: &DataRoot) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(root.backups()) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_str().map(str::to_owned)?;
+            if !is_raw_copy_dir_name(&name) {
+                return None;
+            }
+            let meta = fs::symlink_metadata(entry.path()).ok()?;
+            meta.is_dir().then_some(name)
+        })
+        .collect();
+    // Fixed-width UTC stamp: the lexical order is the chronological order.
+    names.sort_by(|a, b| b.cmp(a));
+    names.truncate(MAX_RAW_SAFETY_COPIES);
+    names
 }
 
 #[cfg(test)]
@@ -168,6 +197,7 @@ mod tests {
                 db_missing_alert: false,
                 pre_migration_failed: false,
                 last_auto_error: None,
+                raw_safety_copies: Vec::new(),
             }
         );
     }
@@ -252,6 +282,60 @@ mod tests {
         assert!(!pre_migration_failed(&root));
         assert!(startup_blocked_exists(&root));
         acknowledge(&root).expect("idempotent");
+    }
+
+    #[test]
+    fn raw_safety_copies_lists_valid_folders_only_newest_first() {
+        let (_d, root) = root();
+        assert!(list_raw_safety_copies(&root).is_empty());
+        let backups = root.backups();
+        fs::create_dir_all(&backups).expect("mkdir");
+        let old = "homebase-20261020T081500.123Z-pre-restore-raw";
+        let new = "homebase-20261021T081500.123Z-pre-restore-raw";
+        for name in [old, new] {
+            fs::create_dir(backups.join(name)).expect("dir");
+        }
+        // Ignored: a file with a valid name, invalid names, another kind, a nested folder.
+        fs::write(
+            backups.join("homebase-20261022T081500.123Z-pre-restore-raw"),
+            b"x",
+        )
+        .expect("file");
+        for bad in [
+            "homebase-bad-pre-restore-raw",
+            "homebase-20261022T081500.123Z-manual-raw",
+            "homebase-20261022T081500.123Z-pre-restore-raw-x",
+            "homebase-20261322T081500.123Z-pre-restore-raw",
+            "x-20261022T081500.123Z-pre-restore-raw",
+        ] {
+            fs::create_dir(backups.join(bad)).expect("dir");
+        }
+        fs::create_dir_all(
+            backups
+                .join(new)
+                .join("homebase-20261023T081500.123Z-pre-restore-raw"),
+        )
+        .expect("nested");
+        let status = read_status(&root, None);
+        assert_eq!(status.raw_safety_copies, [new, old]);
+        let json = serde_json::to_value(&status).expect("json");
+        assert_eq!(json["rawSafetyCopies"], serde_json::json!([new, old]));
+        // Names only: no path separator anywhere in the DTO.
+        assert!(!json["rawSafetyCopies"].to_string().contains(['\\', '/']));
+    }
+
+    #[test]
+    fn raw_safety_copies_are_bounded() {
+        let (_d, root) = root();
+        for day in 1..=25 {
+            fs::create_dir_all(root.backups().join(format!(
+                "homebase-202610{day:02}T081500.123Z-pre-restore-raw"
+            )))
+            .expect("dir");
+        }
+        let names = list_raw_safety_copies(&root);
+        assert_eq!(names.len(), 20);
+        assert_eq!(names[0], "homebase-20261025T081500.123Z-pre-restore-raw");
     }
 
     #[test]

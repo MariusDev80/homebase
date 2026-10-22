@@ -323,6 +323,7 @@
     },
     "status": {
       "last": "Dernière sauvegarde : {{ age }}.",
+      "rawCopy": "Une copie brute de l'ancienne base a été conservée ({{ age }}) ; supprimez-la du dossier des sauvegardes quand vous n'en avez plus besoin.",
       "none": "Aucune sauvegarde pour l'instant.",
       "autoError": "La dernière sauvegarde automatique a échoué : {{ reason }}"
     },
@@ -365,6 +366,7 @@
         "failed": "La restauration a échoué : l'état précédent a été conservé. Vous pouvez réessayer."
       },
       "preMigrationFailed": "La sauvegarde automatique avant mise à jour a échoué.",
+      "rawCopy": "Une copie brute de l'ancienne base a été conservée dans le dossier des sauvegardes.",
       "dismissError": "Impossible d'ignorer ce message."
     },
     "errors": {

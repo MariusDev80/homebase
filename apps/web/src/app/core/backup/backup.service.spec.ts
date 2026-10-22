@@ -39,6 +39,7 @@ const overview = {
     dbMissingAlert: false,
     preMigrationFailed: true,
     lastAutoError: { kind: 'disk_full' },
+    rawSafetyCopies: ['homebase-20261021T081500.123Z-pre-restore-raw'],
   },
   supportedSchemaVersion: 25,
 };
@@ -312,6 +313,18 @@ describe('BackupService', () => {
       const status = { ...overview.status, lastAutoError: { kind: 'database', code: '5' } };
       invokeMock.mockResolvedValue({ ...overview, status });
       expect((await service.overview()).status.lastAutoError).toEqual({ kind: 'busy' });
+    });
+
+    it('refuses a raw safety copy name that is not a strict folder name', async () => {
+      for (const bad of ['C:\\backups\\homebase-20261021T081500.123Z-pre-restore-raw', '..', 'x']) {
+        const status = { ...overview.status, rawSafetyCopies: [bad] };
+        invokeMock.mockResolvedValue({ ...overview, status });
+        expect((await rejection(service.overview())).dto).toEqual({ kind: 'unknown' });
+      }
+      invokeMock.mockResolvedValue(overview);
+      expect((await service.overview()).status.rawSafetyCopies).toEqual([
+        'homebase-20261021T081500.123Z-pre-restore-raw',
+      ]);
     });
 
     it('refuses a malformed token or application version', async () => {

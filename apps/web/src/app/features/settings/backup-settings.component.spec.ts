@@ -34,6 +34,7 @@ const overviewOf = (
     dbMissingAlert: false,
     preMigrationFailed: false,
     lastAutoError: null,
+    rawSafetyCopies: [],
     ...status,
   },
   supportedSchemaVersion: 4,
@@ -169,6 +170,28 @@ describe('BackupSettingsComponent', () => {
     expect(el.querySelector('[data-testid="backup-auto-error"]')?.textContent).toContain(
       'Espace disque insuffisant.',
     );
+  });
+
+  it('reminds of the raw copy with a relative age derived from the newest folder name', async () => {
+    const { el } = await setup(
+      true,
+      overviewOf([], {
+        rawSafetyCopies: [
+          'homebase-20261021T081500.123Z-pre-restore-raw',
+          'homebase-20261001T081500.123Z-pre-restore-raw',
+        ],
+      }),
+    );
+    const text = el.querySelector('[data-testid="backup-raw-copy"]')?.textContent ?? '';
+    expect(text).toContain("Une copie brute de l'ancienne base a été conservée (il y a 1 jour)");
+    expect(text).toContain('supprimez-la du dossier des sauvegardes');
+    expect(text).not.toContain('homebase-');
+    expect(el.querySelector('[data-testid="backup-open-folder"]')).not.toBeNull();
+  });
+
+  it('shows no raw copy reminder when there is none', async () => {
+    const { el } = await setup(true, overviewOf([]));
+    expect(el.querySelector('[data-testid="backup-raw-copy"]')).toBeNull();
   });
 
   it('creates a backup, refreshes and disables the buttons meanwhile', async () => {

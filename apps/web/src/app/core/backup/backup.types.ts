@@ -51,6 +51,8 @@ export interface BackupStatus {
   readonly dbMissingAlert: boolean;
   readonly preMigrationFailed: boolean;
   readonly lastAutoError: BackupErrorDto | null;
+  /** Names (never paths) of the raw safety copy folders, newest first. */
+  readonly rawSafetyCopies: readonly string[];
 }
 
 export interface BackupOverview {

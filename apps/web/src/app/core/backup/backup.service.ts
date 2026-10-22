@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import * as v from 'valibot';
 import { isTauriRuntime } from '../../tauri-runtime';
+import { RAW_SAFETY_COPY_PATTERN } from './raw-safety-copy';
 import {
   ARCHIVE_PROBLEMS,
   BACKUP_KINDS,
@@ -73,6 +74,10 @@ const overviewSchema = v.object({
       }),
     ),
     dbMissingAlert: v.boolean(),
+    rawSafetyCopies: v.pipe(
+      v.array(v.pipe(v.string(), v.regex(RAW_SAFETY_COPY_PATTERN))),
+      v.maxLength(20),
+    ),
     preMigrationFailed: v.boolean(),
     lastAutoError: v.nullable(
       v.pipe(

@@ -10,6 +10,7 @@ const overview: BackupOverview = {
     dbMissingAlert: true,
     preMigrationFailed: true,
     lastAutoError: null,
+    rawSafetyCopies: [],
   },
   supportedSchemaVersion: 4,
 };

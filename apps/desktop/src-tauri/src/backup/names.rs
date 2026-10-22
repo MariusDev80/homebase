@@ -116,6 +116,17 @@ impl BackupName {
     }
 }
 
+const RAW_COPY_SUFFIX: &str = "-pre-restore-raw";
+
+/// Strict check of the name of a raw safety copy folder (`homebase-<stamp>-pre-restore-raw`, the
+/// stamp being the one of `BackupName::stamp`). Same stamp rules as an archive name.
+pub fn is_raw_copy_dir_name(name: &str) -> bool {
+    let Some(inner) = name.strip_suffix(RAW_COPY_SUFFIX) else {
+        return false;
+    };
+    BackupName::parse(&format!("{inner}-pre-restore{SUFFIX}")).is_some()
+}
+
 /// Lowercase `8-4-4-4-12` hexadecimal shape.
 pub fn is_uuid_shape(s: &str) -> bool {
     let b = s.as_bytes();

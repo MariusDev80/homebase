@@ -14,6 +14,7 @@ const base: BackupStatus = {
   dbMissingAlert: false,
   preMigrationFailed: false,
   lastAutoError: null,
+  rawSafetyCopies: [],
 };
 
 async function setup(available: boolean, status: Partial<BackupStatus>) {
@@ -118,6 +119,27 @@ describe('BackupAlertComponent', () => {
   it('shows the failed pre-migration backup', async () => {
     const { text } = await setup(true, { preMigrationFailed: true });
     expect(text('alert-pre-migration')).toContain('avant mise à jour a échoué');
+  });
+
+  it('mentions the raw copy of the old database after an applied restoration only', async () => {
+    const raw = ['homebase-20261021T081500.123Z-pre-restore-raw'];
+    const applied = {
+      outcome: 'applied',
+      at: '2026-10-22T09:00:00.000Z',
+      backupCreatedAt: null,
+      backupKind: null,
+    } as const;
+    const withCopy = await setup(true, { lastRestore: applied, rawSafetyCopies: raw });
+    expect(withCopy.text('alert-raw-copy')).toContain("copie brute de l'ancienne base");
+    TestBed.resetTestingModule();
+    const without = await setup(true, { lastRestore: applied });
+    expect(without.el.querySelector('[data-testid="alert-raw-copy"]')).toBeNull();
+    TestBed.resetTestingModule();
+    const failed = await setup(true, {
+      lastRestore: { ...applied, outcome: 'failed' },
+      rawSafetyCopies: raw,
+    });
+    expect(failed.el.querySelector('[data-testid="alert-raw-copy"]')).toBeNull();
   });
 
   it('acknowledges on "Ignorer" and hides the banner', async () => {

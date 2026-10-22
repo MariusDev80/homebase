@@ -34,6 +34,17 @@ import { BackupStatusStore } from './backup-status.store';
               <i class="pi pi-history" aria-hidden="true"></i>
               {{ restoreText() }}
             </p>
+            @if (rawCopyMention()) {
+              <p class="flash flash-attention" data-testid="alert-raw-copy">
+                <i class="pi pi-folder-open" aria-hidden="true"></i>
+                <span>
+                  {{ 'backup.alert.rawCopy' | transloco }}
+                  <a routerLink="/settings" fragment="backups" class="font-semibold underline">{{
+                    'backup.alert.seeBackups' | transloco
+                  }}</a>
+                </span>
+              </p>
+            }
           }
           @if (dbMissing()) {
             <p class="flash flash-danger" data-testid="alert-db-missing">
@@ -82,6 +93,12 @@ export class BackupAlertComponent implements OnInit {
   protected readonly dbMissing = computed(() => this.store.status()?.dbMissingAlert === true);
   protected readonly preMigrationFailed = computed(
     () => this.store.status()?.preMigrationFailed === true,
+  );
+  /** Only after an applied restoration: the old database was copied raw (spec 4.8). */
+  protected readonly rawCopyMention = computed(
+    () =>
+      this.restore()?.outcome === 'applied' &&
+      (this.store.status()?.rawSafetyCopies.length ?? 0) > 0,
   );
   protected readonly visible = computed(
     () => this.restore() !== null || this.dbMissing() || this.preMigrationFailed(),

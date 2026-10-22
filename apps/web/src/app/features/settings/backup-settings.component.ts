@@ -17,6 +17,7 @@ import {
   BackupStatusStore,
   backupErrorText,
   formatBytes,
+  rawSafetyCopyInstant,
   toBackupError,
 } from '../../core/backup';
 import type { BackupErrorDto, BackupInfo, RestoreSource } from '../../core/backup';
@@ -89,6 +90,13 @@ interface BackupRow {
                 {{ 'backup.alert.preMigrationFailed' | transloco }}
               </p>
             }
+          }
+
+          @if (rawCopyText(); as rawText) {
+            <p class="flash flash-attention" data-testid="backup-raw-copy">
+              <i class="pi pi-folder-open" aria-hidden="true"></i>
+              {{ rawText }}
+            </p>
           }
 
           @if (store.overview() === null) {
@@ -330,6 +338,18 @@ export class BackupSettingsComponent implements OnInit {
         tooNew,
         canRestore: !info.damaged && !tooNew,
       };
+    });
+  });
+
+  /** Reminder while a raw safety copy of an old database sits in the backups folder. */
+  protected readonly rawCopyText = computed(() => {
+    this.ageTick();
+    const newest = this.store.status()?.rawSafetyCopies[0];
+    if (newest === undefined) return null;
+    const instant = rawSafetyCopyInstant(newest);
+    return this.transloco.translate('backup.status.rawCopy', {
+      age:
+        instant === null ? this.transloco.translate('backup.unknownDate') : this.formatAge(instant),
     });
   });
 
