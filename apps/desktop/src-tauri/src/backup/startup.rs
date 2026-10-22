@@ -222,6 +222,12 @@ fn show_blocking_message(root: &DataRoot) {
     dialogs::show_startup_blocked(root.path());
 }
 
+/// Native blocking message for a restoration that could not be confirmed. A no-op under
+/// `cfg(test)`.
+fn show_confirm_failed_message(root: &DataRoot) {
+    dialogs::show_confirm_failed(root.path());
+}
+
 /// R6 (spec D8): the database is absent while at least one archive (valid name, regular file)
 /// exists in `backups\`.
 pub fn detect_missing_db(root: &DataRoot) -> bool {
@@ -264,8 +270,15 @@ fn pre_migration(root: &DataRoot, clock: &dyn Clock) {
     let current = match tauri::async_runtime::block_on(read_schema_version(&root.db())) {
         Ok(current) => current,
         Err(e) => {
-            // Unreadable database: nothing to decide here, the SQL plugin will report it.
+            // Valid header but unreadable: the SQL plugin would migrate it with no safety copy,
+            // so the marker tells the user (the startup goes on, as for a failed copy).
             eprintln!("startup: cannot read the schema version: {e:?}");
+            if let Err(e) = write_pre_migration_failed(root, clock.now()) {
+                eprintln!(
+                    "startup: cannot write pre-migration-failed.json: {:?}",
+                    e.kind()
+                );
+            }
             return;
         }
     };
@@ -337,7 +350,16 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
     let state = app.state::<BackupState>();
     if let Err(e) = confirm_restore(&state.root, state.clock.as_ref(), state.swap_info.as_ref()) {
-        show_blocking_message(&state.root);
+        // Tauri creates the `main` window before `.setup()` and the SQL plugin has already opened
+        // the restored database; the message box pumps messages, so the WebView could load
+        // Angular and accept data that the next rollback would lose. The main thread is blocked
+        // here (the front is not running yet): destroy the window before showing anything.
+        if let Some(window) = app.get_webview_window("main") {
+            if let Err(e) = window.destroy() {
+                eprintln!("startup: cannot destroy the main window: {e}");
+            }
+        }
+        show_confirm_failed_message(&state.root);
         return Err(Box::new(e));
     }
     super::daily::spawn(app);

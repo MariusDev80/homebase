@@ -445,6 +445,12 @@ Conséquences assumées :
 - **Confirmation.** La `RestoreInfo` de l'échange est transmise en mémoire du démarrage à la confirmation (`confirm_restore`) ; la confirmation ne relit pas le fichier. L'étape 2 du démarrage n'écrit `applied` que si `last-restore.json` est absent ou antérieur au `startedAt` du dossier confirmé.
 - **Base vivante corrompue (à implémenter en B3).** Si l'instantané `pre-restore` (`VACUUM INTO`) échoue parce que la base courante est corrompue, la sauvegarde de sécurité se rabat sur une **copie brute** de `homebase.db` et de ses compagnons (`-wal`, `-shm`, `-journal`) dans `backups\homebase-<stamp>-pre-restore-raw\` (pas d'inspection, jamais proposée à la restauration automatique, conservée hors rétention jusqu'à suppression manuelle), pour que la restauration reste possible précisément quand elle est nécessaire. Un échec de la copie brute annule la préparation.
 
+**Amendements (revue B3, 2026-10-22)**
+
+- **Échec de confirmation (`confirm_mark_failed`).** Avant d'afficher le message, la fenêtre `main` est détruite (Tauri la crée avant `.setup()` et le plugin SQL a déjà ouvert la base restaurée ; sans cela le WebView pourrait charger l'application et accepter des données perdues au retour arrière). Le message ajoute : « Au prochain lancement, la restauration sera annulée et vos données d'origine remises en place ; vous pourrez la recommencer. »
+- **`pre-migration`.** Si l'en-tête SQLite est valide mais que la base est illisible en lecture seule, le marqueur `pre-migration-failed.json` est écrit et le démarrage continue.
+- **Copie brute de secours.** Déclenchée par les codes SQLite primaires 11 et 26 et les codes étendus 776 (READONLY_ROLLBACK), 264 (READONLY_RECOVERY), 1288 (READONLY_CANTINIT) et 522 (IOERR_SHORT_READ). Exclus : BUSY/LOCKED (et étendus), FULL, CANTOPEN, IOERR générique. Le `-shm` est copié au mieux (échec toléré, cache reconstruit).
+
 ### 4.9 Fil quotidien
 
 Lancé par `on_app_ready` après `confirm_restore` (`std::thread::spawn`). Après `DAILY_FIRST_CHECK`, en boucle :
@@ -469,6 +475,12 @@ Les commandes appellent `backup::dialogs`, qui renvoie `Option<PathBuf>` (boucho
   - `extract_validated(picked.zip, check\)`, puis suppression de `check\` ;
   - renvoi de `ArchiveSummary`. En cas d'échec, suppression de `picked.zip`.
 - **`config_export_save`** et **`config_import_pick`** : voir §4.12.
+
+**Amendements (revue B3, 2026-10-22)**
+
+- **Export.** La destination doit avoir l'extension `.zip` (insensible à la casse) et un parent canonique hors de la racine des données (`bad_extension`, `destination_in_data_root`). Un temporaire `.<nom>.homebase-tmp` orphelin, s'il est un fichier régulier (`symlink_metadata`), est supprimé avant la copie ; un lien ou un dossier est refusé sans être suivi.
+- **Sortie.** L'attente de sortie du fil quotidien (3 s) est strictement inférieure à l'attente du verrou de processus (5 s) (assertion à la compilation).
+- **Jeton d'archive externe.** `backup_pick_external` renvoie en plus `token` (SHA-256 hex de `picked.zip`) dans `ArchiveSummary`. `backup_restore` prend `{ "kind": "external", "token": "<hex>" }` ; un jeton différent donne `Io{code:"token_mismatch"}` sans rien préparer ni supprimer. Le front (B4b/B5) transmet le jeton du résumé affiché.
 
 ### 4.11 Commandes Tauri (`src/backup/commands.rs`)
 

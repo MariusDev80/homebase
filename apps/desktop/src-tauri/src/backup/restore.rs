@@ -241,7 +241,7 @@ pub async fn stage_restore(
         // The live database is corrupted: restoring is precisely what the user needs, so the
         // safety copy falls back to a raw copy of the files (spec 4.8, B2b review amendment).
         // If even that fails, the preparation is cancelled.
-        Err(e) if is_corruption(&e) => {
+        Err(e) if needs_raw_copy(&e) => {
             eprintln!("restore: live database is corrupted, taking a raw safety copy");
             let (raw_root, stamp) = (
                 root.clone(),
@@ -283,16 +283,29 @@ pub async fn stage_restore(
 }
 
 /// Stages the archive previously copied by `backup_pick_external` (`.incoming\picked.zip`), then
-/// removes that private copy. `NotFound` when there is none. The caller holds the backup lock.
+/// removes that private copy. `NotFound` when there is none, `Io("token_mismatch")` when its
+/// SHA-256 differs from `token` (the one returned by the pick). The caller holds the backup lock.
 pub async fn stage_restore_external(
     root: DataRoot,
     clock: Arc<dyn Clock>,
+    token: String,
 ) -> Result<(), BackupError> {
     let picked = root.incoming_picked();
     {
         let picked = picked.clone();
         if !blocking(move || picked.is_file()).await? {
             return Err(BackupError::NotFound);
+        }
+    }
+    // The archive shown to the user must be the one restored: `picked.zip` may have been replaced
+    // by another pick since.
+    {
+        let picked = picked.clone();
+        let (_, actual) = blocking(move || sha256_of(&picked)).await??;
+        if actual != token {
+            return Err(BackupError::Io {
+                code: "token_mismatch".into(),
+            });
         }
     }
     stage_restore(root, clock, picked.clone(), Vec::new()).await?;
@@ -303,13 +316,22 @@ pub async fn stage_restore_external(
     Ok(())
 }
 
-/// SQLite primary codes 11 (`SQLITE_CORRUPT`) and 26 (`SQLITE_NOTADB`). sqlx reports the extended
-/// code (for example 523, 779), whose low byte is the primary code.
-pub fn is_corruption(error: &BackupError) -> bool {
+/// Failures after which the live database is copied raw instead of snapshotted: corruption and
+/// the states in which a read-only connection cannot read a database that a normal open could
+/// repair or read. sqlx reports the extended code, whose low byte is the primary code.
+///
+/// - primary 11 (`CORRUPT`) and 26 (`NOTADB`), with any extension (523, 779...);
+/// - 776 (`READONLY_ROLLBACK`: hot `-journal` that a read-only connection cannot roll back);
+/// - 264 (`READONLY_RECOVERY`: WAL needing a recovery), 1288 (`READONLY_CANTINIT`);
+/// - 522 (`IOERR_SHORT_READ`: truncated file).
+///
+/// Deliberately excluded: BUSY / LOCKED (5, 6 and extensions: a retry may work), FULL, CANTOPEN and
+/// the generic IOERR (10): they say nothing about the content of the files.
+pub fn needs_raw_copy(error: &BackupError) -> bool {
     match error {
         BackupError::Database { code } => code
             .parse::<i64>()
-            .is_ok_and(|c| matches!(c & 0xFF, 11 | 26)),
+            .is_ok_and(|c| matches!(c & 0xFF, 11 | 26) || matches!(c, 776 | 264 | 1288 | 522)),
         _ => false,
     }
 }
@@ -382,7 +404,7 @@ fn to_hex(digest: &[u8]) -> String {
     digest.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn sha256_of(path: &Path) -> io::Result<(u64, String)> {
+pub(super) fn sha256_of(path: &Path) -> io::Result<(u64, String)> {
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
     let mut buf = vec![0u8; 64 * 1024];

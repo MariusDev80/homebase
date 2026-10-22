@@ -8,6 +8,7 @@ use super::fsutil::{remove_with_retry, rename_with_retry};
 use super::manifest::Manifest;
 use super::names::BackupKind;
 use super::paths::DataRoot;
+use super::restore::sha256_of;
 use super::validate::extract_validated;
 use super::MAX_ARCHIVE_BYTES;
 use serde::Serialize;
@@ -27,10 +28,13 @@ pub struct ArchiveSummary {
     pub schema_version: i64,
     pub app_version: String,
     pub image_count: u32,
+    /// SHA-256 (hex) of the private copy `picked.zip`. `backup_restore(External)` must send it
+    /// back: the archive restored is then the one the user was shown.
+    pub token: String,
 }
 
 impl ArchiveSummary {
-    fn new(manifest: &Manifest, size_bytes: u64) -> Self {
+    fn new(manifest: &Manifest, size_bytes: u64, token: String) -> Self {
         Self {
             kind: manifest.kind,
             created_at: manifest.created_at.clone(),
@@ -39,14 +43,56 @@ impl ArchiveSummary {
             schema_version: manifest.schema_version,
             app_version: manifest.app_version.clone(),
             image_count: manifest.image_count(),
+            token,
         }
     }
 }
 
-/// Copies `src` to `dest` through `.<name>.homebase-tmp` (created with `create_new`), then renames
-/// it over `dest` (replacing is allowed: the user confirmed it in the save dialog). No partial
+fn refuse(code: &str) -> BackupError {
+    BackupError::Io { code: code.into() }
+}
+
+/// The destination must be a `.zip` (case-insensitive) outside the Homebase data root: writing
+/// there would let a dialog choice plant a file among the app's own (`restore-pending`, `backups`
+/// ...). The parent is canonicalised first, so `..` and links cannot hide the root.
+fn check_export_destination(root: &DataRoot, dest: &Path) -> Result<(), BackupError> {
+    let is_zip = dest
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("zip"));
+    if !is_zip {
+        return Err(refuse("bad_extension"));
+    }
+    let parent = dest
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let parent = fs::canonicalize(parent)?;
+    // A root that does not exist yet cannot contain an existing parent.
+    if let Ok(root) = fs::canonicalize(root.path()) {
+        if parent.starts_with(&root) {
+            return Err(refuse("destination_in_data_root"));
+        }
+    }
+    Ok(())
+}
+
+/// Removes the temporary file of a previous crash. Only a regular file is removed (judged by
+/// `symlink_metadata`, so a link is never followed nor deleted); anything else is refused.
+fn recover_orphan_tmp(tmp: &Path) -> io::Result<()> {
+    match fs::symlink_metadata(tmp) {
+        Ok(meta) if meta.file_type().is_file() => fs::remove_file(tmp),
+        Ok(_) => Err(io::Error::from(io::ErrorKind::AlreadyExists)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
+/// Copies `src` to `dest` through `.<name>.homebase-tmp` (created with `create_new`, after
+/// removing a regular leftover of a crash), then renames it over `dest` (replacing is allowed: the
+/// user confirmed it in the save dialog). `dest` must pass `check_export_destination`. No partial
 /// file survives an error. Blocking.
-pub fn export_archive_to(src: &Path, dest: &Path) -> Result<(), BackupError> {
+pub fn export_archive_to(root: &DataRoot, src: &Path, dest: &Path) -> Result<(), BackupError> {
+    check_export_destination(root, dest)?;
     let mut tmp_name = OsString::from(".");
     tmp_name.push(
         dest.file_name()
@@ -54,6 +100,7 @@ pub fn export_archive_to(src: &Path, dest: &Path) -> Result<(), BackupError> {
     );
     tmp_name.push(".homebase-tmp");
     let tmp = dest.with_file_name(tmp_name);
+    recover_orphan_tmp(&tmp)?;
     let result = (|| -> io::Result<()> {
         let mut input = fs::File::open(src)?;
         let mut output = fs::OpenOptions::new()
@@ -69,6 +116,19 @@ pub fn export_archive_to(src: &Path, dest: &Path) -> Result<(), BackupError> {
         let _ = fs::remove_file(&tmp);
     }
     result.map_err(BackupError::from)
+}
+
+/// Copies at most `max + 1` bytes and fails with `TooLarge` when the source holds more than `max`.
+pub(super) fn copy_bounded<R: Read, W: io::Write>(
+    input: &mut R,
+    output: &mut W,
+    max: u64,
+) -> Result<u64, BackupError> {
+    let copied = io::copy(&mut input.take(max.saturating_add(1)), output)?;
+    if copied > max {
+        return Err(BackupError::TooLarge);
+    }
+    Ok(copied)
 }
 
 /// Copies the user's file into `backups\.incoming\picked.zip` (via `picked.zip.partial`), reading
@@ -92,16 +152,13 @@ pub fn copy_external_archive_with(
     let partial = incoming.join("picked.zip.partial");
     remove_with_retry(&partial)?;
     let result = (|| -> Result<u64, BackupError> {
-        let input = fs::File::open(src)?;
+        let mut input = fs::File::open(src)?;
         let mut output = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&partial)?;
         // The file may grow after the metadata check: the copy is bounded as well.
-        let copied = io::copy(&mut input.take(max.saturating_add(1)), &mut output)?;
-        if copied > max {
-            return Err(BackupError::TooLarge);
-        }
+        let copied = copy_bounded(&mut input, &mut output, max)?;
         output.sync_all()?;
         drop(output);
         remove_with_retry(&root.incoming_picked())?;
@@ -137,7 +194,10 @@ pub async fn import_external(root: &DataRoot, src: &Path) -> Result<ArchiveSumma
                 eprintln!("backup: cannot remove the check folder: {:?}", e.kind());
             }
         }
-        Ok(ArchiveSummary::new(&manifest?, size))
+        let manifest = manifest?;
+        let picked = root.incoming_picked();
+        let (_, token) = blocking(move || sha256_of(&picked)).await??;
+        Ok(ArchiveSummary::new(&manifest, size, token))
     }
     .await;
     if result.is_err() {
@@ -161,6 +221,11 @@ mod tests {
 
     fn clock(when: &str) -> FixedClock {
         FixedClock::new(parse_instant(when).expect("instant"))
+    }
+
+    /// A data root that is not part of the temporary folder used for the exports.
+    fn root_for(dir: &TempDir) -> DataRoot {
+        DataRoot::new(dir.path().join("data-root"))
     }
 
     fn names(dir: &Path) -> Vec<String> {
@@ -196,7 +261,7 @@ mod tests {
         let content: Vec<u8> = (0..200_000u32).map(|i| (i % 251) as u8).collect();
         fs::write(&src, &content).expect("src");
         let dest = out.join("exported.zip");
-        export_archive_to(&src, &dest).expect("export");
+        export_archive_to(&root_for(&dir), &src, &dest).expect("export");
         assert_eq!(fs::read(&dest).expect("dest"), content);
         assert_eq!(names(&out), ["exported.zip"]);
     }
@@ -208,7 +273,7 @@ mod tests {
         let dest = dir.path().join("dest.zip");
         fs::write(&src, b"new content").expect("src");
         fs::write(&dest, b"old").expect("dest");
-        export_archive_to(&src, &dest).expect("export");
+        export_archive_to(&root_for(&dir), &src, &dest).expect("export");
         assert_eq!(fs::read(&dest).expect("dest"), b"new content");
         assert_eq!(names(dir.path()), ["dest.zip", "src.zip"]);
     }
@@ -219,7 +284,8 @@ mod tests {
         // Missing source.
         let dest = dir.path().join("dest.zip");
         fs::write(&dest, b"old").expect("dest");
-        let err = export_archive_to(&dir.path().join("absent.zip"), &dest).expect_err("no source");
+        let err = export_archive_to(&root_for(&dir), &dir.path().join("absent.zip"), &dest)
+            .expect_err("no source");
         assert_eq!(
             err,
             BackupError::Io {
@@ -232,12 +298,124 @@ mod tests {
         // Missing destination folder.
         let src = dir.path().join("src.zip");
         fs::write(&src, b"x").expect("src");
-        assert!(export_archive_to(&src, &dir.path().join("no-such-dir").join("d.zip")).is_err());
+        assert!(export_archive_to(
+            &root_for(&dir),
+            &src,
+            &dir.path().join("no-such-dir").join("d.zip")
+        )
+        .is_err());
 
-        // A leftover temporary file is never overwritten, and nothing else is created.
-        fs::write(dir.path().join(".dest.zip.homebase-tmp"), b"leftover").expect("tmp");
-        assert!(export_archive_to(&src, &dest).is_err());
+        // A directory in place of the temporary file is refused and kept.
+        let tmp = dir.path().join(".dest.zip.homebase-tmp");
+        fs::create_dir(&tmp).expect("tmp dir");
+        assert!(export_archive_to(&root_for(&dir), &src, &dest).is_err());
         assert_eq!(fs::read(&dest).expect("dest"), b"old");
+        assert!(tmp.is_dir());
+    }
+
+    #[test]
+    fn export_recovers_an_orphan_temporary_file() {
+        let dir = TempDir::new().expect("tmp");
+        let src = dir.path().join("src.zip");
+        let dest = dir.path().join("dest.zip");
+        fs::write(&src, b"new").expect("src");
+        fs::write(dir.path().join(".dest.zip.homebase-tmp"), b"leftover").expect("tmp");
+        export_archive_to(&root_for(&dir), &src, &dest).expect("export");
+        assert_eq!(fs::read(&dest).expect("dest"), b"new");
+        assert_eq!(names(dir.path()), ["dest.zip", "src.zip"]);
+    }
+
+    #[test]
+    fn export_never_follows_a_link_in_place_of_the_temporary_file() {
+        let dir = TempDir::new().expect("tmp");
+        let src = dir.path().join("src.zip");
+        let dest = dir.path().join("dest.zip");
+        let victim = dir.path().join("victim.txt");
+        fs::write(&src, b"new").expect("src");
+        fs::write(&victim, b"precious").expect("victim");
+        let tmp = dir.path().join(".dest.zip.homebase-tmp");
+        #[cfg(windows)]
+        let linked = std::os::windows::fs::symlink_file(&victim, &tmp);
+        #[cfg(not(windows))]
+        let linked = std::os::unix::fs::symlink(&victim, &tmp);
+        if linked.is_err() {
+            // Creating a symbolic link needs a privilege (or developer mode) on Windows.
+            eprintln!("symlink not available, test skipped");
+            return;
+        }
+        assert!(export_archive_to(&root_for(&dir), &src, &dest).is_err());
+        assert_eq!(fs::read(&victim).expect("victim"), b"precious");
+        assert!(fs::symlink_metadata(&tmp).expect("link kept").is_symlink());
+        assert!(!dest.exists());
+    }
+
+    #[test]
+    fn export_refuses_a_destination_under_the_data_root() {
+        let dir = TempDir::new().expect("tmp");
+        let root = DataRoot::new(dir.path().join("data"));
+        fs::create_dir_all(root.backups()).expect("backups");
+        let src = dir.path().join("src.zip");
+        fs::write(&src, b"x").expect("src");
+        let refused = BackupError::Io {
+            code: "destination_in_data_root".into(),
+        };
+        for dest in [
+            root.path().join("out.zip"),
+            root.backups().join("out.zip"),
+            // `..` cannot hide the root.
+            root.backups().join("..").join("backups").join("out.zip"),
+        ] {
+            assert_eq!(export_archive_to(&root, &src, &dest), Err(refused.clone()));
+            assert!(!dest.exists());
+        }
+        // A sibling folder whose name starts like the root is fine.
+        let sibling = dir.path().join("data-other");
+        fs::create_dir(&sibling).expect("sibling");
+        export_archive_to(&root, &src, &sibling.join("out.zip")).expect("outside");
+        assert!(names(&root.backups()).is_empty());
+    }
+
+    #[test]
+    fn export_requires_a_zip_extension_case_insensitively() {
+        let dir = TempDir::new().expect("tmp");
+        let src = dir.path().join("src.zip");
+        fs::write(&src, b"x").expect("src");
+        let refused = BackupError::Io {
+            code: "bad_extension".into(),
+        };
+        for name in ["out.exe", "out", "out.zip.txt", "out.zip."] {
+            let dest = dir.path().join(name);
+            assert_eq!(
+                export_archive_to(&root_for(&dir), &src, &dest),
+                Err(refused.clone()),
+                "{name}"
+            );
+            assert!(!dest.exists());
+        }
+        export_archive_to(&root_for(&dir), &src, &dir.path().join("OUT.ZIP")).expect("upper");
+        assert!(dir.path().join("OUT.ZIP").is_file());
+    }
+
+    #[test]
+    fn bounded_copy_stops_one_byte_past_the_limit() {
+        let mut out = Vec::new();
+        assert_eq!(
+            copy_bounded(&mut io::repeat(7).take(10), &mut out, 10),
+            Ok(10)
+        );
+        assert_eq!(out.len(), 10);
+        // An endless source: the copy reads max + 1 bytes at most, then fails.
+        let mut out = Vec::new();
+        assert_eq!(
+            copy_bounded(&mut io::repeat(7), &mut out, 10),
+            Err(BackupError::TooLarge)
+        );
+        assert_eq!(out.len(), 11);
+        assert_eq!(copy_bounded(&mut io::empty(), &mut Vec::new(), 0), Ok(0));
+        assert_eq!(
+            copy_bounded(&mut io::repeat(1), &mut Vec::new(), 0),
+            Err(BackupError::TooLarge)
+        );
     }
 
     #[test]

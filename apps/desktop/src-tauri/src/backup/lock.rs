@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 const LOCK_FILE: &str = "homebase.lock";
 /// A restarting application starts before the previous process is fully gone.
-const ACQUIRE_TOTAL: Duration = Duration::from_secs(5);
+pub(super) const ACQUIRE_TOTAL: Duration = Duration::from_secs(5);
 const ACQUIRE_STEP: Duration = Duration::from_millis(100);
 
 /// Holds the lock until dropped.

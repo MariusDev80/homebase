@@ -3,11 +3,12 @@
 
 use super::create::create_backup;
 use super::error::BackupError;
+use super::external::import_external;
 use super::list::list_backups;
 use super::names::{BackupKind, BackupName};
 use super::paths::DataRoot;
 use super::restore::{
-    is_corruption, raw_copy_dir, raw_copy_live_database, stage_restore, stage_restore_external,
+    needs_raw_copy, raw_copy_dir, raw_copy_live_database, stage_restore, stage_restore_external,
     swap, verify_pending, Faults,
 };
 use super::sqlite::read_schema_version;
@@ -283,10 +284,54 @@ fn marker_lifecycle_acknowledge_removes_the_three_markers() {
 fn external_restore_without_picked_zip_is_not_found() {
     let (_d, root) = new_root();
     make_database(&root.db(), 3, true);
-    let err = run(stage_restore_external(root.clone(), Arc::new(clock()))).expect_err("none");
+    let err = run(stage_restore_external(
+        root.clone(),
+        Arc::new(clock()),
+        "t".into(),
+    ))
+    .expect_err("none");
     assert_eq!(err, BackupError::NotFound);
     assert!(!root.restore_pending().exists());
     assert_eq!(count(&root, BackupKind::PreRestore), 0);
+}
+
+#[test]
+fn external_restore_refuses_a_picked_archive_that_is_not_the_one_shown() {
+    let dir = TempDir::new().expect("tmp");
+    let first = archive_with_version(&dir, 2);
+    let root = DataRoot::new(dir.path().join("root"));
+    fs::create_dir_all(root.path()).expect("root");
+    make_database(&root.db(), 3, true);
+    let token = run(import_external(&root, &first)).expect("pick").token;
+    assert_eq!(token.len(), 64);
+    // Another pick replaces picked.zip: the first token is no longer valid.
+    let second = archive_with_version(&dir, 3);
+    let other = run(import_external(&root, &second)).expect("pick 2").token;
+    assert_ne!(other, token);
+    for wrong in [token, String::new()] {
+        let err = run(stage_restore_external(
+            root.clone(),
+            Arc::new(clock()),
+            wrong,
+        ))
+        .expect_err("mismatch");
+        assert_eq!(
+            err,
+            BackupError::Io {
+                code: "token_mismatch".into()
+            }
+        );
+    }
+    assert!(root.incoming_picked().is_file());
+    assert!(!root.restore_pending().exists());
+    assert_eq!(count(&root, BackupKind::PreRestore), 0);
+    run(stage_restore_external(
+        root.clone(),
+        Arc::new(clock()),
+        other,
+    ))
+    .expect("stage");
+    assert!(verify_pending(&root).is_ok());
 }
 
 #[test]
@@ -296,8 +341,13 @@ fn external_restore_stages_the_picked_archive_and_removes_it() {
     let root = DataRoot::new(dir.path().join("root"));
     fs::create_dir_all(root.incoming()).expect("incoming");
     make_database(&root.db(), 3, true);
-    fs::copy(&archive, root.incoming_picked()).expect("picked");
-    run(stage_restore_external(root.clone(), Arc::new(clock()))).expect("stage");
+    let token = run(import_external(&root, &archive)).expect("pick").token;
+    run(stage_restore_external(
+        root.clone(),
+        Arc::new(clock()),
+        token,
+    ))
+    .expect("stage");
     assert!(!root.incoming_picked().exists());
     assert!(root.restore_pending().is_dir());
     assert!(!root.restore_staging().exists());
@@ -331,17 +381,90 @@ fn raw_dirs(root: &DataRoot) -> Vec<std::path::PathBuf> {
 }
 
 #[test]
-fn corruption_codes_are_the_primary_codes_11_and_26() {
+fn raw_copy_codes_are_corruption_and_unreadable_states_only() {
     let db = |code: &str| BackupError::Database { code: code.into() };
-    for code in ["11", "26", "523", "779", "267"] {
-        assert!(is_corruption(&db(code)), "{code}");
+    for code in ["11", "26", "523", "779", "267", "776", "264", "1288", "522"] {
+        assert!(needs_raw_copy(&db(code)), "{code}");
     }
-    for code in ["1", "5", "13", "14", "10", "other", ""] {
-        assert!(!is_corruption(&db(code)), "{code}");
+    // BUSY / LOCKED (and extensions), FULL, CANTOPEN, generic IOERR and other READONLY variants.
+    for code in [
+        "1", "5", "6", "261", "517", "262", "13", "14", "10", "266", "8", "1032", "1544", "other",
+        "",
+    ] {
+        assert!(!needs_raw_copy(&db(code)), "{code}");
     }
-    assert!(!is_corruption(&BackupError::DiskFull));
-    assert!(!is_corruption(&BackupError::Io { code: "11".into() }));
-    assert!(!is_corruption(&BackupError::Busy));
+    assert!(!needs_raw_copy(&BackupError::DiskFull));
+    assert!(!needs_raw_copy(&BackupError::Io { code: "11".into() }));
+    assert!(!needs_raw_copy(&BackupError::Busy));
+}
+
+/// A rollback-journal database frozen in the middle of a write transaction: the copy of its files
+/// taken at that moment is what a crash leaves behind (hot `-journal`).
+fn make_hot_journal_database(root: &DataRoot) {
+    use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+    use sqlx::{Connection, SqliteConnection};
+    let dir = TempDir::new().expect("tmp");
+    let live = dir.path().join("homebase.db");
+    run(async {
+        let options = SqliteConnectOptions::new()
+            .filename(&live)
+            .create_if_missing(true)
+            .journal_mode(SqliteJournalMode::Delete)
+            // With synchronous=OFF SQLite writes the journal magic at once (otherwise zeros until
+            // the sync), so the frozen copy is a valid hot journal.
+            .synchronous(sqlx::sqlite::SqliteSynchronous::Off);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        sqlx::raw_sql("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+            .execute(&mut conn)
+            .await
+            .expect("create");
+        for i in 0..200 {
+            sqlx::query("INSERT INTO t (v) VALUES (?1)")
+                .bind(format!("row-{i}-{}", "x".repeat(200)))
+                .execute(&mut conn)
+                .await
+                .expect("insert");
+        }
+        sqlx::raw_sql("BEGIN; UPDATE t SET v = 'changed';")
+            .execute(&mut conn)
+            .await
+            .expect("begin");
+        let journal = dir.path().join("homebase.db-journal");
+        assert!(journal.is_file(), "the transaction has a journal");
+        fs::copy(&live, root.db()).expect("copy db");
+        fs::copy(&journal, root.path().join("homebase.db-journal")).expect("copy journal");
+        conn.close().await.expect("close");
+    });
+}
+
+#[test]
+fn hot_journal_triggers_the_raw_copy_with_the_journal() {
+    let dir = TempDir::new().expect("tmp");
+    let archive = archive_with_version(&dir, 2);
+    let root = DataRoot::new(dir.path().join("root"));
+    fs::create_dir_all(root.path()).expect("root");
+    make_hot_journal_database(&root);
+    let db_bytes = fs::read(root.db()).expect("db");
+    let journal_bytes = fs::read(root.path().join("homebase.db-journal")).expect("journal");
+
+    run(stage_restore(
+        root.clone(),
+        Arc::new(clock()),
+        archive,
+        Vec::new(),
+    ))
+    .expect("stage");
+
+    let dirs = raw_dirs(&root);
+    assert_eq!(dirs.len(), 1, "the hot journal must trigger the raw copy");
+    assert_eq!(fs::read(dirs[0].join("homebase.db")).expect("db"), db_bytes);
+    assert_eq!(
+        fs::read(dirs[0].join("homebase.db-journal")).expect("journal"),
+        journal_bytes
+    );
+    assert!(root.restore_pending().is_dir());
 }
 
 #[test]
@@ -512,4 +635,25 @@ fn raw_copy_includes_a_journal_and_cleans_up_when_it_fails() {
     fs::create_dir(&journal).expect("directory");
     assert!(raw_copy_live_database(&root, "20261021T081600.123Z").is_err());
     assert!(!raw_copy_dir(&root, "20261021T081600.123Z").exists());
+}
+
+#[test]
+fn unreadable_database_with_a_sqlite_header_sets_the_pre_migration_marker() {
+    let (_d, root) = new_root();
+    let mut bytes = b"SQLite format 3\0".to_vec();
+    bytes.resize(8192, 0xFF);
+    fs::write(root.db(), &bytes).expect("garbage");
+    let outcome = startup_sequence(&root, &clock()).expect("startup goes on");
+    assert!(!outcome.swapped);
+    assert!(pre_migration_failed(&root));
+    assert_eq!(count(&root, BackupKind::PreMigration), 0);
+    assert_eq!(fs::read(root.db()).expect("db"), bytes);
+}
+
+#[test]
+fn foreign_file_without_header_sets_no_pre_migration_marker() {
+    let (_d, root) = new_root();
+    fs::write(root.db(), vec![b'x'; 8192]).expect("foreign");
+    startup_sequence(&root, &clock()).expect("startup goes on");
+    assert!(!pre_migration_failed(&root));
 }

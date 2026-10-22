@@ -60,8 +60,10 @@ pub enum RestoreSource {
     Internal {
         id: String,
     },
-    /// The archive prepared by `backup_pick_external` (`.incoming\picked.zip`).
-    External,
+    /// The archive prepared by `backup_pick_external`; `token` is the one returned in its summary.
+    External {
+        token: String,
+    },
 }
 
 /// Stages the restoration, then restarts the application: the exchange itself happens at the
@@ -75,27 +77,28 @@ pub async fn backup_restore<R: tauri::Runtime>(
     let guard = state.try_acquire()?;
     let (root, clock) = (state.root.clone(), state.clock.clone());
     // Detached task: the staging then runs to completion even if the caller goes away.
-    let staging = match source {
-        RestoreSource::Internal { id } => {
-            if BackupName::parse(&id).is_none() {
-                return Err(BackupError::InvalidId);
+    let staging =
+        match source {
+            RestoreSource::Internal { id } => {
+                if BackupName::parse(&id).is_none() {
+                    return Err(BackupError::InvalidId);
+                }
+                let archive = state.root.backups().join(&id);
+                let exists = {
+                    let archive = archive.clone();
+                    blocking(move || archive.is_file()).await?
+                };
+                if !exists {
+                    return Err(BackupError::NotFound);
+                }
+                tauri::async_runtime::spawn(async move {
+                    stage_restore(root, clock, archive, vec![id]).await
+                })
             }
-            let archive = state.root.backups().join(&id);
-            let exists = {
-                let archive = archive.clone();
-                blocking(move || archive.is_file()).await?
-            };
-            if !exists {
-                return Err(BackupError::NotFound);
-            }
-            tauri::async_runtime::spawn(async move {
-                stage_restore(root, clock, archive, vec![id]).await
-            })
-        }
-        RestoreSource::External => {
-            tauri::async_runtime::spawn(async move { stage_restore_external(root, clock).await })
-        }
-    };
+            RestoreSource::External { token } => tauri::async_runtime::spawn(async move {
+                stage_restore_external(root, clock, token).await
+            }),
+        };
     staging.await.map_err(|_| BackupError::Io {
         code: "join".into(),
     })??;
@@ -128,7 +131,8 @@ pub async fn backup_export<R: tauri::Runtime>(
     let Some(dest) = blocking(move || dialogs::save_archive(&app, &suggested)).await? else {
         return Ok(false);
     };
-    blocking(move || export_archive_to(&source, &dest)).await??;
+    let root = state.root.clone();
+    blocking(move || export_archive_to(&root, &source, &dest)).await??;
     Ok(true)
 }
 
@@ -165,12 +169,13 @@ mod tests {
             Ok(RestoreSource::Internal { .. })
         ));
         assert!(matches!(
-            serde_json::from_str::<RestoreSource>(r#"{"kind":"external"}"#),
-            Ok(RestoreSource::External)
+            serde_json::from_str::<RestoreSource>(r#"{"kind":"external","token":"abc"}"#),
+            Ok(RestoreSource::External { .. })
         ));
         for bad in [
             r#"{"kind":"internal","id":"x","path":"C:\x.zip"}"#,
             r#"{"kind":"external","path":"C:\x.zip"}"#,
+            r#"{"kind":"external"}"#,
         ] {
             assert!(serde_json::from_str::<RestoreSource>(bad).is_err(), "{bad}");
         }

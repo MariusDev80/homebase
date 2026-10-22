@@ -12,8 +12,12 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, Runtime};
 
-/// How long the exit waits for a backup in progress before giving up on the join.
-const EXIT_JOIN_MAX: Duration = Duration::from_secs(10);
+/// How long the exit waits for a backup in progress before giving up on the join. It must stay
+/// well under the wait for the process lock (`lock::ACQUIRE_TOTAL`): a restarting application
+/// acquires the lock of the instance that is still exiting, so the old instance has to be gone
+/// before the new one gives up.
+const EXIT_JOIN_MAX: Duration = Duration::from_secs(3);
+const _: () = assert!(EXIT_JOIN_MAX.as_millis() < super::lock::ACQUIRE_TOTAL.as_millis());
 
 /// A full, undamaged archive younger than 24 hours exists: no daily backup is needed.
 /// Archives dated more than one hour in the future are ignored (`newest_full_backup`).
@@ -134,12 +138,16 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>) {
 /// finishes) for a bounded time. An abandoned thread is harmless: its temporary files are
 /// removed at the next startup.
 pub fn shutdown(state: &BackupState) {
+    shutdown_within(state, EXIT_JOIN_MAX);
+}
+
+fn shutdown_within(state: &BackupState, max: Duration) {
     state.daily.stop.stop();
     let handle = state.daily.handle.lock().ok().and_then(|mut h| h.take());
     let Some(handle) = handle else {
         return;
     };
-    let deadline = Instant::now() + EXIT_JOIN_MAX;
+    let deadline = Instant::now() + max;
     while !handle.is_finished() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(50));
     }
@@ -328,6 +336,42 @@ mod tests {
         });
         assert_eq!(archives(&state).len(), 1);
         assert!(state.clock.now() == at(NOW));
+    }
+
+    fn spawn_into(state: &Arc<BackupState>, body: impl FnOnce(Arc<BackupState>) + Send + 'static) {
+        let worker = state.clone();
+        let handle = std::thread::spawn(move || body(worker));
+        *state.daily.handle.lock().expect("lock") = Some(handle);
+    }
+
+    #[test]
+    fn shutdown_stops_and_joins_a_sleeping_thread() {
+        let dir = TempDir::new().expect("tmp");
+        let state = Arc::new(state(&dir));
+        spawn_into(&state, |s| {
+            run_loop(&s, Duration::from_secs(3600), Duration::from_secs(3600));
+        });
+        let start = Instant::now();
+        shutdown(&state);
+        assert!(start.elapsed() < Duration::from_secs(2));
+        assert!(state.daily.handle.lock().expect("lock").is_none());
+        assert!(archives(&state).is_empty());
+    }
+
+    #[test]
+    fn shutdown_gives_up_on_a_thread_that_does_not_stop() {
+        let dir = TempDir::new().expect("tmp");
+        let state = Arc::new(state(&dir));
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        spawn_into(&state, move |_| {
+            let _ = released.recv_timeout(Duration::from_secs(20));
+        });
+        let start = Instant::now();
+        shutdown_within(&state, Duration::from_millis(200));
+        let elapsed = start.elapsed();
+        assert!(elapsed >= Duration::from_millis(200), "waited the bound");
+        assert!(elapsed < Duration::from_secs(5), "but no longer");
+        drop(release);
     }
 
     #[test]
