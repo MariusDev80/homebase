@@ -1,3 +1,4 @@
+import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { ApplicationInitStatus } from '@angular/core';
 import { SETTINGS_REPOSITORY } from '../../data';
@@ -6,6 +7,7 @@ import { SYSTEM_TIME_ZONE_READER, SUPPORTED_TIME_ZONES_READER } from '../../core
 import { FakeSettingsRepository } from '../../core/testing/fake-settings.repository';
 import { SPIKE_TOOLS_ENABLED, SystemService } from '../../core/system';
 import { UserTimeZone } from '../../core/time';
+import { BackupService, ConfigTransferService } from '../../core/backup';
 import { SettingsPage } from './settings.page';
 
 describe('SettingsPage system section', () => {
@@ -19,6 +21,9 @@ describe('SettingsPage system section', () => {
     TestBed.configureTestingModule({
       providers: [
         provideAppI18n(),
+        provideRouter([]),
+        { provide: BackupService, useValue: { isAvailable: () => false } },
+        { provide: ConfigTransferService, useValue: { isAvailable: () => false } },
         { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
         { provide: SYSTEM_TIME_ZONE_READER, useValue: () => 'Europe/Paris' },
         { provide: SystemService, useValue: system },
@@ -95,6 +100,9 @@ describe('SettingsPage time zone section', () => {
     TestBed.configureTestingModule({
       providers: [
         provideAppI18n(),
+        provideRouter([]),
+        { provide: BackupService, useValue: { isAvailable: () => false } },
+        { provide: ConfigTransferService, useValue: { isAvailable: () => false } },
         { provide: SETTINGS_REPOSITORY, useValue: repo },
         { provide: SYSTEM_TIME_ZONE_READER, useValue: () => system },
         {

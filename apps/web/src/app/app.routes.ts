@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { appUnlockedGuard } from './core/lock';
 
 export const routes: Routes = [
   {
@@ -11,6 +12,7 @@ export const routes: Routes = [
   {
     path: 'settings',
     title: 'pages.settings.title',
+    canDeactivate: [appUnlockedGuard],
     loadComponent: () => import('./features/settings/settings.page').then((m) => m.SettingsPage),
   },
   { path: '**', redirectTo: '' },

@@ -1,5 +1,5 @@
 <div class="flex min-h-screen flex-col bg-page text-fg">
-  <header class="topbar">
+  <header class="topbar" [attr.inert]="lock.isLocked() ? '' : null">
     <span class="font-semibold">{{ 'app.name' | transloco }}</span>
 
     <nav [attr.aria-label]="'layout.mainNav' | transloco" class="underline-nav">
@@ -38,7 +38,25 @@
     </button>
   </header>
 
-  <main class="flex-1 p-4 md:p-6">
+  <main class="flex-1 p-4 md:p-6" [attr.inert]="lock.isLocked() ? '' : null">
+    <ng-container #alertHost />
     <router-outlet />
   </main>
+
+  <!-- Permanent live region (outside the inert area): only its content changes. -->
+  <div role="status" data-testid="app-lock-status">
+    @if (lockText(); as text) {
+      <div
+        class="fixed inset-0 z-1000 flex items-center justify-center bg-emphasis/60"
+        data-testid="app-lock-overlay"
+      >
+        <div class="box rounded-dialog px-6 py-4 shadow-floating">
+          <p class="flex items-center gap-2">
+            <i class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+            {{ text }}
+          </p>
+        </div>
+      </div>
+    }
+  </div>
 </div>

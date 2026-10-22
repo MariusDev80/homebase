@@ -564,15 +564,28 @@ describe('parseConfigImport: refused files', () => {
     ).toBe(true);
   });
 
+  it('never shows a long or bidirectional key coming from the file', () => {
+    const long = 'a'.repeat(300);
+    const bidi = 'k‮evil';
+    for (const key of [long, bidi, 'été']) {
+      const result = mutated((d) => (d.settings = { [key]: 1 }));
+      expect(issuesOf(result)).toEqual(['invalid_setting_key@settings']);
+      expect(JSON.stringify(result)).not.toContain(key);
+    }
+    const unknownField = mutated((d) => Object.assign(d.dashboards[0], { [bidi]: 1 }));
+    expect(JSON.stringify(unknownField)).not.toContain('‮');
+    expect(issuesOf(mutated((d) => (d.settings = { ['a'.repeat(40)]: 1 })))).toEqual([]);
+  });
+
   it('refuses secret-like and badly formed setting keys, and bad values', () => {
     expect(issuesOf(mutated((d) => (d.settings = { 'github.token': 'x' })))).toEqual([
-      'secret_setting@settings.github.token',
+      'secret_setting@settings',
     ]);
     expect(issuesOf(mutated((d) => (d.settings = { apiKey: 'x' })))).toEqual([
       'secret_setting@settings.apiKey',
     ]);
     expect(issuesOf(mutated((d) => (d.settings = { 'Bad Key': 1 })))).toEqual([
-      'invalid_setting_key@settings.Bad Key',
+      'invalid_setting_key@settings',
     ]);
     expect(issuesOf(mutated((d) => (d.settings = { '1abc': 1 })))).toEqual([
       'invalid_setting_key@settings.1abc',
@@ -609,7 +622,7 @@ describe('parseConfigImport: refused files', () => {
     ]);
   });
 
-  it('refuses what serde_json refuses: nesting over 128, 1e400', () => {
+  it('refuses what serde_json refuses: nesting over 127, 1e400', () => {
     const deep = (n: number): JsonValue => {
       let value: JsonValue = 1;
       for (let i = 0; i < n; i++) value = { a: value };
@@ -618,7 +631,10 @@ describe('parseConfigImport: refused files', () => {
     // Depth of the whole document: dashboards(1) > [ (2) > { (3) > widgets [ (4) > { (5) > config (6) > data (7).
     const ok = mutated((d) => d.dashboards[0].widgets.push(widget(9, 'mystery', deep(120))));
     expect(ok.ok).toBe(true);
-    const tooDeep = mutated((d) => d.dashboards[0].widgets.push(widget(9, 'mystery', deep(125))));
+    // Limit: 127 nested containers (serde_json refuses 128).
+    const atLimit = mutated((d) => d.dashboards[0].widgets.push(widget(9, 'mystery', deep(121))));
+    expect(atLimit.ok).toBe(true);
+    const tooDeep = mutated((d) => d.dashboards[0].widgets.push(widget(9, 'mystery', deep(122))));
     expect(issuesOf(tooDeep)).toEqual(['invalid_value@']);
     const huge = JSON.stringify(validDoc()).replace('"sortOrder":0', '"sortOrder":1e400');
     expect(issuesOf(parseConfigImport(huge, lookup))).toEqual(['invalid_value@']);

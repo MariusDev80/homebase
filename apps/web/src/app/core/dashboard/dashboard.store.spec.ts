@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { DASHBOARD_REPOSITORY, DataError, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
+import { PendingWrites } from '../widgets/pending-writes';
 import { fixtureDefinition } from '../testing/fixture-definitions';
 import { provideWidget } from '../widgets/widget-registry';
 import type { WidgetDefinition } from '../widgets/widget-definition';
@@ -133,6 +134,27 @@ describe('DashboardStore layout', () => {
     await done;
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledWith(store.dashboard()?.id, [{ id: a.id, grid: rect(4, 0) }]);
+  });
+
+  it('registers in PendingWrites: flushAll waits for the layout write in flight', async () => {
+    const { store, spy, a } = await loaded();
+    expect(TestBed.inject(PendingWrites).count).toBe(1);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    spy.mockImplementationOnce(async () => {
+      await gate;
+      return 1;
+    });
+    void store.changeLayout([{ id: a.id, grid: rect(4, 0) }]);
+    let flushed = false;
+    const flush = TestBed.inject(PendingWrites)
+      .flushAll()
+      .then(() => (flushed = true));
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+    release();
+    await flush;
+    expect(flushed).toBe(true);
   });
 
   it('does not write when nothing changed', async () => {

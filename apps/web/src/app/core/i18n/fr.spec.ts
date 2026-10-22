@@ -1,3 +1,4 @@
+import { ARCHIVE_PROBLEMS, IMPORT_ISSUE_CODES, IMPORT_PROBLEMS } from '../backup/backup.types';
 import fr from './fr.json';
 
 function lookup(path: string): unknown {
@@ -64,6 +65,58 @@ const WIDGET_KEYS = [
   'widgetHost.loadError',
   'widgetHost.retry',
 ];
+
+const BACKUP_KEYS = [
+  'time.justNow',
+  'backup.title',
+  'backup.create',
+  'backup.restore.confirm',
+  'backup.restore.inProgress',
+  'backup.alert.dismiss',
+  'backup.alert.restore.applied',
+  'backup.alert.restore.rolled-back',
+  'backup.alert.restore.failed',
+  'backup.errors.unknown',
+  'backup.errors.busy',
+  'backup.errors.restart_pending',
+  'backup.errors.bad_extension',
+  'backup.errors.destination_in_data_root',
+  'backup.errors.token_mismatch',
+  'configTransfer.title',
+  'configTransfer.removedWidgets',
+  'configTransfer.confirm',
+];
+const KINDS = ['manual', 'daily', 'pre-migration', 'pre-restore', 'pre-import'];
+const ERROR_KINDS = [
+  'busy',
+  'restart_pending',
+  'not_found',
+  'invalid_id',
+  'no_database',
+  'too_large',
+  'disk_full',
+  'invalid_archive',
+  'schema_too_new',
+  'invalid_import',
+  'io',
+  'database',
+  'unavailable',
+  'unknown',
+];
+
+describe('fr.json backup keys', () => {
+  it.each([
+    ...BACKUP_KEYS,
+    ...KINDS.map((k) => `backup.kind.${k}`),
+    ...ERROR_KINDS.map((k) => `backup.errors.${k}`),
+    ...ARCHIVE_PROBLEMS.map((k) => `backup.archiveProblems.${k}`),
+    ...IMPORT_PROBLEMS.map((k) => `backup.importProblems.${k}`),
+    ...IMPORT_ISSUE_CODES.map((k) => `configTransfer.issues.${k}`),
+  ])('defines %s', (key) => {
+    expect(typeof lookup(key)).toBe('string');
+    expect((lookup(key) as string).length).toBeGreaterThan(0);
+  });
+});
 
 describe('fr.json', () => {
   it.each([...SHELL_KEYS, ...WIDGET_KEYS])('defines a non-empty string for %s', (key) => {

@@ -1,12 +1,17 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { BackupSettingsComponent } from './backup-settings.component';
+import { ConfigTransferSettingsComponent } from './config-transfer-settings.component';
 import { SPIKE_TOOLS_ENABLED, SystemService } from '../../core/system';
 import { THEME_MODES, ThemeService } from '../../core/theme';
 import { UserTimeZone } from '../../core/time';
@@ -15,7 +20,7 @@ const TEST_NOTIFICATION_DELAY_SECS = 10;
 
 @Component({
   selector: 'app-settings-page',
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, BackupSettingsComponent, ConfigTransferSettingsComponent],
   template: `
     <div class="max-w-3xl">
       <div class="page-header">
@@ -88,6 +93,8 @@ const TEST_NOTIFICATION_DELAY_SECS = 10;
           }
         </div>
       </section>
+      <app-backup-settings />
+      <app-config-transfer-settings />
       <section class="box mt-4" aria-labelledby="system-heading">
         <header class="box-header">
           <i class="pi pi-desktop" aria-hidden="true"></i>
@@ -156,6 +163,18 @@ export class SettingsPage implements OnInit {
   protected readonly autostart = signal(false);
   protected readonly autostartBusy = signal(false);
   protected readonly error = signal(false);
+
+  private readonly route = inject(ActivatedRoute);
+  private readonly document = inject(DOCUMENT);
+
+  constructor() {
+    // Anchor links (`/settings#backups`): done here rather than with the router's scrolling option.
+    const subscription = this.route.fragment.subscribe((fragment) => {
+      if (fragment === null) return;
+      setTimeout(() => this.document.getElementById(fragment)?.scrollIntoView?.());
+    });
+    inject(DestroyRef).onDestroy(() => subscription.unsubscribe());
+  }
 
   ngOnInit(): void {
     if (!this.available) {

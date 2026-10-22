@@ -203,13 +203,22 @@ class IssueCollector {
   }
 }
 
+/**
+ * A key that comes from the file is only shown when it is plain (ASCII word, 40 characters at
+ * most): a long or bidirectional-control key would otherwise reach the screen as is.
+ */
+const DISPLAYABLE_KEY = /^[A-Za-z0-9_]{1,40}$/;
+
 function valibotPath(issue: v.BaseIssue<unknown>): string {
   let path = '';
   for (const item of issue.path ?? []) {
     if (typeof item.key === 'number') {
       path += `[${item.key}]`;
     } else {
-      path += path ? `.${String(item.key)}` : String(item.key);
+      const key = String(item.key);
+      // Not displayable: the report stops at the parent path.
+      if (!DISPLAYABLE_KEY.test(key)) break;
+      path += path ? `.${key}` : key;
     }
   }
   return path;
@@ -229,8 +238,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
-/** serde_json's recursion limit: Rust refuses a deeper document. */
-export const MAX_JSON_DEPTH = 128;
+/**
+ * Deepest nesting of arrays/objects accepted: serde_json refuses a document whose depth reaches
+ * 128, so 127 nested containers is the last one that Rust still reads.
+ */
+export const MAX_JSON_DEPTH = 127;
 
 /**
  * True when the parsed document holds something Rust (serde_json) would refuse or silently
@@ -461,7 +473,7 @@ function analyse(
     const entries = Object.entries(doc.settings);
     if (entries.length > CONFIG_LIMITS.maxSettings) issues.add('too_many', 'settings');
     for (const [key, value] of entries) {
-      const sPath = `settings.${key.slice(0, 40)}`;
+      const sPath = DISPLAYABLE_KEY.test(key) ? `settings.${key}` : 'settings';
       if (SECRET_KEY_PATTERN.test(key)) {
         issues.add('secret_setting', sPath);
         continue;

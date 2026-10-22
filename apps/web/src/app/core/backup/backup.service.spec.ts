@@ -308,6 +308,31 @@ describe('BackupService', () => {
       expect((await rejection(service.pickExternal())).dto).toEqual({ kind: 'unknown' });
     });
 
+    it('turns a SQLite busy automatic-backup error into busy', async () => {
+      const status = { ...overview.status, lastAutoError: { kind: 'database', code: '5' } };
+      invokeMock.mockResolvedValue({ ...overview, status });
+      expect((await service.overview()).status.lastAutoError).toEqual({ kind: 'busy' });
+    });
+
+    it('refuses a malformed token or application version', async () => {
+      const external = {
+        kind: 'daily',
+        createdAt: '2026-10-21T10:00:00.000Z',
+        sizeBytes: 1,
+        includesImages: false,
+        schemaVersion: 4,
+        appVersion: '0.1.0',
+        imageCount: 0,
+        token: 'ab'.repeat(32),
+      };
+      for (const bad of [{ token: 'ABC' }, { token: 'ab'.repeat(33) }, { appVersion: '<b>' }]) {
+        invokeMock.mockResolvedValue({ ...external, ...bad });
+        expect((await rejection(service.pickExternal())).dto).toEqual({ kind: 'unknown' });
+      }
+      invokeMock.mockResolvedValue({ ...external, appVersion: '1.2.3-beta+4' });
+      await expect(service.pickExternal()).resolves.toMatchObject({ appVersion: '1.2.3-beta+4' });
+    });
+
     it('rejects with unknown when the answer does not have the expected shape', async () => {
       invokeMock.mockResolvedValue({ backups: 'nope' });
       expect((await rejection(service.overview())).dto).toEqual({ kind: 'unknown' });

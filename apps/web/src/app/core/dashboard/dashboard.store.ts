@@ -15,6 +15,7 @@ import { applyNudge, sameRect } from './grid-layout';
 import type { LayoutDelta } from './grid-layout';
 import type { WidgetConfigWriter } from '../widgets/widget-context';
 import type { WidgetTypeId } from '../widgets/widget-definition';
+import { PendingWrites } from '../widgets/pending-writes';
 import { WidgetRegistry } from '../widgets/widget-registry';
 
 export class WidgetLimitError extends Error {
@@ -66,6 +67,11 @@ export class DashboardStore implements WidgetConfigWriter {
   private layoutWriting = false;
   private layoutPending = new Map<string, GridRect>();
   private layoutDrained: Promise<void> = Promise.resolve();
+
+  constructor() {
+    // The store is a singleton: the registration lasts as long as the application.
+    inject(PendingWrites).register(() => this.layoutDrained);
+  }
 
   /** createIfNone({ name }) then list()[0] then listByDashboard(id). */
   async load(defaultDashboardName: string): Promise<void> {

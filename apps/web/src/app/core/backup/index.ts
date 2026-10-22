@@ -24,3 +24,8 @@ export type {
 export { ConfigTransferService } from './config-transfer.service';
 export type { ConfigImportAnalysis } from './config-transfer.service';
 export { codePointLength, hbTrim } from './hb-trim';
+export { BackupStatusStore } from './backup-status.store';
+export type { ExclusiveOperation } from './backup-status.store';
+export { backupErrorText, importIssueText } from './backup-error-text';
+export { formatBytes } from './format-bytes';
+export { RELOAD_PAGE } from './reload-page';

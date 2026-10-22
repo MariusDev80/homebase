@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DataError, NOTE_REPOSITORY } from '../../data';
-import { injectWidgetContext } from '../../core/widgets';
+import { PendingWrites, injectWidgetContext } from '../../core/widgets';
 import type { NotesConfig } from './notes.config';
 
 /** Delay between the last keystroke and the automatic save. */
@@ -34,10 +34,14 @@ export class NotesComponent {
   private destroyed = false;
 
   constructor() {
+    // A configuration import or a restoration flushes the pending save first (see PendingWrites);
+    // while it runs the page is inert (AppLock), so no new deferred save can start.
+    const unregister = inject(PendingWrites).register(() => this.flush());
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
-      // Last chance to persist what was typed just before the widget disappears.
-      void this.flush();
+      // Last chance to persist what was typed just before the widget disappears. The flusher
+      // stays registered until that save is over, so that an import waits for it too.
+      void this.flush().finally(unregister);
     });
     void this.load();
   }

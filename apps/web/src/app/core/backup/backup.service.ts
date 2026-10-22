@@ -35,6 +35,9 @@ const rustErrorSchema = v.variant('kind', [
 
 const kindSchema = v.picklist(BACKUP_KINDS);
 
+// Same pattern as the Rust side (`[A-Za-z0-9.+-]{1,64}`).
+const appVersion = v.pipe(v.string(), v.regex(/^[A-Za-z0-9.+-]{1,64}$/));
+
 const backupInfoSchema = v.object({
   id: v.string(),
   kind: kindSchema,
@@ -42,7 +45,7 @@ const backupInfoSchema = v.object({
   sizeBytes: count,
   includesImages: v.nullable(v.boolean()),
   schemaVersion: v.nullable(v.number()),
-  appVersion: v.nullable(v.string()),
+  appVersion: v.nullable(appVersion),
   imageCount: v.nullable(count),
   damaged: v.boolean(),
 });
@@ -53,9 +56,9 @@ const archiveSummarySchema = v.object({
   sizeBytes: count,
   includesImages: v.boolean(),
   schemaVersion: v.number(),
-  appVersion: v.string(),
+  appVersion,
   imageCount: count,
-  token: v.string(),
+  token: v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/)),
 });
 
 const overviewSchema = v.object({
@@ -71,7 +74,12 @@ const overviewSchema = v.object({
     ),
     dbMissingAlert: v.boolean(),
     preMigrationFailed: v.boolean(),
-    lastAutoError: v.nullable(rustErrorSchema),
+    lastAutoError: v.nullable(
+      v.pipe(
+        rustErrorSchema,
+        v.transform((dto) => (isSqliteBusy(dto) ? ({ kind: 'busy' } as const) : dto)),
+      ),
+    ),
   }),
   supportedSchemaVersion: v.number(),
 });

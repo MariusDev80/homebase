@@ -2,7 +2,7 @@ import { ApplicationInitStatus, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideAppI18n } from '../../core/i18n';
 import { FakeNoteRepository } from '../../core/testing/fake-note.repository';
-import { WIDGET_CONTEXT } from '../../core/widgets';
+import { PendingWrites, WIDGET_CONTEXT } from '../../core/widgets';
 import type { WidgetContext } from '../../core/widgets';
 import { DataError, NOTE_REPOSITORY } from '../../data';
 import { NOTES_SAVE_DEBOUNCE_MS, NotesComponent } from './notes.component';
@@ -195,6 +195,34 @@ describe('NotesComponent', () => {
     type('notes-body', 'dernier mot');
     fixture.destroy();
     await Promise.resolve();
+    expect(repo.notes.get('note-1')?.body).toBe('dernier mot');
+  });
+
+  it('registers in PendingWrites: flushAll saves the pending text', async () => {
+    const { repo, type } = await render();
+    const pending = TestBed.inject(PendingWrites);
+    expect(pending.count).toBe(1);
+    type('notes-body', 'avant import');
+    await pending.flushAll();
+    expect(repo.notes.get('note-1')?.body).toBe('avant import');
+  });
+
+  it('stays registered until the destruction flush is over, then unregisters', async () => {
+    const { repo, fixture, type } = await render();
+    const pending = TestBed.inject(PendingWrites);
+    const real = repo.update.bind(repo);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vi.spyOn(repo, 'update').mockImplementation(async (...args) => {
+      await gate;
+      return real(...args);
+    });
+    type('notes-body', 'dernier mot');
+    fixture.destroy();
+    await Promise.resolve();
+    expect(pending.count).toBe(1);
+    release();
+    await vi.waitFor(() => expect(pending.count).toBe(0));
     expect(repo.notes.get('note-1')?.body).toBe('dernier mot');
   });
 
