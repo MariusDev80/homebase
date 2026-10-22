@@ -3,9 +3,14 @@
 pub mod archive;
 #[cfg(test)]
 mod archive_tests;
+#[cfg(test)]
+mod b3_tests;
 pub mod commands;
 pub mod create;
+pub mod daily;
+pub mod dialogs;
 pub mod error;
+pub mod external;
 pub mod fsutil;
 pub mod list;
 pub mod lock;
@@ -42,11 +47,8 @@ pub const RETAIN_MANUAL: usize = 10;
 pub const RETAIN_DAILY: usize = 7;
 pub const RETAIN_SAFETY: usize = 5;
 pub const RETAIN_MIGRATION: usize = 3;
-#[allow(dead_code)] // used from lot B3
 pub const DAILY_INTERVAL: Duration = Duration::from_secs(24 * 3600);
-#[allow(dead_code)] // used from lot B3
 pub const DAILY_FIRST_CHECK: Duration = Duration::from_secs(120);
-#[allow(dead_code)] // used from lot B3
 pub const DAILY_CHECK_PERIOD: Duration = Duration::from_secs(3600);
 #[allow(dead_code)] // used from lot B4a
 pub const MAX_CONFIG_FILE_BYTES: u64 = 1_048_576;
@@ -63,6 +65,8 @@ pub struct BackupState {
     pub swap_info: Option<restore::RestoreInfo>,
     /// Exclusive lock on the data root, held for the whole life of the process.
     _process_lock: Option<lock::ProcessLock>,
+    /// The daily backup thread (spec 4.9) and its stop signal.
+    pub daily: daily::DailyThread,
     pub last_auto_error: Mutex<Option<BackupError>>,
 }
 
@@ -90,6 +94,7 @@ impl BackupState {
             restart_pending: AtomicBool::new(false),
             swap_info,
             _process_lock: None,
+            daily: daily::DailyThread::default(),
             last_auto_error: Mutex::new(None),
         }
     }

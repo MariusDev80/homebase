@@ -37,17 +37,14 @@ impl DataRoot {
         self.backups().join(".tmp")
     }
 
-    #[allow(dead_code)] // used from lot B3
     pub fn incoming(&self) -> PathBuf {
         self.backups().join(".incoming")
     }
 
-    #[allow(dead_code)] // used from lot B3
     pub fn incoming_picked(&self) -> PathBuf {
         self.incoming().join("picked.zip")
     }
 
-    #[allow(dead_code)] // used from lot B3
     pub fn incoming_check(&self) -> PathBuf {
         self.incoming().join("check")
     }

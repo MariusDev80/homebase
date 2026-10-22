@@ -106,6 +106,8 @@ module.exports = defineConfig([
         { type: 'element', prefix: 'app', style: 'kebab-case' },
       ],
       '@typescript-eslint/no-explicit-any': 'error',
+      // The dialog plugin injects a script replacing window.alert/confirm (backup spec 7).
+      'no-alert': 'error',
     },
   },
   // ADR-002 §6.8: confine the SQL plugin, the native test driver and data internals.

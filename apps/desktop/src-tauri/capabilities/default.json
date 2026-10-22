@@ -12,6 +12,9 @@
     "allow-backup-create",
     "allow-backup-open-folder",
     "allow-backup-restore",
+    "allow-backup-export",
+    "allow-backup-pick-external",
+    "allow-backup-acknowledge",
     "sql:allow-execute",
     "sql:allow-select",
     {

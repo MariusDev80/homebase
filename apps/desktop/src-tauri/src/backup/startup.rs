@@ -1,9 +1,11 @@
 //! Startup sequence (spec 4.8): cleanup, confirmed folders, rollback, swap. Runs in the setup of
 //! the internal `homebase-backup` plugin, registered **before** `tauri_plugin_sql`.
 //!
-//! Lot B3 adds steps 6 (R6 detection) and 7 (`pre-migration`), the native message of
-//! `StartupBlocked` and the daily thread.
+//! Also steps 6 (R6 detection) and 7 (`pre-migration`), the native message of `StartupBlocked`
+//! and the start of the daily thread.
 
+use super::create::create_backup;
+use super::dialogs;
 use super::fsutil::{remove_with_retry, rename_with_retry};
 use super::lock;
 use super::names::{BackupKind, BackupName};
@@ -12,8 +14,10 @@ use super::restore::{
     confirm_restore, confirmed_dirs, present, read_restore_info, remove_confirmed_dir, rollback,
     swap, verify_pending, write_report, Faults, RestoreInfo, StartupStep,
 };
+use super::sqlite::{read_schema_version, supported_schema_version};
 use super::status::{
-    clear_db_missing, clear_startup_blocked, read_last_restore, startup_blocked_exists,
+    clear_db_missing, clear_pre_migration_failed, clear_startup_blocked, db_missing_alert,
+    read_last_restore, startup_blocked_exists, write_db_missing, write_pre_migration_failed,
     write_startup_blocked, RestoreOutcome, StartupBlockedReason,
 };
 use super::BackupState;
@@ -67,7 +71,7 @@ pub fn startup_sequence(
     startup_sequence_with(root, clock, &Faults::default())
 }
 
-/// Steps 1 to 5 and 8 of spec 4.8.
+/// Steps 1 to 8 of spec 4.8.
 pub fn startup_sequence_with(
     root: &DataRoot,
     clock: &dyn Clock,
@@ -167,7 +171,16 @@ pub fn startup_sequence_with(
         }
     }
 
-    // 6 and 7 (R6 detection, `pre-migration`): lot B3.
+    // 6. R6: no database although backups exist.
+    if detect_missing_db(root) && !db_missing_alert(root) {
+        if let Err(e) = write_db_missing(root, clock.now()) {
+            eprintln!("startup: cannot write db-missing.json: {:?}", e.kind());
+        }
+    }
+
+    // 7. `pre-migration` (database only) when the binary is newer than the database. An absent
+    // database (or table) gives nothing, not even a marker.
+    pre_migration(root, clock);
 
     // 8.
     Ok(StartupOutcome {
@@ -204,18 +217,92 @@ fn discard_pending(
     );
 }
 
-/// Extension point of lot B3: native blocking message (`rfd::MessageDialog`, level Error, button
-/// OK, French text of spec 4.8). Until then the user only gets the setup error and the marker.
-fn show_blocking_message(_root: &DataRoot, _reason: StartupBlockedReason) {}
+/// Native blocking message (French text of spec 4.8). A no-op under `cfg(test)`.
+fn show_blocking_message(root: &DataRoot) {
+    dialogs::show_startup_blocked(root.path());
+}
+
+/// R6 (spec D8): the database is absent while at least one archive (valid name, regular file)
+/// exists in `backups\`.
+pub fn detect_missing_db(root: &DataRoot) -> bool {
+    if present(&root.db()).unwrap_or(true) {
+        return false;
+    }
+    let Ok(entries) = fs::read_dir(root.backups()) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        entry.file_type().is_ok_and(|t| t.is_file())
+            && entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| BackupName::parse(name).is_some())
+    })
+}
+
+/// `1 <= current < supported`: only a database that exists, has been migrated at least once, and
+/// is older than the binary.
+pub fn pre_migration_needed(current: Option<i64>, supported: i64) -> bool {
+    matches!(current, Some(v) if v >= 1 && v < supported)
+}
+
+/// The file starts with the SQLite header. Anything else is never opened (opening a foreign file
+/// next to leftover companions could touch them), the SQL plugin will report it.
+fn has_sqlite_header(path: &std::path::Path) -> bool {
+    use std::io::Read;
+    let mut header = [0u8; 16];
+    fs::File::open(path)
+        .and_then(|mut f| f.read_exact(&mut header))
+        .is_ok()
+        && &header == b"SQLite format 3\0"
+}
+
+fn pre_migration(root: &DataRoot, clock: &dyn Clock) {
+    if !has_sqlite_header(&root.db()) {
+        return;
+    }
+    let current = match tauri::async_runtime::block_on(read_schema_version(&root.db())) {
+        Ok(current) => current,
+        Err(e) => {
+            // Unreadable database: nothing to decide here, the SQL plugin will report it.
+            eprintln!("startup: cannot read the schema version: {e:?}");
+            return;
+        }
+    };
+    if !pre_migration_needed(current, supported_schema_version()) {
+        return;
+    }
+    match tauri::async_runtime::block_on(create_backup(root, clock, BackupKind::PreMigration, &[]))
+    {
+        Ok(_) => {
+            if let Err(e) = clear_pre_migration_failed(root) {
+                eprintln!(
+                    "startup: cannot remove pre-migration-failed.json: {:?}",
+                    e.kind()
+                );
+            }
+        }
+        Err(e) => {
+            // The startup goes on: the migration is not blocked by a failed safety copy.
+            eprintln!("startup: pre-migration backup failed: {e:?}");
+            if let Err(e) = write_pre_migration_failed(root, clock.now()) {
+                eprintln!(
+                    "startup: cannot write pre-migration-failed.json: {:?}",
+                    e.kind()
+                );
+            }
+        }
+    }
+}
 
 /// What the plugin does on `StartupBlocked`, before returning the setup error: journal, marker,
-/// (B3) native message.
+/// native message.
 pub fn report_blocked(root: &DataRoot, clock: &dyn Clock, blocked: &StartupBlocked) {
     eprintln!("startup: {blocked}");
     if let Err(e) = write_startup_blocked(root, clock.now(), blocked.reason) {
         eprintln!("startup: cannot write startup-blocked.json: {:?}", e.kind());
     }
-    show_blocking_message(root, blocked.reason);
+    show_blocking_message(root);
 }
 
 /// Internal plugin: runs the startup sequence in its setup and manages `BackupState`. An `Err`
@@ -250,8 +337,16 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
     let state = app.state::<BackupState>();
     if let Err(e) = confirm_restore(&state.root, state.clock.as_ref(), state.swap_info.as_ref()) {
-        show_blocking_message(&state.root, StartupBlockedReason::ConfirmMarkFailed);
+        show_blocking_message(&state.root);
         return Err(Box::new(e));
     }
+    super::daily::spawn(app);
     Ok(())
+}
+
+/// `RunEvent::Exit`: stops the daily thread cleanly.
+pub fn on_exit<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(state) = app.try_state::<BackupState>() {
+        super::daily::shutdown(&state);
+    }
 }

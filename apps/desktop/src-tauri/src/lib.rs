@@ -25,6 +25,9 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::backup_create,
         backup::commands::backup_open_folder,
         backup::commands::backup_restore,
+        backup::commands::backup_export,
+        backup::commands::backup_pick_external,
+        backup::commands::backup_acknowledge,
     ]
 }
 
@@ -40,12 +43,27 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::backup_create,
         backup::commands::backup_open_folder,
         backup::commands::backup_restore,
+        backup::commands::backup_export,
+        backup::commands::backup_pick_external,
+        backup::commands::backup_acknowledge,
     ]
+}
+
+/// The dialog plugin is used from Rust only (no permission in any capability). Not registered in
+/// tests: nothing there may link the native dialog code (S11).
+#[cfg(not(test))]
+fn register_dialog<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder.plugin(tauri_plugin_dialog::init())
+}
+
+#[cfg(test)]
+fn register_dialog<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    register_dialog(tauri::Builder::default())
         .manage(net::NetClient::new())
         .plugin(tauri_plugin_notification::init())
         .plugin(
@@ -82,8 +100,13 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Homebase");
+        .build(tauri::generate_context!())
+        .expect("error while building Homebase")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                backup::startup::on_exit(app);
+            }
+        });
 }
 
 /// Shows and focuses the main window (used by the tray).
@@ -111,6 +134,9 @@ mod tests {
             "backup::commands::backup_create",
             "backup::commands::backup_open_folder",
             "backup::commands::backup_restore",
+            "backup::commands::backup_export",
+            "backup::commands::backup_pick_external",
+            "backup::commands::backup_acknowledge",
             "weather::weather_forecast",
             "weather::weather_geocode",
         ] {
@@ -132,6 +158,9 @@ mod tests {
             "backup_create",
             "backup_open_folder",
             "backup_restore",
+            "backup_export",
+            "backup_pick_external",
+            "backup_acknowledge",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }

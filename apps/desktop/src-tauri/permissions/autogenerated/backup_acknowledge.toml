@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-backup-acknowledge"
+description = "Enables the backup_acknowledge command without any pre-configured scope."
+commands.allow = ["backup_acknowledge"]
+
+[[permission]]
+identifier = "deny-backup-acknowledge"
+description = "Denies the backup_acknowledge command without any pre-configured scope."
+commands.deny = ["backup_acknowledge"]

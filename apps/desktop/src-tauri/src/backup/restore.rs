@@ -238,6 +238,29 @@ pub async fn stage_restore(
         Err(BackupError::NoDatabase) => {
             eprintln!("restore: no database to protect, continuing without a pre-restore backup");
         }
+        // The live database is corrupted: restoring is precisely what the user needs, so the
+        // safety copy falls back to a raw copy of the files (spec 4.8, B2b review amendment).
+        // If even that fails, the preparation is cancelled.
+        Err(e) if is_corruption(&e) => {
+            eprintln!("restore: live database is corrupted, taking a raw safety copy");
+            let (raw_root, stamp) = (
+                root.clone(),
+                BackupName::new(clock.now(), BackupKind::PreRestore).stamp(),
+            );
+            let copied = blocking(move || raw_copy_live_database(&raw_root, &stamp)).await;
+            match copied {
+                Ok(Ok(())) => {}
+                Ok(Err(io_error)) => {
+                    eprintln!("restore: raw safety copy failed: {:?}", io_error.kind());
+                    remove_staging(&staging).await;
+                    return Err(io_error.into());
+                }
+                Err(join_error) => {
+                    remove_staging(&staging).await;
+                    return Err(join_error);
+                }
+            }
+        }
         Err(e) => {
             remove_staging(&staging).await;
             return Err(e);
@@ -257,6 +280,91 @@ pub async fn stage_restore(
         return Err(e.into());
     }
     Ok(())
+}
+
+/// Stages the archive previously copied by `backup_pick_external` (`.incoming\picked.zip`), then
+/// removes that private copy. `NotFound` when there is none. The caller holds the backup lock.
+pub async fn stage_restore_external(
+    root: DataRoot,
+    clock: Arc<dyn Clock>,
+) -> Result<(), BackupError> {
+    let picked = root.incoming_picked();
+    {
+        let picked = picked.clone();
+        if !blocking(move || picked.is_file()).await? {
+            return Err(BackupError::NotFound);
+        }
+    }
+    stage_restore(root, clock, picked.clone(), Vec::new()).await?;
+    // Spec 4.8 step 4. The restoration is staged: a leftover would only be emptied at startup.
+    if let Ok(Err(e)) = blocking(move || remove_with_retry(&picked)).await {
+        eprintln!("restore: cannot remove picked.zip: {:?}", e.kind());
+    }
+    Ok(())
+}
+
+/// SQLite primary codes 11 (`SQLITE_CORRUPT`) and 26 (`SQLITE_NOTADB`). sqlx reports the extended
+/// code (for example 523, 779), whose low byte is the primary code.
+pub fn is_corruption(error: &BackupError) -> bool {
+    match error {
+        BackupError::Database { code } => code
+            .parse::<i64>()
+            .is_ok_and(|c| matches!(c & 0xFF, 11 | 26)),
+        _ => false,
+    }
+}
+
+/// Folder holding the raw safety copy: `backups\homebase-<stamp>-pre-restore-raw\`. Not an
+/// archive name (`BackupName::parse` refuses it and it is a directory), so it is never listed,
+/// never restorable from the UI and never touched by the retention: it stays until the user
+/// deletes it.
+pub fn raw_copy_dir(root: &DataRoot, stamp: &str) -> PathBuf {
+    root.backups()
+        .join(format!("homebase-{stamp}-pre-restore-raw"))
+}
+
+fn copy_raw_file(from: &Path, to: &Path) -> io::Result<()> {
+    // `File::open` shares read/write/delete, so a database held open by this process can be read
+    // (unlike `fs::copy`, which asks for less sharing).
+    let mut input = fs::File::open(from)?;
+    let mut output = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(to)?;
+    io::copy(&mut input, &mut output)?;
+    output.sync_all()
+}
+
+/// Copies `homebase.db` and the companions that exist (`-wal`, `-shm`, `-journal`) into
+/// `raw_copy_dir`. No inspection. Any failure removes the folder and is returned, except for the
+/// `-shm`: it is only a cache rebuilt from the `-wal`, and SQLite may hold byte-range locks on it
+/// that make it unreadable while the database is open. Blocking.
+pub fn raw_copy_live_database(root: &DataRoot, stamp: &str) -> io::Result<()> {
+    let dir = raw_copy_dir(root, stamp);
+    fs::create_dir_all(root.backups())?;
+    fs::create_dir(&dir)?;
+    let result = (|| -> io::Result<()> {
+        copy_raw_file(&root.db(), &dir.join(DB_FILE_NAME))?;
+        for (from, saved) in companion_paths(root, &dir) {
+            if !present(&from)? {
+                continue;
+            }
+            let is_shm = from.to_string_lossy().ends_with("-shm");
+            match copy_raw_file(&from, &saved) {
+                Ok(()) => {}
+                Err(e) if is_shm => {
+                    eprintln!("restore: -shm not copied ({:?}), it is rebuilt", e.kind());
+                    let _ = fs::remove_file(&saved);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = remove_with_retry(&dir);
+    }
+    result
 }
 
 async fn remove_staging(staging: &Path) {

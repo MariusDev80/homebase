@@ -28,6 +28,9 @@ fn main() {
                 "backup_create",
                 "backup_open_folder",
                 "backup_restore",
+                "backup_export",
+                "backup_pick_external",
+                "backup_acknowledge",
             ])),
     )
     .expect("failed to run tauri-build");

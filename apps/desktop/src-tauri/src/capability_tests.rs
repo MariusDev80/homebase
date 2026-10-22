@@ -53,6 +53,9 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-backup-create",
             "allow-backup-open-folder",
             "allow-backup-restore",
+            "allow-backup-export",
+            "allow-backup-pick-external",
+            "allow-backup-acknowledge",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",
@@ -174,5 +177,26 @@ fn no_dialog_fs_process_or_shell_permission() {
                 "{name}: unexpected opener permission {identifier}"
             );
         }
+    }
+}
+
+/// The dialog plugin is registered (Rust side) but exposes nothing to the JS: no `dialog:*`
+/// identifier anywhere in a capability file, and no npm package for it.
+#[test]
+fn dialog_plugin_exposes_nothing_to_the_front() {
+    for name in ["default.json", "debug.json"] {
+        let capability: Value = serde_json::from_str(&read_capability(name)).expect("valid json");
+        let mut text = serde_json::to_string(&capability["permissions"]).expect("serialize");
+        text.make_ascii_lowercase();
+        assert!(!text.contains("dialog"), "{name}");
+        assert!(
+            !text.contains("plugin-fs") && !text.contains("fs:"),
+            "{name}"
+        );
+    }
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    for package in ["package.json", "apps/web/package.json"] {
+        let text = fs::read_to_string(root.join(package)).expect("package.json");
+        assert!(!text.contains("plugin-dialog") && !text.contains("plugin-fs"));
     }
 }

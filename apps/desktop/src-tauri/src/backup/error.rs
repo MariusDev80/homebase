@@ -6,9 +6,7 @@ use std::io;
 pub enum BackupError {
     Busy,
     RestartPending,
-    #[allow(dead_code)] // used from lot B3
     NotFound,
-    #[allow(dead_code)] // used from lot B3
     InvalidId,
     NoDatabase,
     TooLarge,

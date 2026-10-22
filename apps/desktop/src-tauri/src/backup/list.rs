@@ -105,7 +105,6 @@ pub fn list_backups(root: &DataRoot) -> Vec<BackupInfo> {
 
 /// Most recent complete archive: ignores damaged archives, `pre-migration`, `pre-import`
 /// and those dated more than one hour in the future.
-#[allow(dead_code)] // used from lot B3
 pub fn newest_full_backup(backups: &[BackupInfo], now: Timestamp) -> Option<&BackupInfo> {
     let limit = now.checked_add(SignedDuration::from_hours(1)).ok()?;
     backups
