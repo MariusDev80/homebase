@@ -25,7 +25,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 - [x] (S) Widget météo Open-Meteo (+ géocodage) (`docs/specs/weather-widget.md` ; commandes Rust `weather_*` sur le module `net` ; vérifications manuelles CA-W1-M et CA-M* à faire par Marius)
 - [x] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration (spec `docs/specs/backup-restore.md`, lots B1a à B6, chaque lot revu ; vérifications manuelles M1 à M9 et M11 à faire par Marius ; M10 (sauvegarde avant migration) à vérifier à la première migration V4, en phase 2)
 - [x] (O) ADR-003 : modèle de temps (UTC + IANA + RRULE) (`docs/adr/003-time-model.md`, accepté ; décisions D1 à D3 validées par Marius)
-- [ ] (S) Instance unique : `tauri-plugin-single-instance` enregistré avant le plugin de sauvegarde ; relancer Homebase remet au premier plan la fenêtre existante (revue de fin de phase 1, I2)
+- [x] (S) Instance unique : `tauri-plugin-single-instance` 2.5.4 enregistré en premier, avant le plugin de sauvegarde ; relancer Homebase remet au premier plan la fenêtre existante (revue de fin de phase 1, I2 ; vérification manuelle à faire par Marius)
 - [x] (O) Revue de fin de phase 1 (jalon atteint sous réserve des vérifications manuelles de Marius ; ADR-001 à 003 acceptés)
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
 

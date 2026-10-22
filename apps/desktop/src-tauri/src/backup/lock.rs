@@ -3,6 +3,11 @@
 //!
 //! `<root>\homebase.lock` is opened exclusively (`share_mode(0)` on Windows) and kept for the whole
 //! life of the process; the OS releases it when the process dies, so there is never a stale lock.
+//!
+//! This is the defence in depth: `tauri-plugin-single-instance` (registered first) normally stops
+//! a second launch and focuses the running window before this module is ever reached. The lock
+//! still protects the data root if that plugin were bypassed (e.g. different identifier or
+//! build) and covers the restart window, where the new process waits for the old one to exit.
 
 use super::paths::DataRoot;
 use std::fs::{self, File, OpenOptions};

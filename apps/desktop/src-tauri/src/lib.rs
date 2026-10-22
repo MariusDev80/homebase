@@ -69,7 +69,13 @@ fn register_dialog<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Buil
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    register_dialog(tauri::Builder::default())
+    // The single-instance plugin must be the very first one: a second launch exits inside its
+    // setup, before the backup plugin takes `homebase.lock` or touches the restore exchange.
+    // On Windows it holds a named mutex until `RunEvent::Exit` (dispatched to plugins before our
+    // `on_exit` and before the restart spawn), so a restart after a restoration is not refused.
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(on_second_launch));
+    register_dialog(builder)
         .manage(net::NetClient::new())
         .plugin(tauri_plugin_notification::init())
         .plugin(
@@ -113,6 +119,16 @@ pub fn run() {
                 backup::startup::on_exit(app);
             }
         });
+}
+
+/// Called in the running instance when the user launches Homebase again (Start menu, shortcut):
+/// brings the existing window back from the tray. Arguments and cwd are ignored.
+fn on_second_launch<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    _args: Vec<String>,
+    _cwd: String,
+) {
+    show_main_window(app);
 }
 
 /// Shows and focuses the main window (used by the tray).
@@ -176,6 +192,42 @@ mod tests {
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }
+    }
+
+    #[test]
+    fn single_instance_is_the_first_plugin_and_before_backup() {
+        let source = include_str!("lib.rs");
+        let production = source
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production part");
+        let single = production
+            .find("tauri_plugin_single_instance::init(")
+            .expect("single-instance plugin");
+        let backup = production
+            .find(".plugin(backup::startup::init())")
+            .expect("backup plugin");
+        assert!(
+            single < backup,
+            "single-instance must precede the backup plugin"
+        );
+        for other in [
+            "register_dialog(builder)",
+            "tauri_plugin_notification::init()",
+            "tauri_plugin_opener::Builder",
+            "tauri_plugin_autostart::init(",
+            "tauri_plugin_sql::Builder",
+        ] {
+            assert!(
+                single < production.find(other).expect(other),
+                "single-instance must precede {other}"
+            );
+        }
+        assert!(production.contains("init(on_second_launch)"));
+        assert_eq!(
+            production.matches("tauri_plugin_single_instance").count(),
+            1
+        );
     }
 
     #[test]
