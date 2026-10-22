@@ -72,7 +72,6 @@ mod native {
             .and_then(|p| p.into_path().ok())
     }
 
-    #[allow(dead_code)] // used from lot B4a
     pub fn pick_config<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
         let builder = app
             .dialog()
@@ -84,7 +83,6 @@ mod native {
             .and_then(|p| p.into_path().ok())
     }
 
-    #[allow(dead_code)] // used from lot B4a
     pub fn save_config<R: Runtime>(app: &AppHandle<R>, suggested_name: &str) -> Option<PathBuf> {
         let builder = app
             .dialog()
@@ -135,12 +133,10 @@ mod stub {
         None
     }
 
-    #[allow(dead_code)] // used from lot B4a
     pub fn pick_config<R: Runtime>(_app: &AppHandle<R>) -> Option<PathBuf> {
         None
     }
 
-    #[allow(dead_code)] // used from lot B4a
     pub fn save_config<R: Runtime>(_app: &AppHandle<R>, _suggested_name: &str) -> Option<PathBuf> {
         None
     }

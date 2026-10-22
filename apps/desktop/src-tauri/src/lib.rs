@@ -28,6 +28,9 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::backup_export,
         backup::commands::backup_pick_external,
         backup::commands::backup_acknowledge,
+        backup::commands::config_export_save,
+        backup::commands::config_import_pick,
+        backup::commands::config_import_apply,
     ]
 }
 
@@ -46,6 +49,9 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::backup_export,
         backup::commands::backup_pick_external,
         backup::commands::backup_acknowledge,
+        backup::commands::config_export_save,
+        backup::commands::config_import_pick,
+        backup::commands::config_import_apply,
     ]
 }
 
@@ -137,6 +143,9 @@ mod tests {
             "backup::commands::backup_export",
             "backup::commands::backup_pick_external",
             "backup::commands::backup_acknowledge",
+            "backup::commands::config_export_save",
+            "backup::commands::config_import_pick",
+            "backup::commands::config_import_apply",
             "weather::weather_forecast",
             "weather::weather_geocode",
         ] {
@@ -161,6 +170,9 @@ mod tests {
             "backup_export",
             "backup_pick_external",
             "backup_acknowledge",
+            "config_export_save",
+            "config_import_pick",
+            "config_import_apply",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }

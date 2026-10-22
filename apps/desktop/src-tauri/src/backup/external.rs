@@ -52,14 +52,18 @@ fn refuse(code: &str) -> BackupError {
     BackupError::Io { code: code.into() }
 }
 
-/// The destination must be a `.zip` (case-insensitive) outside the Homebase data root: writing
+/// The destination must have the extension `ext` (case-insensitive), outside the Homebase data root: writing
 /// there would let a dialog choice plant a file among the app's own (`restore-pending`, `backups`
 /// ...). The parent is canonicalised first, so `..` and links cannot hide the root.
-fn check_export_destination(root: &DataRoot, dest: &Path) -> Result<(), BackupError> {
-    let is_zip = dest
+pub(super) fn check_export_destination(
+    root: &DataRoot,
+    dest: &Path,
+    ext: &str,
+) -> Result<(), BackupError> {
+    let right_extension = dest
         .extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("zip"));
-    if !is_zip {
+        .is_some_and(|e| e.eq_ignore_ascii_case(ext));
+    if !right_extension {
         return Err(refuse("bad_extension"));
     }
     let parent = dest
@@ -78,7 +82,7 @@ fn check_export_destination(root: &DataRoot, dest: &Path) -> Result<(), BackupEr
 
 /// Removes the temporary file of a previous crash. Only a regular file is removed (judged by
 /// `symlink_metadata`, so a link is never followed nor deleted); anything else is refused.
-fn recover_orphan_tmp(tmp: &Path) -> io::Result<()> {
+pub(super) fn recover_orphan_tmp(tmp: &Path) -> io::Result<()> {
     match fs::symlink_metadata(tmp) {
         Ok(meta) if meta.file_type().is_file() => fs::remove_file(tmp),
         Ok(_) => Err(io::Error::from(io::ErrorKind::AlreadyExists)),
@@ -92,7 +96,7 @@ fn recover_orphan_tmp(tmp: &Path) -> io::Result<()> {
 /// user confirmed it in the save dialog). `dest` must pass `check_export_destination`. No partial
 /// file survives an error. Blocking.
 pub fn export_archive_to(root: &DataRoot, src: &Path, dest: &Path) -> Result<(), BackupError> {
-    check_export_destination(root, dest)?;
+    check_export_destination(root, dest, "zip")?;
     let mut tmp_name = OsString::from(".");
     tmp_name.push(
         dest.file_name()

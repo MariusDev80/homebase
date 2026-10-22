@@ -18,7 +18,6 @@ pub enum BackupError {
         archive: i64,
         supported: i64,
     },
-    #[allow(dead_code)] // used from lot B4a
     InvalidImport {
         problem: ImportProblem,
     },
@@ -65,7 +64,6 @@ pub enum ArchiveProblem {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)] // used from lot B4a
 pub enum ImportProblem {
     NotConfig,
     NotUtf8,

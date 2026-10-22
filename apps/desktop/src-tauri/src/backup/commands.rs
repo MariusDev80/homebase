@@ -1,5 +1,9 @@
 //! Tauri commands of the backup subsystem (spec 4.11). None of them accepts a path.
 
+use super::config_transfer::{
+    apply_config_import, check_config_export, check_config_import_text, read_config_file,
+    write_config_to, ConfigImportPlan, ImportOutcome,
+};
 use super::create::{blocking, create_backup};
 use super::dialogs;
 use super::error::BackupError;
@@ -156,6 +160,58 @@ pub async fn backup_acknowledge(state: tauri::State<'_, BackupState>) -> Result<
     let root = state.root.clone();
     blocking(move || acknowledge(&root)).await??;
     Ok(())
+}
+
+/// Validates the document built by the front, then asks where to save it (no lock). `false` when
+/// the dialog is cancelled.
+#[tauri::command]
+pub async fn config_export_save<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, BackupState>,
+    contents: String,
+) -> Result<bool, BackupError> {
+    let root = state.root.clone();
+    let suggested = format!(
+        "homebase-config-{}.json",
+        BackupName::new(state.clock.now(), BackupKind::Manual).stamp()
+    );
+    blocking(move || -> Result<bool, BackupError> {
+        check_config_export(&contents)?;
+        let Some(dest) = dialogs::save_config(&app, &suggested) else {
+            return Ok(false);
+        };
+        write_config_to(&root, &dest, &contents)?;
+        Ok(true)
+    })
+    .await?
+}
+
+/// Open dialog (no lock), bounded read, envelope check. The content is returned only when the
+/// file is a Homebase configuration. `None` when the dialog is cancelled.
+#[tauri::command]
+pub async fn config_import_pick<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Option<String>, BackupError> {
+    blocking(move || -> Result<Option<String>, BackupError> {
+        let Some(path) = dialogs::pick_config(&app) else {
+            return Ok(None);
+        };
+        let text = read_config_file(&path)?;
+        check_config_import_text(&text)?;
+        Ok(Some(text))
+    })
+    .await?
+}
+
+/// Replaces the configuration (after the front's preview). Takes the backup lock; the `pre-import`
+/// backup precedes any write.
+#[tauri::command]
+pub async fn config_import_apply(
+    state: tauri::State<'_, BackupState>,
+    plan: ConfigImportPlan,
+) -> Result<ImportOutcome, BackupError> {
+    let _guard = state.try_acquire()?;
+    apply_config_import(&state.root, state.clock.as_ref(), &plan).await
 }
 
 #[cfg(test)]

@@ -15,6 +15,9 @@
     "allow-backup-export",
     "allow-backup-pick-external",
     "allow-backup-acknowledge",
+    "allow-config-export-save",
+    "allow-config-import-pick",
+    "allow-config-import-apply",
     "sql:allow-execute",
     "sql:allow-select",
     {

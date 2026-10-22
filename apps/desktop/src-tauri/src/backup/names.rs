@@ -135,7 +135,6 @@ pub fn is_image_file_name(s: &str) -> bool {
 }
 
 /// Union of JS `trim()` and Rust `str::trim()` whitespace (spec 4.3).
-#[allow(dead_code)] // used from lot B4a
 fn is_hb_trim(c: char) -> bool {
     matches!(c,
         '\u{0009}'..='\u{000D}'
@@ -152,7 +151,6 @@ fn is_hb_trim(c: char) -> bool {
         | '\u{FEFF}')
 }
 
-#[allow(dead_code)] // used from lot B4a
 pub fn hb_trim(s: &str) -> &str {
     s.trim_matches(is_hb_trim)
 }

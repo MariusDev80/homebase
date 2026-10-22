@@ -6,6 +6,9 @@ mod archive_tests;
 #[cfg(test)]
 mod b3_tests;
 pub mod commands;
+pub mod config_transfer;
+#[cfg(test)]
+mod config_transfer_tests;
 pub mod create;
 pub mod daily;
 pub mod dialogs;
@@ -50,7 +53,6 @@ pub const RETAIN_MIGRATION: usize = 3;
 pub const DAILY_INTERVAL: Duration = Duration::from_secs(24 * 3600);
 pub const DAILY_FIRST_CHECK: Duration = Duration::from_secs(120);
 pub const DAILY_CHECK_PERIOD: Duration = Duration::from_secs(3600);
-#[allow(dead_code)] // used from lot B4a
 pub const MAX_CONFIG_FILE_BYTES: u64 = 1_048_576;
 pub const RENAME_RETRY_TOTAL: Duration = Duration::from_secs(2);
 pub const RENAME_RETRY_STEP: Duration = Duration::from_millis(100);

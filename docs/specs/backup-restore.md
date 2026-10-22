@@ -603,6 +603,13 @@ interface ConfigImportPlan {
    Un seul `now` pour toute la transaction. En cas d'erreur, annulation et `invalid_import { constraint }` ou `database { code }`.
 4. Renvoyer `ImportOutcome`. Côté front, `location.reload()`.
 
+**Amendements (revue B4a, 2026-10-22)**
+
+- **Export.** `config_export_save` exige une destination `.json` (insensible à la casse) dont le parent canonique est hors de la racine des données, comme l'export d'archive (§4.10) ; même gestion des temporaires orphelins. `settings` absent ou qui n'est pas un objet → `not_config`.
+- **Validation.** Un U+0000 dans un nom de dashboard ou un type de widget est refusé (`invalid_name`, `invalid_widget_type`) des deux côtés : SQLite `length()` s'arrête au NUL et le CHECK échouerait après la sauvegarde `pre-import`. Une clé de réglage en double → `duplicate_id`. Le contrôle « clé secrète » passe avant le contrôle de forme. Le total de widgets (≤ 1 000) est compté avant l'analyse des configs. `config` est stocké tel quel (objet JSON valide, ≤ 65 536 points de code) ; le front aligne son aperçu sur serde_json (profondeur ≤ 128, pas de demi-substitut isolé) pour qu'une config annoncée valide ne soit pas refusée.
+- **Transaction.** Après un commit réussi, une erreur de fermeture de la connexion est journalisée et l'import renvoie quand même `Ok` (sinon le front n'appellerait pas `reload` alors que la configuration est remplacée). Délai d'attente d'un autre écrivain : 5 s ; un `busy` SQLite arrive en `database { code: "5" }` (à traduire en B5).
+- **Contrat IPC.** Si le plan ne se désérialise pas, Tauri rejette avec une **chaîne** et non un `BackupError` : le front la traite comme une erreur inconnue et ne l'affiche jamais brute. Avant `config_import_apply`, B5 vide ou suspend les écritures différées du front (notes, layout) pour qu'aucune écriture tardive ne touche une instance supprimée avant le `reload`.
+
 ### 4.13 Erreurs
 
 ```rust
