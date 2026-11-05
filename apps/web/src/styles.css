@@ -65,6 +65,11 @@
 }
 
 @layer base {
+  /* The vertical scrollbar appearing must not change the page width (and resize the grid). */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     background: var(--hb-bg);
     color: var(--hb-fg);

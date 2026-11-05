@@ -86,6 +86,8 @@ export function buildGridOptions(params: GridOptionsParams): GridsterConfig {
   return {
     gridType: 'verticalFixed',
     fixedRowHeight: GRID_ROW_HEIGHT,
+    // For the height only: the items are absolute, so the grid would collapse without it. The width
+    // gridster sets with it grows at each layout and is overridden in dashboard.component.css.
     setGridSize: true,
     minCols: GRID_COLUMNS,
     maxCols: GRID_COLUMNS,
@@ -108,6 +110,8 @@ export function buildGridOptions(params: GridOptionsParams): GridsterConfig {
     pushResizeItems: false,
     swap: false,
     scrollToNewItems: false,
+    // A dragged or resized widget stays inside the grid (no horizontal overflow of the page).
+    enableBoundaryControl: true,
     addEmptyRowsCount: editing ? 2 : 0,
     draggable: {
       enabled: editing,

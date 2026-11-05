@@ -76,6 +76,11 @@ describe('grid adapter', () => {
       expect(options.draggable?.dragHandleClass).toBe('widget-drag-handle');
     });
 
+    it('keeps dragged and resized widgets inside the grid', () => {
+      const options = buildGridOptions({ editing: true, onItemChange });
+      expect(options.enableBoundaryControl).toBe(true);
+    });
+
     it('forwards only items carrying an instance id', () => {
       const options = buildGridOptions({ editing: true, onItemChange });
       const item = toGridsterItem('a', { x: 0, y: 0, w: 2, h: 2 }, constraints);
