@@ -372,6 +372,26 @@ describe('DashboardStore open and close', () => {
     await expect(store.whenOpened()).resolves.toBe('ready');
   });
 
+  it('does not show on dashboard B a widget added to A while B was opened', async () => {
+    const { store, instances, first, second } = await twoDashboards();
+    await store.open(first.id, 'x');
+    const slow = gate<void>();
+    const create = instances.create.bind(instances);
+    vi.spyOn(instances, 'create').mockImplementationOnce(async (input) => {
+      await slow.promise;
+      return create(input);
+    });
+    const adding = store.add('hello');
+    await vi.waitFor(() => expect(instances.create).toHaveBeenCalled());
+    await expect(store.open(second.id, 'x')).resolves.toBe('ready');
+    slow.release();
+    const record = await adding;
+    expect(store.dashboard()?.id).toBe(second.id);
+    expect(store.instances()).toHaveLength(0);
+    expect(instances.items.filter((i) => i.dashboardId === first.id)).toEqual([record]);
+    expect(instances.items.filter((i) => i.dashboardId === second.id)).toHaveLength(0);
+  });
+
   it('ignores a superseded open that ends in not-found', async () => {
     const { store, dashboards, second } = await twoDashboards();
     const slow = gate<null>();

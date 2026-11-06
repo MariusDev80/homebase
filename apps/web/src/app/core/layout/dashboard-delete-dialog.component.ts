@@ -228,6 +228,12 @@ export class DashboardDeleteDialogComponent {
       }
     } finally {
       this.busy.set(false);
+      // A failure returns above: the button that had the focus was disabled, bring it back inside.
+      if (!deleted) {
+        afterNextRender(() => this.cancelButton()?.nativeElement.focus(), {
+          injector: this.injector,
+        });
+      }
     }
     if (deleted) this.closed.emit(true);
   }

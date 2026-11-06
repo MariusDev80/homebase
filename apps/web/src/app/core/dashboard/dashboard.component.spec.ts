@@ -2,7 +2,7 @@ import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
-import { LAST_DASHBOARD_SETTING } from './dashboard-list.store';
+import { DashboardListStore, LAST_DASHBOARD_SETTING } from './dashboard-list.store';
 import { DashboardStore } from './dashboard.store';
 import {
   DASHBOARD_REPOSITORY,
@@ -290,6 +290,16 @@ describe('DashboardComponent', () => {
         expect(el.querySelector('[data-testid="dashboard-move-error"]')).toBeNull();
         expect(navigate).not.toHaveBeenCalled();
         expect(navigateByUrl).not.toHaveBeenCalled();
+      });
+
+      it('names the new dashboard after the edited name and icon of the list', async () => {
+        const { el, dashboards } = await seededAt(full, 'Accueil', 'briefcase');
+        const list = TestBed.inject(DashboardListStore);
+        await list.load('Accueil');
+        await list.update(dashboards.items[0].id, { name: 'Renommé', icon: 'home' });
+        move(el);
+        await vi.waitFor(() => expect(dashboards.items).toHaveLength(2));
+        expect(dashboards.items[1]).toMatchObject({ name: 'Renommé (suite)', icon: 'home' });
       });
 
       it('cuts the name of the new dashboard to 100 characters', async () => {

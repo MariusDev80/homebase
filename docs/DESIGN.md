@@ -49,7 +49,7 @@ Ce sont des variables CSS sémantiques, définies une seule fois dans `apps/web/
 - Transitions : 80 à 150 ms, uniquement sur la couleur, le fond et l'opacité. Rien n'est animé si `prefers-reduced-motion` est actif.
 
 ## 3. Composants (patterns)
-- **Barre de navigation** : verticale à gauche, 56 px, **sans fond ni bordure propres**. Bulles de 40 px (`.sidebar-bubble`) : rondes, cadre `--hb-border`, fond `--hb-bg`, icône `--hb-fg-muted` ; actif (`aria-current="page"`) en `--hb-accent` sur `--hb-accent-subtle`. De haut en bas : tableaux de bord (zone défilante), `+` neutre, espace, Réglages, `+` vert. Pas de bouton de thème (réglage dans Réglages).
+- **Barre de navigation** : verticale à gauche, 56 px, **sans fond ni bordure propres**. Bulles de 40 px (`.sidebar-bubble`) : rondes, cadre `--hb-border`, fond `--hb-bg`, icône `--hb-fg-muted` ; actif (`aria-current="page"`) en `--hb-accent` sur `--hb-accent-subtle`. De haut en bas : tableaux de bord (zone défilante), `+` neutre, espace, `+` vert (widget), Réglages tout en bas. Pas de bouton de thème (réglage dans Réglages).
 - **Bulle de texte** (`.sidebar-label`) : au survol et au focus clavier d'une bulle, le nom à côté, sur `--hb-bg-emphasis`, texte `--hb-fg-on-emphasis`, pilule, ombre de flottant.
 - **Ajout de widget** : `+` sur `--hb-success-emphasis` (`.sidebar-bubble-add`), puis V sur `--hb-accent-emphasis` (`.sidebar-bubble-done`). Seule action primaire de la vue tableau de bord.
 - **En-tête de page** : titre de 20 px en 600 à gauche, actions à droite, séparateur bas facultatif. Le tableau de bord n'en a pas : son titre est un `<h1 class="sr-only">`.

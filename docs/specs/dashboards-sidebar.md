@@ -147,7 +147,7 @@ La coquille fait `100dvh` ; `main` est une colonne flex en `overflow-y: auto` ; 
 Un `ResizeObserver` sur la zone de grille appelle `Gridster.api.resize()` (V8). Les bandeaux restent au-dessus ; les lignes rétrécissent.
 
 ### D7. Barre : un lien par bulle, ordre, rôles ; **bouton de thème retiré**
-De haut en bas : bulles des tableaux (zone défilante), `+` neutre (« Nouveau tableau de bord »), espace, Réglages, `+` vert tout en bas.
+De haut en bas : bulles des tableaux (zone défilante), `+` neutre (« Nouveau tableau de bord »), espace, `+` vert (widget), Réglages tout en bas (ordre choisi par Marius sur aperçu).
 
 `<nav>` avec des listes de liens et de boutons ; **ni `menubar` ni flèches** : `Tab` parcourt les bulles. `aria-current="page"` sur l'active.
 
@@ -1354,7 +1354,7 @@ Fin de §2.7, « Sauvegarde », après la rétention :
 > | `--hb-accent-emphasis` | `#0969da` | `#1f6feb` | fond plein d'accent, avec `--hb-fg-on-emphasis` (`--hb-accent` n'atteint pas AA en sombre) |
 
 §3, remplacer « Barre supérieure » et « Navigation » par :
-> - **Barre de navigation** : verticale à gauche, 56 px, **sans fond ni bordure propres**. Bulles de 40 px (`.sidebar-bubble`) : rondes, cadre `--hb-border`, fond `--hb-bg`, icône `--hb-fg-muted` ; actif (`aria-current="page"`) en `--hb-accent` sur `--hb-accent-subtle`. De haut en bas : tableaux de bord (zone défilante), `+` neutre, espace, Réglages, `+` vert. Pas de bouton de thème (réglage dans Réglages).
+> - **Barre de navigation** : verticale à gauche, 56 px, **sans fond ni bordure propres**. Bulles de 40 px (`.sidebar-bubble`) : rondes, cadre `--hb-border`, fond `--hb-bg`, icône `--hb-fg-muted` ; actif (`aria-current="page"`) en `--hb-accent` sur `--hb-accent-subtle`. De haut en bas : tableaux de bord (zone défilante), `+` neutre, espace, `+` vert, Réglages. Pas de bouton de thème (réglage dans Réglages).
 > - **Bulle de texte** (`.sidebar-label`) : au survol et au focus clavier d'une bulle, le nom à côté, sur `--hb-bg-emphasis`, texte `--hb-fg-on-emphasis`, pilule, ombre de flottant.
 > - **Ajout de widget** : `+` sur `--hb-success-emphasis` (`.sidebar-bubble-add`), puis V sur `--hb-accent-emphasis` (`.sidebar-bubble-done`). Seule action primaire de la vue tableau de bord.
 
@@ -1453,6 +1453,6 @@ Section « Commandes », ligne Dev : remplacer « Dev (fenêtre Tauri + `ng serv
 5. **Changement explicite** : le bouton de thème quitte la barre ; le thème se règle dans Réglages (D7). Présenté sans objection.
 
 **Restant à confirmer (non bloquant)**
-6. Ordre bas de barre : Réglages au-dessus, `+` vert tout en bas (D7).
+6. Ordre bas de barre : `+` vert au-dessus de Réglages, Réglages tout en bas (D7). **Décidé** par Marius sur aperçu.
 7. Icône « jeu vidéo » : `trophy` (pas de manette dans PrimeIcons) ; une exception SVG comme la météo reste possible à part.
 8. Un fichier d'export v1 importé remet les icônes personnalisées au défaut (D16).

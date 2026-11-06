@@ -77,6 +77,12 @@ export class DashboardComponent {
       onInteractionStart: () => {
         this.interacting = true;
       },
+      // The item change (if any) is reported by the same gesture: clear the flag afterwards.
+      onInteractionStop: () => {
+        setTimeout(() => {
+          this.interacting = false;
+        }, 0);
+      },
     }),
   );
 
@@ -166,8 +172,10 @@ export class DashboardComponent {
    * and move are not atomic: if the move fails, the empty dashboard is removed (best effort).
    */
   protected async moveUnplaced(): Promise<void> {
-    const current = this.store.dashboard();
-    if (!current || this.moving()) return;
+    const opened = this.store.dashboard();
+    if (!opened || this.moving()) return;
+    // The list is up to date after an edit (rename, icon); the store keeps what was loaded.
+    const current = this.list.dashboards().find((d) => d.id === opened.id) ?? opened;
     this.moving.set(true);
     this.moveErrorKey.set(null);
     let createdId: string | null = null;

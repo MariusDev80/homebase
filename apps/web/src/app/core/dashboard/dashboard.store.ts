@@ -206,6 +206,7 @@ export class DashboardStore implements WidgetConfigWriter {
     const displayed = new Map(this.layout().placed);
     const grid = this.findRoom(definition.size);
     if (!grid) throw new GridFullError(type);
+    const token = this.token;
     const record = await this.instanceRepository.create({
       dashboardId: dashboard.id,
       widgetType: type,
@@ -213,6 +214,8 @@ export class DashboardStore implements WidgetConfigWriter {
       config: definition.config.defaults(),
       configVersion: definition.config.version,
     });
+    // Another dashboard was opened meanwhile: the row is saved, but not shown on the new one.
+    if (token !== this.token) return record;
     this.persistedGrids.set(record.id, { ...record.grid });
     // The repositioned widgets are written with the displayed rects (D3).
     displayed.set(record.id, { ...record.grid });

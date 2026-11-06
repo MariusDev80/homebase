@@ -250,6 +250,20 @@ describe('DashboardDeleteDialogComponent', () => {
     expect(closed).toEqual([]);
   });
 
+  it('puts the focus back on Cancel after a failure', async () => {
+    await open();
+    fail({ kind: 'busy' });
+    await acknowledge();
+    confirmButton().focus();
+    expect(document.activeElement).toBe(confirmButton());
+    await confirm();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(q('dashboard-delete-cancel'));
+    });
+    expect(closed).toEqual([]);
+  });
+
   it('treats not_found as already deleted', async () => {
     await open();
     fail({ kind: 'not_found' });

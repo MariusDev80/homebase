@@ -74,6 +74,26 @@ describe('SearchHotkey', () => {
     TestBed.inject(AppLock).unlock();
     expect(ctrlK().defaultPrevented).toBe(true);
   });
+  it('ignores Ctrl+K and / typed inside a dialog', async () => {
+    const { hotkey, key, ctrlK, navigate } = await setup();
+    const focus = vi.fn();
+    hotkey.register(focus);
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const button = document.createElement('button');
+    dialog.appendChild(button);
+    document.body.appendChild(dialog);
+    try {
+      expect(key({ key: 'k', ctrlKey: true }, button).defaultPrevented).toBe(false);
+      expect(key({ key: '/' }, button).defaultPrevented).toBe(false);
+      expect(focus).not.toHaveBeenCalled();
+      expect(navigate).not.toHaveBeenCalled();
+      expect(ctrlK().defaultPrevented).toBe(true);
+    } finally {
+      dialog.remove();
+    }
+  });
+
   it('does nothing for / without a bar, and leaves the key free', async () => {
     const { key, navigate, instances } = await setup();
     const spy = vi.spyOn(instances, 'findFirstOfType');

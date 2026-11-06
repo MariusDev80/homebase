@@ -100,11 +100,11 @@ fn char_count(s: &str) -> usize {
     s.chars().count()
 }
 
-/// Same as the front's `SECRET_KEY_PATTERN`, written by hand (no `regex`): a key is secret when it
-/// contains one of the markers, case-insensitively.
 /// Setting never written by an import (defence in depth: the front already drops it).
 const EXCLUDED_SETTING_KEY: &str = "dashboard.last";
 
+/// Same as the front's `SECRET_KEY_PATTERN`, written by hand (no `regex`): a key is secret when it
+/// contains one of the markers, case-insensitively.
 pub fn is_secret_setting_key(key: &str) -> bool {
     const MARKERS: [&str; 9] = [
         "secret",

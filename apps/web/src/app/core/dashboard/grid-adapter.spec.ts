@@ -110,6 +110,14 @@ describe('grid adapter', () => {
       expect(onInteractionStart).toHaveBeenCalledTimes(2);
     });
 
+    it('reports the end of a drag or a resize', () => {
+      const onInteractionStop = vi.fn();
+      const options = buildGridOptions({ onItemChange, onInteractionStart, onInteractionStop });
+      options.draggable?.stop?.({} as never, {} as never, {} as never);
+      options.resizable?.stop?.({} as never, {} as never, {} as never);
+      expect(onInteractionStop).toHaveBeenCalledTimes(2);
+    });
+
     it('keeps dragged and resized widgets inside the grid', () => {
       const options = buildGridOptions({ onItemChange, onInteractionStart });
       expect(options.enableBoundaryControl).toBe(true);

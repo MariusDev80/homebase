@@ -78,6 +78,8 @@ export class SearchHotkey {
 
   private onKeydown(event: KeyboardEvent): void {
     if (this.lock.isLocked() || event.defaultPrevented) return;
+    // A modal dialog owns the keyboard: no jump to the search bar behind it.
+    if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return;
     const withModifier = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
     const isCtrlK = withModifier && event.key.toLowerCase() === 'k';
     const isSlash =

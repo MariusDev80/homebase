@@ -97,3 +97,8 @@ app-dashboard gridster-item:hover .gridster-item-resizable-handler.handle-se {
 app-dashboard .gridster-item-resizable-handler.handle-se:hover {
   border-color: transparent transparent var(--hb-accent);
 }
+
+/* A focused card keeps its ring inside: the grid clips what overflows its edge. */
+app-dashboard .box:focus-visible {
+  outline-offset: -2px;
+}

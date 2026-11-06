@@ -16,7 +16,7 @@ import { Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Dialog } from 'primeng/dialog';
 import { DEFAULT_DASHBOARD_ICON, type Dashboard } from '../../data';
-import { DASHBOARD_ICONS } from '../dashboard/dashboard-icons';
+import { DASHBOARD_ICONS, dashboardIconClass } from '../dashboard/dashboard-icons';
 import { DashboardLimitError, DashboardListStore } from '../dashboard/dashboard-list.store';
 
 const NAME_MAX_LENGTH = 100;
@@ -91,7 +91,7 @@ const NAME_MAX_LENGTH = 100;
                   [checked]="icon() === option"
                   (change)="icon.set(option)"
                 />
-                <i [class]="'pi pi-' + option" aria-hidden="true"></i>
+                <i [class]="iconClass(option)" aria-hidden="true"></i>
                 <span class="sr-only">{{ 'dashboards.icons.' + option | transloco }}</span>
               </label>
             }
@@ -140,6 +140,7 @@ export class DashboardFormDialogComponent {
   readonly closed = output<Dashboard | null>();
 
   protected readonly icons = DASHBOARD_ICONS;
+  protected readonly iconClass = dashboardIconClass;
   protected readonly name = linkedSignal(() => this.dashboard()?.name ?? '');
   /** A stored icon outside the closed list is kept as is (it just checks no radio). */
   protected readonly icon = linkedSignal<string>(

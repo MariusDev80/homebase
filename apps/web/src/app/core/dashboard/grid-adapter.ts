@@ -72,10 +72,12 @@ export interface GridOptionsParams {
   readonly onItemChange: (item: DashboardGridItem) => void;
   /** Called by draggable.start and resizable.start (diagnostic: gridster must not move items alone). */
   readonly onInteractionStart: () => void;
+  /** Called by draggable.stop and resizable.stop, also when nothing moved. */
+  readonly onInteractionStop?: () => void;
 }
 
 export function buildGridOptions(params: GridOptionsParams): GridsterConfig {
-  const { onItemChange, onInteractionStart } = params;
+  const { onItemChange, onInteractionStart, onInteractionStop } = params;
   return {
     gridType: 'fit',
     // No inline width/height written at each layout (the grid fills its area, see the CSS).
@@ -116,6 +118,7 @@ export function buildGridOptions(params: GridOptionsParams): GridsterConfig {
       ignoreContent: true,
       dragHandleClass: DRAG_HANDLE_CLASS,
       start: () => onInteractionStart(),
+      stop: () => onInteractionStop?.(),
     },
     resizable: {
       enabled: true,
@@ -130,6 +133,7 @@ export function buildGridOptions(params: GridOptionsParams): GridsterConfig {
         nw: false,
       },
       start: () => onInteractionStart(),
+      stop: () => onInteractionStop?.(),
     },
     itemChangeCallback: (item) => {
       if (isDashboardGridItem(item)) onItemChange(item);

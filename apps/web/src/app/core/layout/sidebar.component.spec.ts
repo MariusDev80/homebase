@@ -221,6 +221,20 @@ describe('SidebarComponent', () => {
       ).toBeTruthy();
     });
 
+    it('puts the green widget + above Settings at the bottom, after the neutral + and the spacer', () => {
+      const green = el.querySelector('[data-testid="add-widget"]') as HTMLElement;
+      const follows = (a: Element, b: Element): boolean =>
+        !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const spacer = el.querySelector('.sidebar-spacer') as HTMLElement;
+      expect(follows(addButton(), spacer)).toBe(true);
+      expect(follows(spacer, green)).toBe(true);
+      expect(follows(green, settings())).toBe(true);
+      const bottom = green.closest('ul') as HTMLElement;
+      expect(bottom.contains(settings())).toBe(true);
+      expect(bottom.contains(addButton())).toBe(false);
+      expect(bottom.lastElementChild?.contains(settings())).toBe(true);
+    });
+
     it('announces the dashboard shown at each change but the first one', async () => {
       const store = TestBed.inject(DashboardStore);
       const status = (): string | null | undefined =>
