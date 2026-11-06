@@ -1,6 +1,7 @@
 use super::config_transfer::*;
 use super::error::{BackupError, ImportProblem};
 use super::paths::DataRoot;
+use super::sqlite::supported_schema_version;
 use super::test_support::{make_database, run};
 use crate::time::clock::FixedClock;
 use crate::time::formats::parse_instant;
@@ -64,11 +65,11 @@ fn count(conn: &mut SqliteConnection, table: &str) -> i64 {
 fn seeded() -> (TempDir, DataRoot) {
     let dir = TempDir::new().expect("tmp");
     let root = DataRoot::new(dir.path().to_path_buf());
-    make_database(&root.db(), 3, true);
+    make_database(&root.db(), supported_schema_version(), true);
     let mut c = db_conn(&root);
     exec(
         &mut c,
-        "INSERT INTO dashboards VALUES (?1, 'Second', 1, ?2, ?2)",
+        "INSERT INTO dashboards (id, name, sort_order, created_at, updated_at) VALUES (?1, 'Second', 1, ?2, ?2)",
         &[D2, AT],
     );
     let w = "INSERT INTO widget_instances VALUES (?1, ?2, ?3, 0, 0, 3, 3, '{}', 1, ?4, ?4)";

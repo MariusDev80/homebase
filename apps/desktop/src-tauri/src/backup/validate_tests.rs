@@ -6,7 +6,8 @@ use super::error::{ArchiveProblem, BackupError};
 use super::manifest::{Manifest, ManifestFile, MANIFEST_FORMAT, MANIFEST_VERSION};
 use super::names::BackupKind;
 use super::paths::DataRoot;
-use super::test_support::{make_database, run};
+use super::sqlite::supported_schema_version;
+use super::test_support::{make_database, make_database_with_migrator, run};
 use super::validate::*;
 use crate::time::clock::FixedClock;
 use crate::time::formats::parse_instant;
@@ -625,19 +626,19 @@ fn contiguous_history_beyond_the_supported_version_is_schema_too_new() {
         try_extract(&path).expect_err("refused"),
         BackupError::SchemaTooNew {
             archive: 99,
-            supported: 3
+            supported: 4
         }
     );
     // A schema that also differs from ours stays "too new" (R4).
     let dir = TempDir::new().expect("tmp");
     let path = db_archive(
         &dir,
-        3,
-        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (4, 'x', 1, X'00', 0); CREATE TABLE future (a)",
+        4,
+        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (5, 'x', 1, X'00', 0); CREATE TABLE future (a)",
     );
     assert!(matches!(
         try_extract(&path).expect_err("refused"),
-        BackupError::SchemaTooNew { archive: 4, .. }
+        BackupError::SchemaTooNew { archive: 5, .. }
     ));
 }
 
@@ -840,4 +841,149 @@ fn expected_schema_of_version_3_matches_a_real_database() {
     }
     assert!(names.iter().any(|n| n.starts_with("sqlite_autoindex_")));
     assert!(run(expected_schema(1)).expect("v1").len() < expected.len());
+}
+
+/// `sqlite_schema` of the database at `path`, read-only.
+fn schema_of(path: &Path) -> Vec<SchemaRow> {
+    use sqlx::Row;
+    run(async {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let rows =
+            sqlx::query("SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name")
+                .fetch_all(&mut conn)
+                .await
+                .expect("rows");
+        conn.close().await.expect("close");
+        rows.iter()
+            .map(|r| (r.get(0), r.get(1), r.get(2), r.get(3)))
+            .collect()
+    })
+}
+
+/// One text column of the first `dashboards` row.
+fn dashboard_value(path: &Path, column: &str) -> String {
+    use sqlx::Row;
+    run(async {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let sql = format!("SELECT {column} FROM dashboards ORDER BY id LIMIT 1");
+        let row = sqlx::query(&sql).fetch_one(&mut conn).await.expect("row");
+        conn.close().await.expect("close");
+        row.get(0)
+    })
+}
+
+#[test]
+fn expected_schema_of_version_4_matches_a_real_database() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 4, false);
+    let expected = run(expected_schema(4)).expect("expected");
+    assert_eq!(schema_of(&path), expected);
+    let dashboards = expected
+        .iter()
+        .find(|r| r.1 == "dashboards")
+        .and_then(|r| r.3.clone())
+        .expect("dashboards sql");
+    // Frozen text: SQLite rewrites the CREATE TABLE on ADD COLUMN (column appended before the
+    // closing parenthesis). A change in the bundled SQLite would turn this red.
+    let frozen = "CREATE TABLE dashboards (
+  id          TEXT    NOT NULL PRIMARY KEY
+              CHECK (length(id) = 36 AND id NOT GLOB '*[^0-9a-f-]*'),
+  name        TEXT    NOT NULL
+              CHECK (length(trim(name)) >= 1 AND length(name) <= 100),
+  sort_order  INTEGER NOT NULL CHECK (sort_order >= 0),
+  created_at  TEXT    NOT NULL
+              CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z'),
+  updated_at  TEXT    NOT NULL
+              CHECK (updated_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z')
+, icon TEXT NOT NULL DEFAULT 'th-large'
+  CHECK (length(icon) BETWEEN 1 AND 32
+         AND icon GLOB '[a-z]*'
+         AND icon NOT GLOB '*[^a-z0-9-]*')) STRICT";
+    assert_eq!(dashboards, frozen);
+
+    assert_ne!(expected, run(expected_schema(3)).expect("v3"));
+}
+
+#[test]
+fn v3_database_migrated_to_v4_has_the_schema_of_v4_and_the_default_icon() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 3, true);
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(3)).expect("expected v3")
+    );
+    run(async {
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .journal_mode(SqliteJournalMode::Wal);
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .expect("open");
+        super::test_support::migrate_with_real_migrator(&pool).await;
+        pool.close().await;
+    });
+    assert_eq!(dashboard_value(&path, "icon"), "th-large");
+    assert_eq!(
+        dashboard_value(&path, "updated_at"),
+        "2026-10-21T08:15:00.123Z"
+    );
+    // ALTER TABLE ADD COLUMN rewrites the CREATE TABLE text, so compare to a fresh v4 database,
+    // not to the v3 text.
+    let fresh = dir.path().join("fresh.db");
+    make_database(&fresh, 4, false);
+    assert_eq!(schema_of(&path), schema_of(&fresh));
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(4)).expect("expected v4")
+    );
+}
+
+#[test]
+fn archive_of_version_3_is_still_accepted() {
+    let dir = TempDir::new().expect("tmp");
+    let path = db_archive(&dir, 3, "");
+    let dest = dir.path().join("dest");
+    let manifest = run(extract_validated(&path, &dest)).expect("accepted");
+    assert_eq!(manifest.schema_version, 3);
+    assert!(supported_schema_version() > 3);
+}
+
+#[test]
+fn archive_at_the_supported_version_made_by_the_real_migrator_is_accepted() {
+    let dir = TempDir::new().expect("tmp");
+    let root = DataRoot::new(dir.path().join("data"));
+    fs::create_dir_all(root.images()).expect("images");
+    make_database_with_migrator(&root.db(), true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(root.db());
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        sqlx::query("UPDATE dashboards SET icon = 'briefcase'")
+            .execute(&mut conn)
+            .await
+            .expect("icon");
+        conn.close().await.expect("close");
+    });
+    let clock = FixedClock::new(parse_instant("2026-10-21T08:15:00.123Z").expect("instant"));
+    let info = run(create_backup(&root, &clock, BackupKind::Manual, &[])).expect("create");
+    let archive = root.backups().join(&info.id);
+
+    let dest = dir.path().join("restored");
+    let manifest = run(extract_validated(&archive, &dest)).expect("accepted");
+    assert_eq!(manifest.schema_version, supported_schema_version());
+    assert_eq!(
+        dashboard_value(&dest.join("homebase.db"), "icon"),
+        "briefcase"
+    );
 }

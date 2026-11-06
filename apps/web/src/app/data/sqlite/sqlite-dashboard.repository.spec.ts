@@ -33,6 +33,7 @@ describe('SqliteDashboardRepository', () => {
       id: '00000000-0000-4000-8000-000000000001',
       name: 'Home',
       sortOrder: 0,
+      icon: 'th-large',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
@@ -56,18 +57,33 @@ describe('SqliteDashboardRepository', () => {
     expect(all[0].name).toBe('First');
   });
 
-  it('renames with trim, not_found and invalid_input', async () => {
+  it('creates with and without an icon', async () => {
+    expect((await repo.create({ name: 'A' })).icon).toBe('th-large');
+    expect((await repo.create({ name: 'B', icon: 'briefcase' })).icon).toBe('briefcase');
+    expect(await kindOf(repo.create({ name: 'C', icon: 'pi pi-x' }))).toBe('invalid_input');
+    expect(await kindOf(repo.create({ name: 'C', icon: '' }))).toBe('invalid_input');
+    expect(await repo.list()).toHaveLength(2);
+  });
+
+  it('updates name and icon with trim, not_found and invalid_input', async () => {
     const d = await repo.create({ name: 'Old' });
     clock.set('2026-03-03T00:00:00.000Z');
-    const renamed = await repo.rename(d.id, '  New  ');
-    expect(renamed.name).toBe('New');
-    expect(renamed.updatedAt).toBe('2026-03-03T00:00:00.000Z');
-    expect(renamed.createdAt).toBe('2026-01-01T00:00:00.000Z');
-    expect(await kindOf(repo.rename('00000000-0000-4000-8000-0000000000ff', 'x'))).toBe(
-      'not_found',
+    const updated = await repo.update(d.id, { name: '  New  ', icon: 'home' });
+    expect(updated.name).toBe('New');
+    expect(updated.icon).toBe('home');
+    expect(updated.updatedAt).toBe('2026-03-03T00:00:00.000Z');
+    expect(updated.createdAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(await repo.get(d.id)).toEqual(updated);
+    const missing = '00000000-0000-4000-8000-0000000000ff';
+    expect(await kindOf(repo.update(missing, { name: 'x', icon: 'home' }))).toBe('not_found');
+    expect(await kindOf(repo.update(d.id, { name: '   ', icon: 'home' }))).toBe('invalid_input');
+    expect(await kindOf(repo.update(d.id, { name: 'x'.repeat(101), icon: 'home' }))).toBe(
+      'invalid_input',
     );
-    expect(await kindOf(repo.rename(d.id, '   '))).toBe('invalid_input');
-    expect(await kindOf(repo.rename(d.id, 'x'.repeat(101)))).toBe('invalid_input');
+    for (const icon of ['', 'A', 'pi pi-x', 'a'.repeat(33)]) {
+      expect(await kindOf(repo.update(d.id, { name: 'x', icon }))).toBe('invalid_input');
+    }
+    expect(await repo.get(d.id)).toEqual(updated);
   });
 
   it('remove cascades to widget instances and is idempotent', async () => {

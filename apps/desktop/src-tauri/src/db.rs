@@ -27,6 +27,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/V3__todos.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "dashboard_icon",
+            sql: include_str!("../migrations/V4__dashboard_icon.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

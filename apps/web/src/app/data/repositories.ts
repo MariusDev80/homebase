@@ -1,6 +1,7 @@
 import { JsonObject, JsonValue } from './json';
 import {
   Dashboard,
+  DashboardPatch,
   LayoutItem,
   NewDashboard,
   NewNote,
@@ -35,12 +36,15 @@ export interface DashboardRepository {
   /** ORDER BY sort_order, created_at, id */
   list(): Promise<Dashboard[]>;
   get(id: string): Promise<Dashboard | null>;
-  /** sort_order = max + 1 (or 0), computed in the same INSERT … SELECT. */
+  /** sort_order = max + 1 (or 0), computed in the same INSERT … SELECT. Icon defaults to DEFAULT_DASHBOARD_ICON. */
   create(input: NewDashboard): Promise<Dashboard>;
   /** INSERT … SELECT … WHERE NOT EXISTS (SELECT 1 FROM dashboards); true when created. */
   createIfNone(input: NewDashboard): Promise<boolean>;
-  /** not_found when absent. Name trimmed, 1 to 100 characters (invalid_input otherwise). */
-  rename(id: string, name: string): Promise<Dashboard>;
+  /**
+   * Replaces name and icon in one statement. not_found when absent. Name trimmed, 1 to 100
+   * characters; icon matching DASHBOARD_ICON_PATTERN (invalid_input otherwise).
+   */
+  update(id: string, patch: DashboardPatch): Promise<Dashboard>;
   /** Cascades to widget_instances. false when already absent. */
   remove(id: string): Promise<boolean>;
 }
@@ -63,6 +67,19 @@ export interface WidgetInstanceRepository {
    * invalid_input before any query.
    */
   updateLayout(dashboardId: string, items: readonly LayoutItem[]): Promise<number>;
+  /**
+   * Single UPDATE … FROM json_each($2) statement moving the listed instances to the target
+   * dashboard with their new rectangles; returns the number of rows changed. Empty batch: 0
+   * without a query. Duplicate ids or invalid values: invalid_input; missing dashboard: constraint.
+   * maxInstances is not enforced here: the target is expected to be a freshly created, empty
+   * dashboard.
+   */
+  moveToDashboard(targetDashboardId: string, items: readonly LayoutItem[]): Promise<number>;
+  /**
+   * First instance of the type, in dashboard order (sort_order, created_at, id) then
+   * listByDashboard order; null when there is none.
+   */
+  findFirstOfType(widgetType: string): Promise<WidgetInstanceRecord | null>;
   remove(id: string): Promise<boolean>;
 }
 

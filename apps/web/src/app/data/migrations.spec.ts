@@ -86,4 +86,54 @@ describe('migrations', () => {
       db.close();
     }
   });
+
+  describe('V4 (dashboards.icon)', () => {
+    const AT = '2026-01-01T00:00:00.000Z';
+    const ID = '00000000-0000-4000-8000-000000000001';
+
+    it('gives existing rows the default icon and leaves updated_at untouched', async () => {
+      const db = createTestDatabase(3);
+      try {
+        await db.execute(
+          'INSERT INTO dashboards (id, name, sort_order, created_at, updated_at) VALUES ($1, $2, 0, $3, $3)',
+          [ID, 'Home', AT],
+        );
+        const v4 = listMigrationFiles().find((m) => m.version === 4);
+        expect(v4?.name).toBe('dashboard_icon');
+        db.exec('BEGIN');
+        db.exec(v4?.sql ?? '');
+        db.exec('COMMIT');
+        expect(await db.select('SELECT icon, created_at, updated_at FROM dashboards')).toEqual([
+          { icon: 'th-large', created_at: AT, updated_at: AT },
+        ]);
+        expect(await db.select('PRAGMA integrity_check')).toEqual([{ integrity_check: 'ok' }]);
+        expect(await db.select('PRAGMA foreign_key_check')).toEqual([]);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('checks the shape of the icon', async () => {
+      const db = createTestDatabase();
+      try {
+        const insert = (icon: string) =>
+          db.execute(
+            "INSERT INTO dashboards (id, name, sort_order, icon, created_at, updated_at) VALUES ($1, 'D', 0, $2, $3, $3)",
+            [ID, icon, AT],
+          );
+        const bad = ['pi pi-x', '', 'A', 'a'.repeat(33), '1a', '-a', 'a_b', 'é'];
+        for (const icon of bad) {
+          await expect(insert(icon), JSON.stringify(icon)).rejects.toMatchObject({
+            kind: 'constraint',
+          });
+        }
+        await insert('chart-line');
+        await db.execute('DELETE FROM dashboards');
+        await insert('a'.repeat(32));
+        expect(await db.select('SELECT icon FROM dashboards')).toEqual([{ icon: 'a'.repeat(32) }]);
+      } finally {
+        db.close();
+      }
+    });
+  });
 });

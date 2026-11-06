@@ -11,7 +11,7 @@ use super::restore::{
     needs_raw_copy, raw_copy_dir, raw_copy_live_database, stage_restore, stage_restore_external,
     swap, verify_pending, Faults,
 };
-use super::sqlite::read_schema_version;
+use super::sqlite::{read_schema_version, supported_schema_version};
 use super::startup::{detect_missing_db, pre_migration_needed, startup_sequence};
 use super::status::{
     acknowledge, db_missing_alert, pre_migration_failed, read_last_restore, read_status,
@@ -141,7 +141,7 @@ fn up_to_date_or_absent_or_foreign_database_gets_nothing() {
     assert!(list_backups(&root).is_empty());
     assert!(!pre_migration_failed(&root) && !db_missing_alert(&root));
     // Current version.
-    make_database(&root.db(), 3, true);
+    make_database(&root.db(), supported_schema_version(), true);
     startup_sequence(&root, &clock()).expect("startup");
     assert!(list_backups(&root).is_empty());
     // Not a SQLite file: left alone.

@@ -1,10 +1,15 @@
 import { JsonObject } from './json';
 import type { InstantIso, LocalDateIso } from './time-formats';
 
+export const DEFAULT_DASHBOARD_ICON = 'th-large';
+/** Same shape as the CHECK of V4. The closed list lives in core/dashboard/dashboard-icons.ts. */
+export const DASHBOARD_ICON_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
+
 export interface Dashboard {
   id: string;
   name: string;
   sortOrder: number;
+  icon: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +35,12 @@ export interface WidgetInstanceRecord {
 export interface NewDashboard {
   id?: string;
   name: string;
+  icon?: string;
+}
+
+export interface DashboardPatch {
+  name: string;
+  icon: string;
 }
 
 export interface NewWidgetInstance {

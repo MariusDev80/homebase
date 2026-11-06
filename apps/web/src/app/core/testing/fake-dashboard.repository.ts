@@ -1,5 +1,5 @@
-import { DataError } from '../../data';
-import type { Dashboard, DashboardRepository, NewDashboard } from '../../data';
+import { DEFAULT_DASHBOARD_ICON, DataError } from '../../data';
+import type { Dashboard, DashboardPatch, DashboardRepository, NewDashboard } from '../../data';
 
 /** In-memory DashboardRepository with deterministic ids and timestamps (specs only). */
 export class FakeDashboardRepository implements DashboardRepository {
@@ -29,6 +29,7 @@ export class FakeDashboardRepository implements DashboardRepository {
       id: input.id ?? `dashboard-${this.counter}`,
       name: input.name,
       sortOrder,
+      icon: input.icon ?? DEFAULT_DASHBOARD_ICON,
       createdAt: stamp,
       updatedAt: stamp,
     };
@@ -63,12 +64,12 @@ export class FakeDashboardRepository implements DashboardRepository {
     return true;
   }
 
-  async rename(id: string, name: string): Promise<Dashboard> {
+  async update(id: string, patch: DashboardPatch): Promise<Dashboard> {
     await this.check();
     const index = this.items.findIndex((d) => d.id === id);
     const current = this.items[index];
     if (!current) throw new DataError('not_found', `Dashboard ${id} not found`);
-    const updated: Dashboard = { ...current, name: name.trim() };
+    const updated: Dashboard = { ...current, name: patch.name.trim(), icon: patch.icon };
     this.items[index] = updated;
     return updated;
   }

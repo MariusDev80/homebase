@@ -8,6 +8,7 @@ export type DashboardRow = {
   id: string;
   name: string;
   sort_order: number;
+  icon: string;
   created_at: string;
   updated_at: string;
 };
@@ -28,7 +29,7 @@ export type WidgetInstanceRow = {
 
 /* eslint-enable @typescript-eslint/consistent-type-definitions */
 
-export const DASHBOARD_COLUMNS = 'id, name, sort_order, created_at, updated_at';
+export const DASHBOARD_COLUMNS = 'id, name, sort_order, icon, created_at, updated_at';
 export const WIDGET_INSTANCE_COLUMNS =
   'id, dashboard_id, widget_type, grid_x, grid_y, grid_w, grid_h, config, config_version, created_at, updated_at';
 
@@ -51,6 +52,7 @@ export function toDashboard(row: DashboardRow): Dashboard {
     id: str(row.id, 'id'),
     name: str(row.name, 'name'),
     sortOrder: int(row.sort_order, 'sort_order'),
+    icon: str(row.icon, 'icon'),
     createdAt: str(row.created_at, 'created_at'),
     updatedAt: str(row.updated_at, 'updated_at'),
   };

@@ -1,5 +1,6 @@
 export type {
   Dashboard,
+  DashboardPatch,
   GridRect,
   LayoutItem,
   NewDashboard,
@@ -20,6 +21,7 @@ export type {
 } from './models';
 export type { JsonObject, JsonPrimitive, JsonValue } from './json';
 export { parseJsonObject, parseJsonValue } from './json';
+export { DASHBOARD_ICON_PATTERN, DEFAULT_DASHBOARD_ICON } from './models';
 export { DataError } from './data-error';
 export type { DataErrorKind } from './data-error';
 export { randomUuid } from './clock';

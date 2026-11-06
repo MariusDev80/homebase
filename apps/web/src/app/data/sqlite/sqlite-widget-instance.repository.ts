@@ -19,6 +19,19 @@ FROM (
 ) AS j
 WHERE widget_instances.id = j.id AND widget_instances.dashboard_id = $1`;
 
+/** Exported for the atomicity test only (not re-exported by data/index.ts). */
+export const MOVE_TO_DASHBOARD_SQL = `UPDATE widget_instances
+SET dashboard_id = $1, grid_x = j.x, grid_y = j.y, grid_w = j.w, grid_h = j.h, updated_at = $3
+FROM (
+  SELECT json_extract(value, '$.id') AS id,
+         json_extract(value, '$.x')  AS x,
+         json_extract(value, '$.y')  AS y,
+         json_extract(value, '$.w')  AS w,
+         json_extract(value, '$.h')  AS h
+  FROM json_each($2)
+) AS j
+WHERE widget_instances.id = j.id`;
+
 function assertLayout(items: readonly LayoutItem[]): void {
   const seen = new Set<string>();
   for (const { id, grid } of items) {
@@ -117,6 +130,34 @@ export class SqliteWidgetInstanceRepository implements WidgetInstanceRepository 
       this.clock.nowIso(),
     ]);
     return result.rowsAffected;
+  }
+
+  async moveToDashboard(targetDashboardId: string, items: readonly LayoutItem[]): Promise<number> {
+    if (items.length === 0) {
+      return 0;
+    }
+    assertLayout(items);
+    const payload = JSON.stringify(items.map((i) => ({ id: i.id, ...i.grid })));
+    const result = await this.executor.execute(MOVE_TO_DASHBOARD_SQL, [
+      targetDashboardId,
+      payload,
+      this.clock.nowIso(),
+    ]);
+    return result.rowsAffected;
+  }
+
+  async findFirstOfType(widgetType: string): Promise<WidgetInstanceRecord | null> {
+    const columns = WIDGET_INSTANCE_COLUMNS.split(', ')
+      .map((c) => `w.${c}`)
+      .join(', ');
+    const rows = await this.executor.select<WidgetInstanceRow>(
+      `SELECT ${columns} FROM widget_instances AS w JOIN dashboards AS d ON d.id = w.dashboard_id
+       WHERE w.widget_type = $1
+       ORDER BY d.sort_order, d.created_at, d.id, w.grid_y, w.grid_x, w.created_at, w.id
+       LIMIT 1`,
+      [widgetType],
+    );
+    return rows.length === 0 ? null : toWidgetInstance(rows[0]);
   }
 
   async remove(id: string): Promise<boolean> {
