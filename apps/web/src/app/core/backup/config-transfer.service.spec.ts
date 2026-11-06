@@ -67,7 +67,11 @@ describe('ConfigTransferService', () => {
 
   async function seed(): Promise<void> {
     const main = await dashboards.create({ id: uuid(1), name: 'Accueil' });
-    const other = await dashboards.create({ id: uuid(2), name: 'Second' });
+    const other = await dashboards.create({
+      id: uuid(2),
+      name: 'Second',
+      icon: 'briefcase',
+    });
     widgets.seed({
       id: uuid(11),
       dashboardId: main.id,
@@ -124,6 +128,7 @@ describe('ConfigTransferService', () => {
           id: uuid(1),
           name: 'Accueil',
           sortOrder: 0,
+          icon: 'th-large',
           widgets: [
             {
               id: uuid(11),
@@ -137,6 +142,7 @@ describe('ConfigTransferService', () => {
           id: uuid(2),
           name: 'Second',
           sortOrder: 1,
+          icon: 'briefcase',
           widgets: [
             {
               id: uuid(12),
@@ -159,6 +165,23 @@ describe('ConfigTransferService', () => {
         expect(text, leaked).not.toContain(leaked);
       }
       expect(text).toContain('\n  "dashboards"');
+    });
+
+    it('exports the icons and never dashboard.last, and the file imports back as is', async () => {
+      await seed();
+      settings.values.set('dashboard.last', JSON.stringify(uuid(2)));
+      await service.exportToFile();
+      const text = backup.saveConfigFile.mock.calls[0][0];
+      expect(text).not.toContain('dashboard.last');
+      const analysis = await service.analyze(text);
+      expect(analysis.ok).toBe(true);
+      if (analysis.ok) {
+        expect(analysis.plan.dashboards.map((d) => [d.id, d.name, d.sortOrder, d.icon])).toEqual([
+          [uuid(1), 'Accueil', 0, 'th-large'],
+          [uuid(2), 'Second', 1, 'briefcase'],
+        ]);
+        expect(analysis.plan.dashboards[0].widgets[0].grid).toEqual({ x: 0, y: 0, w: 2, h: 2 });
+      }
     });
 
     it('returns false when the dialog is cancelled', async () => {

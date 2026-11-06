@@ -513,6 +513,7 @@
       "invalid_id": "identifiant invalide.",
       "duplicate_id": "identifiant en double.",
       "invalid_name": "nom invalide.",
+      "invalid_icon": "icône invalide.",
       "invalid_widget_type": "type de widget invalide.",
       "invalid_grid": "position ou taille de widget invalide.",
       "invalid_sort_order": "ordre invalide.",

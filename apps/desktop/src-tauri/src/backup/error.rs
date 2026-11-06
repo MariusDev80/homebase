@@ -76,6 +76,7 @@ pub enum ImportProblem {
     InvalidId,
     DuplicateId,
     InvalidName,
+    InvalidIcon,
     InvalidWidgetType,
     InvalidGrid,
     InvalidSortOrder,

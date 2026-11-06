@@ -35,7 +35,7 @@ fn plan(value: serde_json::Value) -> ConfigImportPlan {
 
 fn base_plan() -> ConfigImportPlan {
     plan(json!({
-        "dashboards": [{"id": D1, "name": "Home", "sortOrder": 0, "widgets": [widget(W1, "notes")]}],
+        "dashboards": [{"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large", "widgets": [widget(W1, "notes")]}],
         "settings": []
     }))
 }
@@ -119,7 +119,7 @@ fn one_dashboard(d: serde_json::Value) -> serde_json::Value {
 }
 
 fn dash(mutate: impl FnOnce(&mut serde_json::Value)) -> serde_json::Value {
-    let mut d = json!({"id": D1, "name": "Home", "sortOrder": 0, "widgets": [widget(W1, "notes")]});
+    let mut d = json!({"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large", "widgets": [widget(W1, "notes")]});
     mutate(&mut d);
     one_dashboard(d)
 }
@@ -141,7 +141,7 @@ fn structural_problems() {
         NoDashboard
     );
     let many: Vec<_> = (0..101)
-        .map(|i| json!({"id": format!("3f0c2a5e-8f0b-4c55-9a43-{i:012x}"), "name": "d", "sortOrder": 0, "widgets": []}))
+        .map(|i| json!({"id": format!("3f0c2a5e-8f0b-4c55-9a43-{i:012x}"), "name": "d", "sortOrder": 0, "icon": "th-large", "widgets": []}))
         .collect();
     assert_eq!(
         invalid(json!({"dashboards": many, "settings": []})),
@@ -160,7 +160,7 @@ fn structural_problems() {
             let widgets: Vec<_> = (0..200)
                 .map(|i| widget(&format!("6c3f5d81-bc3e-4f88-{d:04x}-{i:012x}"), "notes"))
                 .collect();
-            json!({"id": format!("3f0c2a5e-8f0b-4c55-9a43-{d:012x}"), "name": "d", "sortOrder": 0, "widgets": widgets})
+            json!({"id": format!("3f0c2a5e-8f0b-4c55-9a43-{d:012x}"), "name": "d", "sortOrder": 0, "icon": "th-large", "widgets": widgets})
         })
         .collect();
     assert_eq!(
@@ -182,12 +182,12 @@ fn structural_problems() {
     );
     assert_eq!(invalid(with_widget(|w| w["id"] = json!("nope"))), InvalidId);
     let dup_dash = json!({"dashboards": [
-        {"id": D1, "name": "a", "sortOrder": 0, "widgets": []},
-        {"id": D1, "name": "b", "sortOrder": 1, "widgets": []}], "settings": []});
+        {"id": D1, "name": "a", "sortOrder": 0, "icon": "th-large", "widgets": []},
+        {"id": D1, "name": "b", "sortOrder": 1, "icon": "th-large", "widgets": []}], "settings": []});
     assert_eq!(invalid(dup_dash), DuplicateId);
     let dup_widget = json!({"dashboards": [
-        {"id": D1, "name": "a", "sortOrder": 0, "widgets": [widget(W1, "x")]},
-        {"id": D2, "name": "b", "sortOrder": 1, "widgets": [widget(W1, "x")]}], "settings": []});
+        {"id": D1, "name": "a", "sortOrder": 0, "icon": "th-large", "widgets": [widget(W1, "x")]},
+        {"id": D2, "name": "b", "sortOrder": 1, "icon": "th-large", "widgets": [widget(W1, "x")]}], "settings": []});
     assert_eq!(invalid(dup_widget), DuplicateId);
     let dup_setting = json!({"dashboards": base_dashboards(), "settings": [
         {"key": "a", "value": "1"}, {"key": "a", "value": "2"}]});
@@ -273,7 +273,7 @@ fn structural_problems() {
 }
 
 fn base_dashboards() -> serde_json::Value {
-    json!([{"id": D1, "name": "Home", "sortOrder": 0, "widgets": []}])
+    json!([{"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large", "widgets": []}])
 }
 
 #[test]
@@ -340,10 +340,10 @@ fn unknown_and_missing_fields_do_not_deserialize() {
         r#"{"dashboards":[]}"#,
         r#"{"settings":[]}"#,
         r#"{"dashboards":[],"settings":[],"__proto__":{}}"#,
-        r#"{"dashboards":[{"id":"x","name":"n","sortOrder":0,"widgets":[],"__proto__":1}],"settings":[]}"#,
+        r#"{"dashboards":[{"id":"x","name":"n","sortOrder":0,"icon":"th-large","widgets":[],"__proto__":1}],"settings":[]}"#,
         r#"{"dashboards":[{"id":"x","name":"n","sortOrder":0}],"settings":[]}"#,
         r#"{"dashboards":[],"settings":[{"key":"a","value":"1","x":1}]}"#,
-        r#"{"dashboards":[{"id":"x","name":"n","sortOrder":0,"widgets":[{"id":"x","widgetType":"t","grid":{"x":0,"y":0,"w":1,"h":1,"z":1},"config":"{}","configVersion":1}]}],"settings":[]}"#,
+        r#"{"dashboards":[{"id":"x","name":"n","sortOrder":0,"icon":"th-large","widgets":[{"id":"x","widgetType":"t","grid":{"x":0,"y":0,"w":1,"h":1,"z":1},"config":"{}","configVersion":1}]}],"settings":[]}"#,
     ] {
         assert!(
             serde_json::from_str::<ConfigImportPlan>(bad).is_err(),
@@ -359,8 +359,8 @@ fn identical_reimport_keeps_notes_and_created_at() {
     let (_dir, root) = seeded();
     let p = plan(json!({
         "dashboards": [
-            {"id": D1, "name": "Home", "sortOrder": 0, "widgets": [widget(W1, "notes")]},
-            {"id": D2, "name": "Second", "sortOrder": 1, "widgets": [widget(W2, "todo")]}],
+            {"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large", "widgets": [widget(W1, "notes")]},
+            {"id": D2, "name": "Second", "sortOrder": 1, "icon": "th-large", "widgets": [widget(W2, "todo")]}],
         "settings": [{"key": "theme", "value": "\"dark\""}]
     }));
     let out = apply(&root, &p).expect("apply");
@@ -401,8 +401,8 @@ fn absent_widget_is_deleted_with_its_note() {
     let (_dir, root) = seeded();
     let p = plan(json!({
         "dashboards": [
-            {"id": D1, "name": "Home", "sortOrder": 0, "widgets": []},
-            {"id": D2, "name": "Second", "sortOrder": 1, "widgets": [widget(W2, "todo")]}],
+            {"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large", "widgets": []},
+            {"id": D2, "name": "Second", "sortOrder": 1, "icon": "th-large", "widgets": [widget(W2, "todo")]}],
         "settings": []
     }));
     let out = apply(&root, &p).expect("apply");
@@ -447,7 +447,7 @@ fn instance_moved_out_of_a_deleted_dashboard_keeps_its_data() {
     let (_dir, root) = seeded();
     // D2 disappears, but its widget W2 (todo list + task) moves to D1.
     let p = plan(json!({
-        "dashboards": [{"id": D1, "name": "Home", "sortOrder": 0,
+        "dashboards": [{"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large",
                         "widgets": [widget(W1, "notes"), widget(W2, "todo")]}],
         "settings": []
     }));
@@ -473,8 +473,8 @@ fn type_change_recreates_the_instance_and_drops_its_note() {
     let (_dir, root) = seeded();
     let p = plan(json!({
         "dashboards": [
-            {"id": D1, "name": "Home", "sortOrder": 0, "widgets": [widget(W1, "clock")]},
-            {"id": D2, "name": "Second", "sortOrder": 1, "widgets": [widget(W2, "todo")]}],
+            {"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large", "widgets": [widget(W1, "clock")]},
+            {"id": D2, "name": "Second", "sortOrder": 1, "icon": "th-large", "widgets": [widget(W2, "todo")]}],
         "settings": []
     }));
     apply(&root, &p).expect("apply");
@@ -497,8 +497,8 @@ fn new_dashboard_and_widget_are_created() {
     let (_dir, root) = seeded();
     let p = plan(json!({
         "dashboards": [
-            {"id": D1, "name": "Home", "sortOrder": 0, "widgets": [widget(W1, "notes")]},
-            {"id": D3, "name": "Neuf", "sortOrder": 2, "widgets": [widget(W3, "clock")]}],
+            {"id": D1, "name": "Home", "sortOrder": 0, "icon": "th-large", "widgets": [widget(W1, "notes")]},
+            {"id": D3, "name": "Neuf", "sortOrder": 2, "icon": "th-large", "widgets": [widget(W3, "clock")]}],
         "settings": []
     }));
     let out = apply(&root, &p).expect("apply");
@@ -615,7 +615,7 @@ fn failure_in_the_middle_changes_nothing() {
     let mut bad = widget("b0000000-0000-4000-8000-000000000003", "clock");
     bad["grid"]["w"] = json!(0);
     let p = plan(json!({
-        "dashboards": [{"id": D1, "name": "Renamed", "sortOrder": 5, "widgets": [
+        "dashboards": [{"id": D1, "name": "Renamed", "sortOrder": 5, "icon": "th-large", "widgets": [
             widget(W1, "clock"), widget("b0000000-0000-4000-8000-000000000002", "clock"), bad]}],
         "settings": [{"key": "theme", "value": "\"light\""}]
     }));
@@ -704,6 +704,82 @@ fn invalid_plan_creates_no_backup_and_writes_nothing() {
     assert_eq!(problem_of(apply(&root, &p)), ImportProblem::InvalidName);
     assert!(pre_import_archives(&root).is_empty());
     assert_eq!(dump(&root), before);
+}
+
+#[test]
+fn invalid_icon_creates_no_backup_and_writes_nothing() {
+    let (_dir, root) = seeded();
+    let before = dump(&root);
+    let mut p = base_plan();
+    p.dashboards[0].icon = "pi pi-x".into();
+    assert_eq!(problem_of(apply(&root, &p)), ImportProblem::InvalidIcon);
+    assert!(pre_import_archives(&root).is_empty());
+    assert_eq!(dump(&root), before);
+}
+
+#[test]
+fn icon_shape_is_checked_on_bytes() {
+    use ImportProblem::InvalidIcon;
+    for bad in [
+        "",
+        "A",
+        "1a",
+        "-a",
+        "a_b",
+        "pi pi-x",
+        "a\0",
+        "é",
+        "aé",
+        "a\n",
+        &"a".repeat(33),
+    ] {
+        assert_eq!(
+            invalid(dash(|d| d["icon"] = json!(bad))),
+            InvalidIcon,
+            "{bad:?}"
+        );
+    }
+    for good in ["a", "th-large", "a1-b2", &"a".repeat(32)] {
+        validate_plan(&plan(dash(|d| d["icon"] = json!(good)))).expect(good);
+    }
+}
+
+#[test]
+fn upsert_creates_and_replaces_the_icon() {
+    let (_dir, root) = seeded();
+    let p = plan(json!({
+        "dashboards": [
+            {"id": D1, "name": "Home", "sortOrder": 0, "icon": "star", "widgets": []},
+            {"id": D3, "name": "Neuf", "sortOrder": 1, "icon": "heart", "widgets": []}],
+        "settings": []
+    }));
+    apply(&root, &p).expect("apply");
+    let mut c = db_conn(&root);
+    let icon = |id: &'static str, c: &mut SqliteConnection| -> String {
+        run(sqlx::query("SELECT icon FROM dashboards WHERE id = ?1")
+            .bind(id)
+            .fetch_one(c))
+        .expect("row")
+        .get(0)
+    };
+    assert_eq!(icon(D1, &mut c), "star");
+    assert_eq!(icon(D3, &mut c), "heart");
+    run(c.close()).expect("close");
+}
+
+#[test]
+fn icon_must_be_a_string_present_and_known() {
+    let base = r#"{"id":"x","name":"n","sortOrder":0,"widgets":[]"#;
+    for bad in [
+        format!(r#"{{"dashboards":[{base},"icon":1}}],"settings":[]}}"#),
+        format!(r#"{{"dashboards":[{base}}}],"settings":[]}}"#),
+        format!(r#"{{"dashboards":[{base},"icon":"a","extra":1}}],"settings":[]}}"#),
+    ] {
+        assert!(
+            serde_json::from_str::<ConfigImportPlan>(&bad).is_err(),
+            "{bad}"
+        );
+    }
 }
 
 #[test]
@@ -904,7 +980,7 @@ fn boundaries_are_accepted() {
             let widgets: Vec<_> = (0..200)
                 .map(|i| widget(&format!("6c3f5d81-bc3e-4f88-{d:04x}-{i:012x}"), "notes"))
                 .collect();
-            json!({"id": format!("3f0c2a5e-8f0b-4c55-9a43-{d:012x}"), "name": "d", "sortOrder": 0, "widgets": widgets})
+            json!({"id": format!("3f0c2a5e-8f0b-4c55-9a43-{d:012x}"), "name": "d", "sortOrder": 0, "icon": "th-large", "widgets": widgets})
         })
         .collect();
     validate_plan(&plan(json!({"dashboards": dashboards, "settings": []}))).expect("1000 widgets");

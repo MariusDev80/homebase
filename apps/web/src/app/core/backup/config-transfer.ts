@@ -1,4 +1,5 @@
 import * as v from 'valibot';
+import { DASHBOARD_ICON_PATTERN, DEFAULT_DASHBOARD_ICON } from '../../data';
 import type { JsonObject, JsonValue } from '../../data';
 import { isValidInstant } from '../time';
 import { MAX_CONFIG_CHARS, resolveConfig, serializeConfig } from '../widgets';
@@ -21,7 +22,9 @@ import { codePointLength, hbTrim } from './hb-trim';
  */
 
 export const CONFIG_FORMAT = 'homebase/dashboard-config';
-export const CONFIG_FORMAT_VERSION = 1;
+export const CONFIG_FORMAT_VERSION = 2;
+/** Versions this build reads: 1 (no icon, default icon on import) and 2. */
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2];
 
 /** Same pattern as `SqliteSettingsRepository` (data/ is not touched, so it is repeated here). */
 export const SECRET_KEY_PATTERN = /(secret|token|passw(or)?d|api[-_.]?key|credential)/i;
@@ -72,6 +75,7 @@ export interface ConfigExportDashboard {
   readonly id: string;
   readonly name: string;
   readonly sortOrder: number;
+  readonly icon: string;
   readonly widgets: readonly ConfigExportWidget[];
 }
 
@@ -90,6 +94,7 @@ export interface ConfigExportInput {
     readonly id: string;
     readonly name: string;
     readonly sortOrder: number;
+    readonly icon: string;
     readonly widgets: readonly {
       readonly id: string;
       readonly widgetType: string;
@@ -117,6 +122,7 @@ export function buildConfigExport(input: ConfigExportInput): ConfigExportDocumen
       id: dashboard.id,
       name: dashboard.name,
       sortOrder: dashboard.sortOrder,
+      icon: dashboard.icon,
       widgets: dashboard.widgets.map((widget) => ({
         id: widget.id,
         widgetType: widget.widgetType,
@@ -168,6 +174,7 @@ const envelopeSchema = v.strictObject({
       id: v.string(),
       name: v.string(),
       sortOrder: v.number(),
+      icon: v.optional(v.string()),
       widgets: v.array(
         v.strictObject({
           id: v.string(),
@@ -356,6 +363,15 @@ function analyse(
   lookup: WidgetLookup,
   issues: IssueCollector,
 ): ParseConfigImportResult {
+  // Read before the strict validation: a future format may add fields this build does not know.
+  if (
+    isPlainObject(root) &&
+    typeof root['formatVersion'] === 'number' &&
+    root['formatVersion'] > CONFIG_FORMAT_VERSION
+  ) {
+    issues.add('unsupported_version', 'formatVersion');
+    return issues.failure();
+  }
   if (isUnrepresentable(root)) {
     issues.add('invalid_value', '');
     return issues.failure();
@@ -369,11 +385,9 @@ function analyse(
   }
   const doc = parsed.output;
 
-  if (doc.formatVersion > CONFIG_FORMAT_VERSION) {
-    issues.add('unsupported_version', 'formatVersion');
-    return issues.failure();
+  if (!SUPPORTED_FORMAT_VERSIONS.includes(doc.formatVersion)) {
+    issues.add('invalid_value', 'formatVersion');
   }
-  if (doc.formatVersion !== CONFIG_FORMAT_VERSION) issues.add('invalid_value', 'formatVersion');
   if (!isValidInstant(doc.exportedAt)) issues.add('invalid_value', 'exportedAt');
 
   if (doc.dashboards.length < CONFIG_LIMITS.minDashboards) issues.add('no_dashboard', 'dashboards');
@@ -405,6 +419,16 @@ function analyse(
     }
     if (!isIntegerIn(dashboard.sortOrder, 0, CONFIG_LIMITS.maxSortOrder)) {
       issues.add('invalid_value', `${dPath}.sortOrder`);
+    }
+    let icon = DEFAULT_DASHBOARD_ICON;
+    if (doc.formatVersion === 1) {
+      if (dashboard.icon !== undefined) issues.add('unknown_field', `${dPath}.icon`);
+    } else if (dashboard.icon === undefined) {
+      issues.add('missing_field', `${dPath}.icon`);
+    } else if (!DASHBOARD_ICON_PATTERN.test(dashboard.icon)) {
+      issues.add('invalid_value', `${dPath}.icon`);
+    } else {
+      icon = dashboard.icon;
     }
     if (dashboard.widgets.length > CONFIG_LIMITS.maxWidgetsPerDashboard) {
       issues.add('too_many', `${dPath}.widgets`);
@@ -466,7 +490,7 @@ function analyse(
         configVersion: outcome.configVersion,
       });
     });
-    dashboards.push({ id: dashboard.id, name, sortOrder: dashboard.sortOrder, widgets });
+    dashboards.push({ id: dashboard.id, name, sortOrder: dashboard.sortOrder, icon, widgets });
   });
 
   const settings: ConfigImportPlanSetting[] = [];

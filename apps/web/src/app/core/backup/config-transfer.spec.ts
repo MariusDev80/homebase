@@ -25,6 +25,7 @@ interface TestDashboard {
   id: string;
   name: string;
   sortOrder: number;
+  icon?: string;
   widgets: TestWidget[];
   [key: string]: unknown;
 }
@@ -53,13 +54,14 @@ function widget(n: number, type = 'fixture', data: JsonValue = { label: 'x' }): 
 function validDoc(): TestDoc {
   return {
     format: CONFIG_FORMAT,
-    formatVersion: 1,
+    formatVersion: 2,
     exportedAt: '2026-10-22T08:00:00.000Z',
     dashboards: [
       {
         id: DASH,
         name: 'Accueil',
         sortOrder: 0,
+        icon: 'star',
         widgets: [widget(1), widget(2, 'migrated', { label: 'm' })],
       },
     ],
@@ -103,6 +105,7 @@ describe('buildConfigExport', () => {
         id: DASH,
         name: 'Accueil',
         sortOrder: 0,
+        icon: 'star',
         widgets: [
           {
             id: uuid(101),
@@ -133,7 +136,8 @@ describe('buildConfigExport', () => {
       'settings',
     ]);
     expect(doc.format).toBe('homebase/dashboard-config');
-    expect(doc.formatVersion).toBe(1);
+    expect(doc.formatVersion).toBe(2);
+    expect(doc.dashboards[0].icon).toBe('star');
     expect(doc.dashboards[0].widgets[0]).toEqual({
       id: uuid(101),
       widgetType: 'fixture',
@@ -207,6 +211,7 @@ describe('parseConfigImport: accepted files', () => {
       id: DASH,
       name: 'Accueil',
       sortOrder: 0,
+      icon: 'star',
       widgets: [
         {
           id: uuid(101),
@@ -238,12 +243,13 @@ describe('parseConfigImport: accepted files', () => {
           id: DASH,
           name: 'Accueil',
           sortOrder: 0,
+          icon: 'star',
           widgets: [
             { ...widget(1), config: { label: 'x' }, configVersion: 1 },
             { ...widget(2, 'migrated'), config: { label: 'm' }, configVersion: 3 },
           ],
         },
-        { id: DASH2, name: 'Second', sortOrder: 1, widgets: [] },
+        { id: DASH2, name: 'Second', sortOrder: 1, icon: 'star', widgets: [] },
       ],
       settings: new Map<string, JsonValue>([['theme', 'dark']]),
     });
@@ -297,6 +303,7 @@ describe('parseConfigImport: accepted files', () => {
       id: uuid(1000 + i),
       name: `D${i}`,
       sortOrder: i,
+      icon: 'star',
       widgets: [],
     }));
     doc.dashboards[0].widgets = Array.from({ length: 200 }, (_, i) => widget(i));
@@ -362,10 +369,19 @@ describe('parseConfigImport: names (HB_TRIM and code points)', () => {
 });
 
 describe('parseConfigImport: refused files', () => {
-  it('refuses a version above 1', () => {
-    expect(issuesOf(mutated((d) => (d.formatVersion = 2)))).toEqual([
+  it('refuses a version above 2, and only reports that for a future format', () => {
+    expect(issuesOf(mutated((d) => (d.formatVersion = 3)))).toEqual([
       'unsupported_version@formatVersion',
     ]);
+    expect(
+      issuesOf(
+        mutated((d) => {
+          d.formatVersion = 3;
+          d['futureField'] = 1;
+          d.dashboards[0]['other'] = 2;
+        }),
+      ),
+    ).toEqual(['unsupported_version@formatVersion']);
   });
 
   it('refuses other invalid versions and a wrong format', () => {
@@ -373,7 +389,7 @@ describe('parseConfigImport: refused files', () => {
       'invalid_value@formatVersion',
     ]);
     expect(issuesOf(mutated((d) => (d.formatVersion = 1.5)))).toEqual([
-      'unsupported_version@formatVersion',
+      'invalid_value@formatVersion',
     ]);
     expect(issuesOf(mutated((d) => (d.formatVersion = '1' as unknown as number)))).toEqual([
       'invalid_value@formatVersion',
@@ -421,6 +437,35 @@ describe('parseConfigImport: refused files', () => {
     ).toEqual(['unknown_field@dashboards[0].widgets[0].config.x']);
   });
 
+  it('reads icons by format version', () => {
+    const v1 = (change: (d: TestDoc) => void = () => undefined) =>
+      mutated((d) => {
+        d.formatVersion = 1;
+        Reflect.deleteProperty(d.dashboards[0], 'icon');
+        change(d);
+      });
+    expect(expectOk(v1()).plan.dashboards[0].icon).toBe('th-large');
+    expect(issuesOf(v1((d) => (d.dashboards[0].icon = 'star')))).toEqual([
+      'unknown_field@dashboards[0].icon',
+    ]);
+    expect(issuesOf(mutated((d) => Reflect.deleteProperty(d.dashboards[0], 'icon')))).toEqual([
+      'missing_field@dashboards[0].icon',
+    ]);
+    for (const bad of ['pi pi-x', 'A', 'a'.repeat(33), '', '1a', 'a\n']) {
+      expect(issuesOf(mutated((d) => (d.dashboards[0].icon = bad))), bad).toEqual([
+        'invalid_value@dashboards[0].icon',
+      ]);
+    }
+    expect(
+      issuesOf(mutated((d) => ((d.dashboards[0] as Record<string, unknown>)['icon'] = 1))),
+    ).toEqual(['invalid_value@dashboards[0].icon']);
+  });
+
+  it('accepts a well-formed icon outside the closed list and keeps it', () => {
+    const value = expectOk(mutated((d) => (d.dashboards[0].icon = 'not-in-the-list')));
+    expect(value.plan.dashboards[0].icon).toBe('not-in-the-list');
+  });
+
   it('refuses a malformed exportedAt', () => {
     for (const value of [
       'yesterday',
@@ -451,13 +496,21 @@ describe('parseConfigImport: refused files', () => {
     ]);
     expect(
       issuesOf(
-        mutated((d) => d.dashboards.push({ id: DASH, name: 'Autre', sortOrder: 1, widgets: [] })),
+        mutated((d) =>
+          d.dashboards.push({ id: DASH, name: 'Autre', sortOrder: 1, icon: 'star', widgets: [] }),
+        ),
       ),
     ).toEqual(['duplicate_id@dashboards[1].id']);
     expect(
       issuesOf(
         mutated((d) =>
-          d.dashboards.push({ id: DASH2, name: 'Autre', sortOrder: 1, widgets: [widget(1)] }),
+          d.dashboards.push({
+            id: DASH2,
+            name: 'Autre',
+            sortOrder: 1,
+            icon: 'star',
+            widgets: [widget(1)],
+          }),
         ),
       ),
     ).toEqual(['duplicate_id@dashboards[1].widgets[0].id']);
@@ -472,6 +525,7 @@ describe('parseConfigImport: refused files', () => {
             id: uuid(1000 + i),
             name: 'D',
             sortOrder: i,
+            icon: 'star',
             widgets: [],
           }));
         }),
@@ -491,6 +545,7 @@ describe('parseConfigImport: refused files', () => {
             id: uuid(1000 + i),
             name: 'D',
             sortOrder: i,
+            icon: 'star',
             widgets: Array.from({ length: 200 }, (_, j) => widget(i * 200 + j)),
           }));
         }),
@@ -578,7 +633,13 @@ describe('parseConfigImport: refused files', () => {
     expect(
       mutated((d) => {
         d.dashboards[0].widgets.push(widget(3, 'single'));
-        d.dashboards.push({ id: DASH2, name: 'B', sortOrder: 1, widgets: [widget(4, 'single')] });
+        d.dashboards.push({
+          id: DASH2,
+          name: 'B',
+          sortOrder: 1,
+          icon: 'star',
+          widgets: [widget(4, 'single')],
+        });
       }).ok,
     ).toBe(true);
   });
@@ -764,6 +825,7 @@ describe('buildImportPreview', () => {
           id: d.id,
           name: `D${i}`,
           sortOrder: i,
+          icon: 'star',
           widgets: d.widgets.map((w) => ({
             id: w.id,
             widgetType: w.type,

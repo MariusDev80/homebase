@@ -59,6 +59,7 @@ const plan: ConfigImportPlan = {
       id: '00000000-0000-4000-8000-000000000001',
       name: 'Accueil',
       sortOrder: 0,
+      icon: 'th-large',
       widgets: [
         {
           id: '00000000-0000-4000-8000-000000000002',

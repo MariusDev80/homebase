@@ -34,6 +34,7 @@ const MAX_GRID: i64 = 10_000;
 const MAX_SORT_ORDER: i64 = 1_000_000;
 const MAX_CONFIG_VERSION: i64 = 10_000;
 const MAX_SETTING_KEY_CHARS: usize = 128;
+const MAX_ICON_CHARS: usize = 32;
 /// How long the write transaction waits for another writer (the SQL plugin pool of the front).
 const WRITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -50,6 +51,7 @@ pub struct PlanDashboard {
     pub id: String,
     pub name: String,
     pub sort_order: i64,
+    pub icon: String,
     pub widgets: Vec<PlanWidget>,
 }
 
@@ -119,6 +121,19 @@ pub fn is_secret_setting_key(key: &str) -> bool {
     MARKERS.iter().any(|m| lower.contains(m))
 }
 
+/// `^[a-z][a-z0-9-]{0,31}$`, checked on bytes (a NUL or any non-ASCII byte is refused).
+fn is_dashboard_icon_shape(icon: &str) -> bool {
+    let bytes = icon.as_bytes();
+    let Some((first, rest)) = bytes.split_first() else {
+        return false;
+    };
+    first.is_ascii_lowercase()
+        && bytes.len() <= MAX_ICON_CHARS
+        && rest
+            .iter()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
+}
+
 /// `^[a-z][a-z0-9._-]{0,127}$`
 fn is_setting_key_shape(key: &str) -> bool {
     let mut chars = key.chars();
@@ -169,6 +184,9 @@ pub fn validate_plan(plan: &ConfigImportPlan) -> Result<(), BackupError> {
             || dashboard.name != hb_trim(&dashboard.name)
         {
             return Err(problem(ImportProblem::InvalidName));
+        }
+        if !is_dashboard_icon_shape(&dashboard.icon) {
+            return Err(problem(ImportProblem::InvalidIcon));
         }
         if !(0..=MAX_SORT_ORDER).contains(&dashboard.sort_order) {
             return Err(problem(ImportProblem::InvalidSortOrder));
@@ -240,8 +258,8 @@ fn map_write_error(e: sqlx::Error) -> BackupError {
     e.into()
 }
 
-const UPSERT_DASHBOARD: &str = "INSERT INTO dashboards (id, name, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4) \
-ON CONFLICT (id) DO UPDATE SET name = excluded.name, sort_order = excluded.sort_order, updated_at = excluded.updated_at";
+const UPSERT_DASHBOARD: &str = "INSERT INTO dashboards (id, name, sort_order, icon, created_at, updated_at) VALUES (?1, ?2, ?3, ?5, ?4, ?4) \
+ON CONFLICT (id) DO UPDATE SET name = excluded.name, sort_order = excluded.sort_order, icon = excluded.icon, updated_at = excluded.updated_at";
 const DELETE_OTHER_TYPE: &str = "DELETE FROM widget_instances WHERE id = ?1 AND widget_type <> ?2";
 const UPSERT_WIDGET: &str = "INSERT INTO widget_instances (id, dashboard_id, widget_type, grid_x, grid_y, grid_w, grid_h, config, config_version, created_at, updated_at) \
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10) \
@@ -336,6 +354,7 @@ async fn run_statements(
             .bind(&dashboard.name)
             .bind(dashboard.sort_order)
             .bind(now)
+            .bind(&dashboard.icon)
             .execute(&mut *conn)
             .await
             .map_err(map_write_error)?;

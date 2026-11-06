@@ -106,6 +106,7 @@ export const IMPORT_PROBLEMS = [
   'invalid_id',
   'duplicate_id',
   'invalid_name',
+  'invalid_icon',
   'invalid_widget_type',
   'invalid_grid',
   'invalid_sort_order',
@@ -152,6 +153,7 @@ export interface ConfigImportPlanDashboard {
   readonly id: string;
   readonly name: string;
   readonly sortOrder: number;
+  readonly icon: string;
   readonly widgets: readonly ConfigImportPlanWidget[];
 }
 
