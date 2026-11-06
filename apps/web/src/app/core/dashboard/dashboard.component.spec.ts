@@ -212,6 +212,86 @@ describe('DashboardComponent', () => {
     });
   });
 
+  describe('8-row grid', () => {
+    const seededAt = async (grids: { x: number; y: number; w: number; h: number }[]) => {
+      const dashboards = new FakeDashboardRepository();
+      const instances = new FakeWidgetInstanceRepository();
+      await dashboards.createIfNone({ name: 'Accueil' });
+      const [dashboard] = await dashboards.list();
+      for (const grid of grids) {
+        instances.seed({ dashboardId: dashboard.id, widgetType: 'fixture', grid });
+      }
+      TestBed.configureTestingModule({
+        providers: [
+          provideAppI18n(),
+          provideWidget(fixtureDefinition({ type: 'fixture' }) as WidgetDefinition),
+          { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
+          { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
+        ],
+      });
+      await TestBed.inject(ApplicationInitStatus).donePromise;
+      const fixture = TestBed.createComponent(DashboardComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      document.body.appendChild(fixture.nativeElement);
+      return { fixture, el: fixture.nativeElement as HTMLElement, instances };
+    };
+
+    it('writes nothing on load with rows beyond 8, and shows them repositioned', async () => {
+      const { fixture, instances } = await seededAt([
+        { x: 0, y: 0, w: 2, h: 2 },
+        { x: 0, y: 20, w: 2, h: 2 },
+      ]);
+      const spy = vi.spyOn(instances, 'updateLayout');
+      await fixture.whenStable();
+      expect(spy).not.toHaveBeenCalled();
+      expect(instances.items[1].grid.y).toBe(20);
+      expect(gridItem(fixture, 1)).toMatchObject({ x: 0, y: 6 });
+    });
+
+    it('shows a banner naming the widgets that do not fit, without writing', async () => {
+      const full = Array.from({ length: 25 }, () => ({ x: 0, y: 0, w: 2, h: 2 }));
+      const { fixture, el, instances } = await seededAt(full);
+      const spy = vi.spyOn(instances, 'updateLayout');
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="dashboard-unplaced"]')?.textContent).toContain(
+        '1 widget(s) ne tiennent pas',
+      );
+      expect(el.querySelectorAll('gridster-item')).toHaveLength(24);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('warns when gridster moves an item without a gesture, but still saves it', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const { fixture, el, instances } = await seededAt([{ x: 0, y: 0, w: 2, h: 2 }]);
+      el.querySelector<HTMLButtonElement>('[data-testid="toggle-layout-edit"]')?.click();
+      fixture.detectChanges();
+      const spy = vi.spyOn(instances, 'updateLayout');
+      const item = gridItem(fixture);
+      item.x = 3;
+      gridOptions(fixture).itemChangeCallback(item);
+      await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+      expect(warn).toHaveBeenCalledWith('gridster moved an item by itself', item.id);
+    });
+
+    it('does not warn during a drag', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      warn.mockClear();
+      const { fixture, el, instances } = await seededAt([{ x: 0, y: 0, w: 2, h: 2 }]);
+      el.querySelector<HTMLButtonElement>('[data-testid="toggle-layout-edit"]')?.click();
+      fixture.detectChanges();
+      const spy = vi.spyOn(instances, 'updateLayout');
+      const item = gridItem(fixture);
+      gridOptions(fixture).draggable.start();
+      item.x = 3;
+      gridOptions(fixture).itemChangeCallback(item);
+      await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+      expect(warn.mock.calls).toEqual([]);
+    });
+  });
+
   describe('add widget menu', () => {
     const key = (el: HTMLElement, name: string): void => {
       (document.activeElement ?? el).dispatchEvent(

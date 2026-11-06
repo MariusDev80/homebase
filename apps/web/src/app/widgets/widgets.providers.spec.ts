@@ -34,6 +34,13 @@ describe('provideAllWidgets', () => {
     }
   });
 
+  it('gives every widget a usable size on the 8-row grid', () => {
+    for (const definition of registry.list()) {
+      expect(definition.size.min.h).toBeGreaterThanOrEqual(2);
+      expect(definition.size.max.h).toBeLessThanOrEqual(8);
+    }
+  });
+
   it('has no secret-like key in any defaults()', () => {
     for (const definition of registry.list()) {
       expect(secretKeys(definition.config.defaults())).toEqual([]);

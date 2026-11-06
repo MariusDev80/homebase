@@ -1,6 +1,5 @@
 import type { WidgetSizeConstraints } from '../widgets/widget-definition';
 import {
-  boundGrid,
   buildGridOptions,
   fallbackConstraints,
   fromGridsterItem,
@@ -41,14 +40,10 @@ describe('grid adapter', () => {
     expect(fromGridsterItem(toGridsterItem('a', grid, constraints)).grid).toEqual(grid);
   });
 
-  it('bounds the displayed rect to the constraints and the columns', () => {
-    expect(boundGrid({ x: 11, y: 0, w: 9, h: 9 }, constraints)).toEqual({ x: 6, y: 0, w: 6, h: 5 });
-    expect(boundGrid({ x: 0, y: 0, w: 1, h: 1 }, constraints)).toEqual({ x: 0, y: 0, w: 2, h: 1 });
-  });
-
-  it('only bounds an unknown type to the grid', () => {
+  it('bounds an unknown type to the grid (12 x 8 at most)', () => {
     const grid = { x: 10, y: 1, w: 30, h: 99 };
-    expect(boundGrid(grid, undefined)).toEqual({ x: 0, y: 1, w: 12, h: 24 });
+    expect(fallbackConstraints(grid).max).toEqual({ w: 12, h: 8 });
+    expect(fallbackConstraints(grid).default).toEqual({ w: 12, h: 8 });
     expect(fallbackConstraints(grid).min).toEqual({ w: 1, h: 1 });
   });
 
@@ -61,28 +56,69 @@ describe('grid adapter', () => {
 
   describe('grid options', () => {
     const onItemChange = vi.fn();
+    const onInteractionStart = vi.fn();
 
     it('enables drag and resize only while editing', () => {
-      const off = buildGridOptions({ editing: false, onItemChange });
-      const on = buildGridOptions({ editing: true, onItemChange });
+      const off = buildGridOptions({ editing: false, onItemChange, onInteractionStart });
+      const on = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
       expect([off.draggable?.enabled, off.resizable?.enabled]).toEqual([false, false]);
       expect([on.draggable?.enabled, on.resizable?.enabled]).toEqual([true, true]);
     });
 
     it('keeps 12 columns and starts drags from the handle only', () => {
-      const options = buildGridOptions({ editing: true, onItemChange });
+      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
       expect([options.minCols, options.maxCols]).toEqual([12, 12]);
       expect(options.draggable?.ignoreContent).toBe(true);
       expect(options.draggable?.dragHandleClass).toBe('widget-drag-handle');
     });
 
+    it('fits 12 x 8 cells in the area without writing a size or scrolling', () => {
+      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      expect(options.gridType).toBe('fit');
+      expect([options.minRows, options.maxRows]).toEqual([8, 8]);
+      expect(options.setGridSize).toBe(false);
+      expect(options.addEmptyRowsCount).toBe(0);
+      expect([options.disableScrollVertical, options.disableScrollHorizontal]).toEqual([
+        true,
+        true,
+      ]);
+      expect(options.outerMargin).toBe(false);
+      expect([
+        options.outerMarginTop,
+        options.outerMarginRight,
+        options.outerMarginBottom,
+        options.outerMarginLeft,
+      ]).toEqual([0, 0, 0, 0]);
+    });
+
+    it('keeps only the south-east resize handle', () => {
+      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      expect(options.resizable?.handles).toEqual({
+        s: false,
+        e: false,
+        n: false,
+        w: false,
+        se: true,
+        ne: false,
+        sw: false,
+        nw: false,
+      });
+    });
+
+    it('reports the start of a drag or a resize', () => {
+      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      options.draggable?.start?.({} as never, {} as never, {} as never);
+      options.resizable?.start?.({} as never, {} as never, {} as never);
+      expect(onInteractionStart).toHaveBeenCalledTimes(2);
+    });
+
     it('keeps dragged and resized widgets inside the grid', () => {
-      const options = buildGridOptions({ editing: true, onItemChange });
+      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
       expect(options.enableBoundaryControl).toBe(true);
     });
 
     it('forwards only items carrying an instance id', () => {
-      const options = buildGridOptions({ editing: true, onItemChange });
+      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
       const item = toGridsterItem('a', { x: 0, y: 0, w: 2, h: 2 }, constraints);
       options.itemChangeCallback?.(item, undefined as never);
       options.itemChangeCallback?.({ x: 0, y: 0, cols: 1, rows: 1 }, undefined as never);

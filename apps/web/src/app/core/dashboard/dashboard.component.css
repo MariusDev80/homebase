@@ -3,13 +3,21 @@
  * --hb-* tokens only (docs/DESIGN.md): borders instead of shadows, light and dark via the tokens.
  * Selectors are prefixed with app-dashboard to win over the library rules.
  */
+app-dashboard .dashboard-grid-area {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
 app-dashboard gridster.dashboard-grid {
-  /*
-   * With setGridSize, gridster writes an inline width of (offsetWidth + 2 * margin) at each layout,
-   * so the grid grew by 32px on every move and overflowed the window. Stays the container's width;
-   * the 12 columns then fit exactly: 12 * ((width + margin) / 12) - margin = width.
-   */
-  width: 100% !important;
+  /* Absolute: its size never depends on a percentage of a flex item. */
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  /* clip: unlike hidden, cannot be scrolled by a script; the margin keeps a sub-pixel border. */
+  overflow: clip;
+  overflow-clip-margin: 2px;
   background: transparent;
   user-select: none;
 }

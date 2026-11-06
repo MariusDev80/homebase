@@ -6,7 +6,7 @@
     </p>
   }
   @case ('ready') {
-    <div class="page-header">
+    <div class="page-header flex-none">
       <h1 class="page-title">{{ store.dashboard()?.name }}</h1>
       <div class="flex items-center gap-2">
         <button
@@ -64,36 +64,56 @@
     </div>
 
     @if (addFailed()) {
-      <p role="alert" data-testid="dashboard-add-error" class="flash flash-danger mb-4">
+      <p role="alert" data-testid="dashboard-add-error" class="flash flash-danger mb-4 flex-none">
         <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
         {{ 'dashboard.addError' | transloco }}
       </p>
     }
 
     @if (store.layoutError()) {
-      <p role="alert" data-testid="dashboard-layout-error" class="flash flash-danger mb-4">
+      <p
+        role="alert"
+        data-testid="dashboard-layout-error"
+        class="flash flash-danger mb-4 flex-none"
+      >
         <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
         {{ 'dashboard.layoutError' | transloco }}
       </p>
     }
 
-    @if (store.instances().length === 0) {
-      <div data-testid="dashboard-empty" class="empty-state">
-        <i class="pi pi-objects-column" aria-hidden="true"></i>
-        <p>{{ 'dashboard.empty' | transloco }}</p>
-      </div>
-    } @else {
-      <gridster
-        [options]="gridOptions()"
-        class="dashboard-grid"
-        [class.dashboard-grid-editing]="editing()"
+    @if (unplacedNames().length > 0) {
+      <div
+        role="alert"
+        class="flash flash-attention mb-4 flex-none"
+        data-testid="dashboard-unplaced"
       >
-        @for (entry of entries(); track entry.instance.id) {
-          <gridster-item [item]="entry.item">
-            <app-widget-host [instance]="entry.instance" [editing]="editing()" />
-          </gridster-item>
-        }
-      </gridster>
+        <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+        {{
+          'dashboard.unplaced'
+            | transloco: { count: unplacedNames().length, names: unplacedNames().join(', ') }
+        }}
+      </div>
     }
+
+    <div #gridArea class="dashboard-grid-area">
+      @if (store.instances().length === 0) {
+        <div data-testid="dashboard-empty" class="empty-state">
+          <i class="pi pi-objects-column" aria-hidden="true"></i>
+          <p>{{ 'dashboard.empty' | transloco }}</p>
+        </div>
+      } @else {
+        <gridster
+          [options]="gridOptions()"
+          class="dashboard-grid"
+          [class.dashboard-grid-editing]="editing()"
+        >
+          @for (entry of entries(); track entry.instance.id) {
+            <gridster-item [item]="entry.item">
+              <app-widget-host [instance]="entry.instance" [editing]="editing()" />
+            </gridster-item>
+          }
+        </gridster>
+      }
+    </div>
   }
 }

@@ -20,7 +20,6 @@ import { WidgetHostComponent } from '../widgets/widget-host.component';
 import { WidgetRegistry } from '../widgets/widget-registry';
 import { DashboardStore } from './dashboard.store';
 import {
-  boundGrid,
   buildGridOptions,
   fallbackConstraints,
   fromGridsterItem,
@@ -28,6 +27,7 @@ import {
   toGridsterItem,
 } from './grid-adapter';
 import type { DashboardGridItem } from './grid-adapter';
+import { sameRect } from './grid-layout';
 
 interface GridEntry {
   readonly instance: WidgetInstanceRecord;
@@ -42,6 +42,7 @@ interface GridEntry {
   // Unencapsulated: restyles the gridster elements (unlayered library CSS) with the tokens.
   encapsulation: ViewEncapsulation.None,
   host: {
+    class: 'flex min-h-0 flex-1 flex-col',
     '(document:click)': 'onDocumentClick($event)',
     '(keydown)': 'onMenuKeydown($event)',
   },
@@ -54,6 +55,8 @@ export class DashboardComponent {
   private readonly injector = inject(Injector);
   private readonly menuRoot = viewChild<ElementRef<HTMLElement>>('menuRoot');
   private readonly menuTrigger = viewChild<ElementRef<HTMLButtonElement>>('menuTrigger');
+  private readonly gridster = viewChild(Gridster);
+  private readonly gridArea = viewChild<ElementRef<HTMLElement>>('gridArea');
 
   protected readonly adding = signal(false);
   protected readonly menuOpen = signal(false);
@@ -63,32 +66,53 @@ export class DashboardComponent {
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly changedItems = new Map<string, LayoutItem>();
+  /** A drag or resize is in progress: gridster must not report items by itself (diagnostic). */
+  private interacting = false;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   /** Gridster mutates its item objects in place: keep them while their values are unchanged. */
   private readonly itemCache = new Map<string, DashboardGridItem>();
 
   protected readonly gridOptions = computed(() =>
-    buildGridOptions({ editing: this.editing(), onItemChange: (item) => this.onItemChange(item) }),
+    buildGridOptions({
+      editing: this.editing(),
+      onItemChange: (item) => this.onItemChange(item),
+      onInteractionStart: () => {
+        this.interacting = true;
+      },
+    }),
   );
 
   protected readonly entries = computed<GridEntry[]>(() => {
+    const placed = this.store.layout().placed;
     const seen = new Set<string>();
-    const entries = this.store.instances().map((instance) => {
+    const entries: GridEntry[] = [];
+    for (const stored of this.store.instances()) {
+      const grid = placed.get(stored.id);
+      if (!grid) continue;
       const constraints =
-        this.registry.get(instance.widgetType)?.size ?? fallbackConstraints(instance.grid);
-      const wanted = toGridsterItem(
-        instance.id,
-        boundGrid(instance.grid, constraints),
-        constraints,
-      );
-      const cached = this.itemCache.get(instance.id);
+        this.registry.get(stored.widgetType)?.size ?? fallbackConstraints(stored.grid);
+      const wanted = toGridsterItem(stored.id, grid, constraints);
+      const cached = this.itemCache.get(stored.id);
       const item = cached && sameGridsterItem(cached, wanted) ? cached : wanted;
-      this.itemCache.set(instance.id, item);
-      seen.add(instance.id);
-      return { instance, item };
-    });
+      this.itemCache.set(stored.id, item);
+      seen.add(stored.id);
+      const instance = sameRect(stored.grid, grid) ? stored : { ...stored, grid };
+      entries.push({ instance, item });
+    }
     for (const id of this.itemCache.keys()) if (!seen.has(id)) this.itemCache.delete(id);
     return entries;
+  });
+
+  /** Names of the widgets without room on the grid (they stay stored, they are only hidden). */
+  protected readonly unplacedNames = computed<string[]>(() => {
+    const unplaced = new Set(this.store.layout().unplaced);
+    return this.store
+      .instances()
+      .filter((i) => unplaced.has(i.id))
+      .map((i) => {
+        const key = this.registry.get(i.widgetType)?.titleKey;
+        return key ? this.transloco.translate(key) : i.widgetType;
+      });
   });
 
   constructor() {
@@ -103,6 +127,14 @@ export class DashboardComponent {
         });
       }
       previousCount = count;
+    });
+    // Gridster only listens to window.resize: a banner changing the area height needs a nudge.
+    effect((onCleanup) => {
+      const area = this.gridArea()?.nativeElement;
+      if (!area || typeof ResizeObserver !== 'function') return;
+      const observer = new ResizeObserver(() => this.gridster()?.api.resize());
+      observer.observe(area);
+      onCleanup(() => observer.disconnect());
     });
     this.destroyRef.onDestroy(() => this.flushLayout());
     void this.store.load(this.transloco.translate('dashboard.defaultName'));
@@ -218,11 +250,13 @@ export class DashboardComponent {
   /** Gridster reports each changed item (dragged, resized or pushed): batch them into one write. */
   private onItemChange(item: DashboardGridItem): void {
     if (!this.editing()) return;
+    if (!this.interacting) console.warn('gridster moved an item by itself', item.id);
     this.changedItems.set(item.id, fromGridsterItem(item));
     this.flushTimer ??= setTimeout(() => this.flushLayout(), 0);
   }
 
   private flushLayout(): void {
+    this.interacting = false;
     if (this.flushTimer !== null) clearTimeout(this.flushTimer);
     this.flushTimer = null;
     if (this.changedItems.size === 0) return;

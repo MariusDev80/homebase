@@ -1,4 +1,4 @@
-<div class="flex min-h-screen flex-col bg-page text-fg">
+<div class="flex h-dvh flex-col bg-page text-fg">
   <header class="topbar" [attr.inert]="lock.isLocked() ? '' : null">
     <span class="font-semibold">{{ 'app.name' | transloco }}</span>
 
@@ -38,7 +38,10 @@
     </button>
   </header>
 
-  <main class="flex-1 p-4 md:p-6" [attr.inert]="lock.isLocked() ? '' : null">
+  <main
+    class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4"
+    [attr.inert]="lock.isLocked() ? '' : null"
+  >
     <ng-container #alertHost />
     <router-outlet />
   </main>

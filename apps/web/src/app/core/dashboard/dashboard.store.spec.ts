@@ -6,7 +6,12 @@ import { PendingWrites } from '../widgets/pending-writes';
 import { fixtureDefinition } from '../testing/fixture-definitions';
 import { provideWidget } from '../widgets/widget-registry';
 import type { WidgetDefinition } from '../widgets/widget-definition';
-import { DashboardStore, UnknownWidgetTypeError, WidgetLimitError } from './dashboard.store';
+import {
+  DashboardStore,
+  GridFullError,
+  UnknownWidgetTypeError,
+  WidgetLimitError,
+} from './dashboard.store';
 
 function setup() {
   const dashboards = new FakeDashboardRepository();
@@ -44,7 +49,7 @@ describe('DashboardStore', () => {
       grid: { x: 0, y: 0, w: 2, h: 2 },
     });
     const second = await store.add('hello');
-    expect(second.grid).toEqual({ x: 0, y: 2, w: 2, h: 2 });
+    expect(second.grid).toEqual({ x: 2, y: 0, w: 2, h: 2 });
     expect(store.instances()).toHaveLength(2);
   });
 
@@ -208,5 +213,118 @@ describe('DashboardStore layout', () => {
     expect(store.nudge(a.id, { dw: 5 })).toEqual({ x: 0, y: 0, w: 4, h: 2 });
     expect(store.nudge(a.id, { dw: 1 })).toBeNull();
     await vi.waitFor(() => expect(spy).toHaveBeenCalled());
+  });
+});
+
+describe('DashboardStore fitted layout', () => {
+  const stored = (x: number, y: number) => ({ x, y, w: 4, h: 3 });
+
+  async function seeded(positions: [number, number][]) {
+    const ctx = setup();
+    await ctx.dashboards.createIfNone({ name: 'Accueil' });
+    const dashboardId = ctx.dashboards.items[0].id;
+    const records = positions.map(([x, y]) =>
+      ctx.instances.seed({ dashboardId, grid: stored(x, y) }),
+    );
+    await ctx.store.load('Accueil');
+    return { ...ctx, records, dashboardId };
+  }
+
+  it('writes nothing at load, even with rows beyond the 8th (down to row 20)', async () => {
+    const ctx = setup();
+    await ctx.dashboards.createIfNone({ name: 'Accueil' });
+    const dashboardId = ctx.dashboards.items[0].id;
+    ctx.instances.seed({ dashboardId, grid: stored(0, 0) });
+    ctx.instances.seed({ dashboardId, grid: stored(0, 20) });
+    const spy = vi.spyOn(ctx.instances, 'updateLayout');
+    await ctx.store.load('Accueil');
+    expect(spy).not.toHaveBeenCalled();
+    expect(ctx.store.layout().placed.size).toBe(2);
+    expect(ctx.instances.items[1].grid).toEqual(stored(0, 20));
+  });
+
+  it('writes the moved widget and every repositioned one in a single call', async () => {
+    const { store, records, instances } = await seeded([
+      [0, 0],
+      [0, 3],
+      [0, 6],
+      [0, 9],
+    ]);
+    const [a, , c, d] = records;
+    expect(store.layout().placed.get(c.id)).toEqual(stored(4, 0));
+    expect(store.layout().placed.get(d.id)).toEqual(stored(8, 0));
+    const spy = vi.spyOn(instances, 'updateLayout');
+    await store.changeLayout([{ id: a.id, grid: { x: 0, y: 4, w: 4, h: 3 } }]);
+    // a moved to row 4 hits b (0,3): the lib would push it; here only the reported item is given.
+    expect(spy).toHaveBeenCalledTimes(1);
+    const written = spy.mock.calls[0][1].map((i) => i.id).sort();
+    expect(written).toEqual([a.id, c.id, d.id].sort());
+  });
+
+  it('keeps C and D where they were shown after B is removed, also after a reload', async () => {
+    const { store, records, instances, dashboardId } = await seeded([
+      [0, 0],
+      [0, 3],
+      [0, 6],
+      [0, 9],
+    ]);
+    const [a, b, c, d] = records;
+    await store.remove(b.id);
+    await store.load('Accueil');
+    expect(store.dashboard()?.id).toBe(dashboardId);
+    const placed = store.layout().placed;
+    expect(placed.get(a.id)).toEqual(stored(0, 0));
+    expect(placed.get(c.id)).toEqual(stored(4, 0));
+    expect(placed.get(d.id)).toEqual(stored(8, 0));
+    expect(instances.items.find((i) => i.id === c.id)?.grid).toEqual(stored(4, 0));
+    expect(instances.items.find((i) => i.id === d.id)?.grid).toEqual(stored(8, 0));
+  });
+
+  it('reports addBlockReason and refuses an add on a full grid', async () => {
+    const ctx = setup();
+    await ctx.store.load('Accueil');
+    const dashboardId = ctx.dashboards.items[0].id;
+    expect(ctx.store.addBlockReason('hello')).toBeNull();
+    await ctx.store.add('single');
+    expect(ctx.store.addBlockReason('single')).toBe('limit');
+    // Fill the grid: 6 x 4 widgets of 2 x 2.
+    for (let i = 0; i < 23; i++) {
+      ctx.instances.seed({
+        dashboardId,
+        grid: { x: (i % 6) * 2, y: Math.floor((i + 1) / 6) * 2, w: 2, h: 2 },
+      });
+    }
+    await ctx.store.load('Accueil');
+    expect(ctx.store.layout().placed.size).toBe(24);
+    expect(ctx.store.addBlockReason('hello')).toBe('full');
+    expect(ctx.store.canAdd('hello')).toBe(false);
+    await expect(ctx.store.add('hello')).rejects.toBeInstanceOf(GridFullError);
+  });
+
+  it('never writes a widget without room', async () => {
+    const ctx = setup();
+    await ctx.dashboards.createIfNone({ name: 'Accueil' });
+    const dashboardId = ctx.dashboards.items[0].id;
+    const records = Array.from({ length: 25 }, () =>
+      ctx.instances.seed({ dashboardId, grid: { x: 0, y: 0, w: 2, h: 2 } }),
+    );
+    await ctx.store.load('Accueil');
+    const [lost] = ctx.store.layout().unplaced;
+    expect(ctx.store.layout().unplaced).toHaveLength(1);
+    const spy = vi.spyOn(ctx.instances, 'updateLayout');
+    const moved = records.find((r) => r.id !== lost) as (typeof records)[number];
+    const shown = ctx.store.layout().placed.get(moved.id) as { x: number; y: number };
+    await ctx.store.changeLayout([
+      { id: moved.id, grid: { x: shown.x, y: shown.y + 1, w: 2, h: 2 } },
+    ]);
+    const written = spy.mock.calls[0][1].map((item) => item.id);
+    expect(written).toContain(moved.id);
+    expect(written).not.toContain(lost);
+    expect(ctx.instances.items.find((r) => r.id === lost)?.grid).toEqual({
+      x: 0,
+      y: 0,
+      w: 2,
+      h: 2,
+    });
   });
 });

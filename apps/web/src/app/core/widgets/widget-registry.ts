@@ -1,6 +1,6 @@
 import { Injectable, InjectionToken, Provider, inject } from '@angular/core';
 import type { JsonObject } from '../../data';
-import { GRID_COLUMNS, GRID_MAX_ROWS } from './grid';
+import { GRID_COLUMNS, GRID_ROWS } from './grid';
 import { MAX_CONFIG_CHARS, validateSync } from './widget-config';
 import {
   WIDGET_ICON_PATTERN,
@@ -73,7 +73,7 @@ function sizeProblems(size: WidgetSizeConstraints): string[] {
     }
   }
   if (size.max.w > GRID_COLUMNS) problems.push(`size.max.w must be <= ${GRID_COLUMNS}`);
-  if (size.max.h > GRID_MAX_ROWS) problems.push(`size.max.h must be <= ${GRID_MAX_ROWS}`);
+  if (size.max.h > GRID_ROWS) problems.push(`size.max.h must be <= ${GRID_ROWS}`);
   return problems;
 }
 

@@ -265,6 +265,8 @@
     "loadError": "Impossible de charger le tableau de bord.",
     "addWidget": "Ajouter un widget",
     "empty": "Aucun widget pour l'instant.",
+    "gridFull": "La grille est pleine : supprimez ou réduisez un widget, ou créez un autre tableau.",
+    "unplaced": "{{ count }} widget(s) ne tiennent pas sur ce tableau : {{ names }}.",
     "addError": "Impossible d'ajouter ce widget.",
     "editLayout": "Modifier la disposition",
     "doneEditing": "Terminer",

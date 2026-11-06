@@ -65,9 +65,9 @@
 }
 
 @layer base {
-  /* The vertical scrollbar appearing must not change the page width (and resize the grid). */
+  /* The shell is 100dvh and only main scrolls. */
   html {
-    scrollbar-gutter: stable;
+    overflow: hidden;
   }
 
   body {
