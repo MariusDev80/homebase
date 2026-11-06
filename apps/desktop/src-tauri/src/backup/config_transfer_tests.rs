@@ -549,6 +549,32 @@ fn settings_are_merged() {
     run(c.close()).expect("close");
 }
 
+#[test]
+fn dashboard_last_setting_is_never_written() {
+    let (_dir, root) = seeded();
+    let mut p = base_plan();
+    p.settings = vec![
+        PlanSetting {
+            key: "dashboard.last".into(),
+            value: "\"abc\"".into(),
+        },
+        PlanSetting {
+            key: "theme".into(),
+            value: "\"light\"".into(),
+        },
+    ];
+    let out = apply(&root, &p).expect("apply");
+    assert_eq!(out.settings, 1);
+    let mut c = db_conn(&root);
+    let n = run(
+        sqlx::query("SELECT COUNT(*) FROM settings WHERE key = 'dashboard.last'").fetch_one(&mut c),
+    )
+    .expect("row")
+    .get::<i64, _>(0);
+    assert_eq!(n, 0);
+    run(c.close()).expect("close");
+}
+
 /// Snapshot of every table, to compare before and after.
 fn dump(root: &DataRoot) -> Vec<String> {
     let mut c = db_conn(root);

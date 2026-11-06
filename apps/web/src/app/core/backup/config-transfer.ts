@@ -28,6 +28,9 @@ export const SECRET_KEY_PATTERN = /(secret|token|passw(or)?d|api[-_.]?key|creden
 export const SETTING_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,127}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+/** Local to this installation: never exported, ignored when found in a file to import. */
+export const EXCLUDED_SETTING_KEYS: readonly string[] = ['dashboard.last'];
+
 /** Limits of spec 4.3, identical in Rust (`config_transfer.rs`). Lengths are in code points. */
 export const CONFIG_LIMITS = {
   maxFileBytes: 1_048_576,
@@ -104,7 +107,7 @@ export interface ConfigExportInput {
  */
 export function buildConfigExport(input: ConfigExportInput): ConfigExportDocument {
   const pairs = [...input.settings.entries()]
-    .filter(([key]) => !SECRET_KEY_PATTERN.test(key))
+    .filter(([key]) => !SECRET_KEY_PATTERN.test(key) && !EXCLUDED_SETTING_KEYS.includes(key))
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return {
     format: CONFIG_FORMAT,
@@ -473,6 +476,7 @@ function analyse(
     const entries = Object.entries(doc.settings);
     if (entries.length > CONFIG_LIMITS.maxSettings) issues.add('too_many', 'settings');
     for (const [key, value] of entries) {
+      if (EXCLUDED_SETTING_KEYS.includes(key)) continue;
       const sPath = DISPLAYABLE_KEY.test(key) ? `settings.${key}` : 'settings';
       if (SECRET_KEY_PATTERN.test(key)) {
         issues.add('secret_setting', sPath);

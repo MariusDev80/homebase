@@ -191,7 +191,7 @@ describe('WidgetHostComponent', () => {
 describe('WidgetHostComponent focus request', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('scrolls to, focuses and briefly highlights the requested instance only', async () => {
+  it('focuses and briefly highlights the requested instance only, without scrolling', async () => {
     const { render, store } = await setup();
     const { fixture, el, record } = await render({ config: { label: 'x' } });
     const scroll = vi.fn();
@@ -200,22 +200,60 @@ describe('WidgetHostComponent focus request', () => {
     const card = el.querySelector('[data-testid="widget-card"]') as HTMLElement;
     const focus = TestBed.inject(WidgetFocus);
 
-    expect(focus.focusInstance('ghost')).toBe('not-found');
+    expect(await focus.focusInstance('ghost')).toBe('not-found');
     fixture.detectChanges();
     expect(card.classList.contains('is-highlighted')).toBe(false);
 
     vi.useFakeTimers();
-    expect(focus.focusInstance(record.id)).toBe('focused');
+    expect(await focus.focusInstance(record.id)).toBe('focused');
     expect(store.instances().some((i) => i.id === record.id)).toBe(true);
     fixture.detectChanges();
     await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
-    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(card);
     expect(card.classList.contains('is-highlighted')).toBe(true);
 
     await vi.advanceTimersByTimeAsync(2100);
     fixture.detectChanges();
     expect(card.classList.contains('is-highlighted')).toBe(false);
+  });
+
+  async function requestThenRender(closeFirst: boolean) {
+    const { store, instances } = await setup();
+    const record = instances.seed({
+      dashboardId: store.dashboard()?.id as string,
+      widgetType: 'fixture',
+      config: { label: 'x' },
+    });
+    await store.open(null, 'Accueil');
+    const focus = TestBed.inject(WidgetFocus);
+    expect(await focus.focusInstance(record.id)).toBe('focused');
+    const request = focus.request();
+    if (closeFirst) store.close();
+    // The host is created after the request.
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.instance = record;
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const card = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="widget-card"]',
+    ) as HTMLElement;
+    return { focus, request, card, fixture };
+  }
+
+  it('consumes a request made before the host existed, once', async () => {
+    const { focus, request, card } = await requestThenRender(false);
+    expect(card.classList.contains('is-highlighted')).toBe(true);
+    expect(document.activeElement).toBe(card);
+    expect(focus.claim(request as NonNullable<typeof request>)).toBe(false);
+  });
+
+  it('ignores a request from another session', async () => {
+    const { focus, request, card } = await requestThenRender(true);
+    expect(card.classList.contains('is-highlighted')).toBe(false);
+    expect(focus.claim(request as NonNullable<typeof request>)).toBe(false);
   });
 });

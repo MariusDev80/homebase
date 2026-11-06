@@ -32,7 +32,7 @@ const KIND_ICONS: Record<SearchKind, string> = {
   todo: 'pi pi-check-square',
 };
 
-type Message = 'openError' | 'notFound' | 'webError' | 'engineError';
+type Message = 'openError' | 'notFound' | 'unplaced' | 'webError' | 'engineError';
 
 interface OptionView {
   readonly id: string;
@@ -48,7 +48,9 @@ interface SectionView {
 }
 
 interface Placement {
-  readonly top: number;
+  /** null when the list opens above the field (then `bottom` is set). */
+  readonly top: number | null;
+  readonly bottom: number | null;
   readonly left: number;
   readonly width: number;
   readonly maxHeight: number;
@@ -265,11 +267,23 @@ export class SearchComponent {
     if (!this.open()) return;
     const rect = this.input().nativeElement.getBoundingClientRect();
     const viewportHeight = this.document.defaultView?.innerHeight ?? 0;
+    const below = viewportHeight - rect.bottom - 16;
+    if (below < 160 && rect.top - 20 > below) {
+      this.placement.set({
+        top: null,
+        bottom: viewportHeight - rect.top + 4,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: rect.top - 20,
+      });
+      return;
+    }
     this.placement.set({
       top: rect.bottom + 4,
+      bottom: null,
       left: rect.left,
       width: rect.width,
-      maxHeight: Math.max(160, viewportHeight - rect.bottom - 16),
+      maxHeight: Math.max(160, below),
     });
   }
 
@@ -337,9 +351,13 @@ export class SearchComponent {
       return;
     }
     const target = result.widgetInstanceId;
-    if (target === null || this.widgetFocus.focusInstance(target) === 'not-found') {
+    if (target === null) {
       this.message.set('notFound');
+      return;
     }
+    const outcome = await this.widgetFocus.focusInstance(target);
+    if (outcome === 'not-found') this.message.set('notFound');
+    else if (outcome === 'unplaced') this.message.set('unplaced');
   }
 
   private findResult(index: number): SearchResult | undefined {

@@ -100,6 +100,9 @@ fn char_count(s: &str) -> usize {
 
 /// Same as the front's `SECRET_KEY_PATTERN`, written by hand (no `regex`): a key is secret when it
 /// contains one of the markers, case-insensitively.
+/// Setting never written by an import (defence in depth: the front already drops it).
+const EXCLUDED_SETTING_KEY: &str = "dashboard.last";
+
 pub fn is_secret_setting_key(key: &str) -> bool {
     const MARKERS: [&str; 9] = [
         "secret",
@@ -383,6 +386,10 @@ async fn run_statements(
         .await
         .map_err(map_write_error)?;
     for setting in &plan.settings {
+        // The last opened dashboard is local to this installation: never written by an import.
+        if setting.key == EXCLUDED_SETTING_KEY {
+            continue;
+        }
         let done = sqlx::query(UPSERT_SETTING)
             .bind(&setting.key)
             .bind(&setting.value)

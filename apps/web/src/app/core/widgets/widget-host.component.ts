@@ -6,6 +6,7 @@ import {
   ElementRef,
   Injector,
   Type,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -60,14 +61,11 @@ export class WidgetHostComponent {
   private readonly confirmation = inject(ConfirmationService);
   private readonly transloco = inject(TranslocoService);
   private readonly widgetFocus = inject(WidgetFocus);
-  private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly section = viewChild<ElementRef<HTMLElement>>('section');
 
   /** Brief highlight after a focus request (see WidgetFocus). */
   protected readonly highlighted = signal(false);
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Requests made before this host existed are ignored. */
-  private lastFocusSequence = this.widgetFocus.request()?.sequence ?? 0;
 
   protected readonly state = signal<WidgetHostState>({ kind: 'loading' });
   private readonly attempt = signal(0);
@@ -81,10 +79,13 @@ export class WidgetHostComponent {
     });
     effect(() => {
       const request = this.widgetFocus.request();
-      if (!request || request.sequence <= this.lastFocusSequence) return;
+      if (!request) return;
       untracked(() => {
-        this.lastFocusSequence = request.sequence;
-        if (request.instanceId === this.instance().id) this.reveal();
+        // A request made before this host existed is still pending: it is claimed once, and only
+        // while its session is the current one.
+        if (request.instanceId === this.instance().id && this.widgetFocus.claim(request)) {
+          afterNextRender(() => this.reveal(), { injector: this.parentInjector });
+        }
       });
     });
     effect(() => {
@@ -101,14 +102,8 @@ export class WidgetHostComponent {
 
   private builtFor: string | null = null;
 
-  /** Scrolls the card into view, moves the focus to it and highlights it for a moment. */
+  /** Moves the focus to the card and highlights it for a moment (the page does not scroll). */
   private reveal(): void {
-    const reduced =
-      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.hostElement.nativeElement.scrollIntoView?.({
-      block: 'center',
-      behavior: reduced ? 'auto' : 'smooth',
-    });
     this.section()?.nativeElement.focus({ preventScroll: true });
     this.highlighted.set(true);
     if (this.highlightTimer !== null) clearTimeout(this.highlightTimer);

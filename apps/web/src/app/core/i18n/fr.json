@@ -136,7 +136,8 @@
       "resultsCount": "{{ count }} résultat(s)",
       "partialError": "Certaines sources n'ont pas répondu : {{ sources }}.",
       "openError": "Impossible d'ouvrir ce lien.",
-      "notFound": "Cet élément n'est pas sur le tableau de bord actuel.",
+      "notFound": "Cet élément n'existe plus.",
+      "unplaced": "Ce widget ne tient pas sur la grille de son tableau.",
       "webError": "Impossible de lancer la recherche web.",
       "engineError": "Impossible d'enregistrer le moteur de recherche."
     },

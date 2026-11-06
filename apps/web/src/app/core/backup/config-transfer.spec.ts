@@ -148,6 +148,17 @@ describe('buildConfigExport', () => {
     expect(JSON.stringify(doc)).not.toMatch(/ghp_secret|apiKey|Password/);
   });
 
+  it('never exports dashboard.last', () => {
+    const doc = buildConfigExport({
+      ...input,
+      settings: new Map<string, JsonValue>([
+        ['dashboard.last', 'abc'],
+        ['theme', 'dark'],
+      ]),
+    });
+    expect(Object.keys(doc.settings)).toEqual(['theme']);
+  });
+
   it('serializes with two-space indentation', () => {
     expect(serializeConfigExport(buildConfigExport(input))).toContain('\n  "format"');
   });
@@ -291,6 +302,14 @@ describe('parseConfigImport: accepted files', () => {
     doc.dashboards[0].widgets = Array.from({ length: 200 }, (_, i) => widget(i));
     doc.settings = Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`k${i}`, i]));
     expect(parse(doc).ok).toBe(true);
+  });
+
+  it('ignores dashboard.last without error', () => {
+    const result = mutated((d) => (d.settings = { 'dashboard.last': 'abc', theme: 'dark' }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.plan.settings).toEqual([{ key: 'theme', value: '"dark"' }]);
+    }
   });
 
   it('accepts an empty settings object', () => {
