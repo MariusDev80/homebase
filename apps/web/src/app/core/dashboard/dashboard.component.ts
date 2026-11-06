@@ -62,8 +62,6 @@ export class DashboardComponent {
   /** Move of the widgets without room to a new dashboard: running, and the key of its error. */
   protected readonly moving = signal(false);
   protected readonly moveErrorKey = signal<string | null>(null);
-  /** Layout edit mode: drag, resize and keyboard move are enabled only while true. */
-  protected readonly editing = signal(false);
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly changedItems = new Map<string, LayoutItem>();
@@ -75,7 +73,6 @@ export class DashboardComponent {
 
   protected readonly gridOptions = computed(() =>
     buildGridOptions({
-      editing: this.editing(),
       onItemChange: (item) => this.onItemChange(item),
       onInteractionStart: () => {
         this.interacting = true;
@@ -195,14 +192,8 @@ export class DashboardComponent {
     }
   }
 
-  protected toggleEditing(): void {
-    if (this.editing()) this.flushLayout();
-    this.editing.update((value) => !value);
-  }
-
   /** Gridster reports each changed item (dragged, resized or pushed): batch them into one write. */
   private onItemChange(item: DashboardGridItem): void {
-    if (!this.editing()) return;
     if (!this.interacting) console.warn('gridster moved an item by itself', item.id);
     this.changedItems.set(item.id, fromGridsterItem(item));
     this.flushTimer ??= setTimeout(() => this.flushLayout(), 0);

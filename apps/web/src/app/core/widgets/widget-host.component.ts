@@ -51,8 +51,6 @@ type WidgetHostState =
 })
 export class WidgetHostComponent {
   readonly instance = input.required<WidgetInstanceRecord>();
-  /** Layout edit mode: shows the drag handle (also the keyboard move/resize target). */
-  readonly editing = input(false);
   protected readonly dragHandleClass = DRAG_HANDLE_CLASS;
 
   private readonly registry = inject(WidgetRegistry);

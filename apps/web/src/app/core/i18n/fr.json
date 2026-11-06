@@ -280,8 +280,6 @@
     "moveUnplaced": "Les déplacer vers un nouveau tableau",
     "moveUnplacedError": "Impossible de déplacer ces widgets.",
     "overflowName": "{{ name }} (suite)",
-    "editLayout": "Modifier la disposition",
-    "doneEditing": "Terminer",
     "layoutError": "Impossible d'enregistrer la disposition ; la dernière disposition enregistrée a été rétablie."
   },
   "dashboards": {

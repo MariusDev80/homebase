@@ -105,7 +105,7 @@ describe('DashboardComponent', () => {
     );
   });
 
-  describe('layout editing', () => {
+  describe('layout', () => {
     const seeded = async () => {
       const dashboards = new FakeDashboardRepository();
       const instances = new FakeWidgetInstanceRepository();
@@ -141,24 +141,17 @@ describe('DashboardComponent', () => {
       document.body.appendChild(fixture.nativeElement);
       return { fixture, el: fixture.nativeElement as HTMLElement, instances };
     };
-    const toggle = (el: HTMLElement) =>
-      el.querySelector('[data-testid="toggle-layout-edit"]') as HTMLButtonElement;
 
-    it('disables drag and resize outside the edit mode and enables them while editing', async () => {
+    it('has no layout toggle; drag and resize are on, with one handle per card', async () => {
       const { fixture, el } = await seeded();
-      expect(gridOptions(fixture).draggable.enabled).toBe(false);
-      expect(gridOptions(fixture).resizable.enabled).toBe(false);
-      expect(el.querySelector('[data-testid="widget-drag-handle"]')).toBeNull();
-      expect(toggle(el).textContent).toContain('Modifier la disposition');
-      toggle(el).click();
-      fixture.detectChanges();
+      expect(el.querySelector('button[aria-pressed]')).toBeNull();
       expect(gridOptions(fixture).draggable.enabled).toBe(true);
       expect(gridOptions(fixture).resizable.enabled).toBe(true);
       expect(el.querySelectorAll('[data-testid="widget-drag-handle"]')).toHaveLength(2);
-      expect(toggle(el).textContent).toContain('Terminer');
-      toggle(el).click();
-      fixture.detectChanges();
-      expect(gridOptions(fixture).draggable.enabled).toBe(false);
+      expect(el.querySelectorAll('[data-testid="widget-remove"]')).toHaveLength(2);
+      for (const remove of el.querySelectorAll('[data-testid="widget-remove"]')) {
+        expect(remove.closest('.widget-drag-handle')).toBeNull();
+      }
     });
 
     it('writes nothing on load, even when the display was clamped', async () => {
@@ -169,10 +162,8 @@ describe('DashboardComponent', () => {
     });
 
     it('persists one updateLayout with the dragged and the pushed items at the end of a drag', async () => {
-      const { fixture, el, instances } = await seeded();
+      const { fixture, instances } = await seeded();
       const spy = vi.spyOn(instances, 'updateLayout');
-      toggle(el).click();
-      fixture.detectChanges();
       const [a, b] = [gridItem(fixture, 0), gridItem(fixture, 1)];
       // What gridster does when item a is dropped on b: both objects are mutated, then notified.
       a.x = 4;
@@ -188,8 +179,6 @@ describe('DashboardComponent', () => {
 
     it('moves a widget with the keyboard and announces it', async () => {
       const { fixture, el, instances } = await seeded();
-      toggle(el).click();
-      fixture.detectChanges();
       const handle = el.querySelector('[data-testid="widget-drag-handle"]') as HTMLButtonElement;
       handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
       fixture.detectChanges();
@@ -206,8 +195,6 @@ describe('DashboardComponent', () => {
     it('shows a non blocking translated error when the layout write fails', async () => {
       const { fixture, el, instances } = await seeded();
       vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      toggle(el).click();
-      fixture.detectChanges();
       instances.failNext(new DataError('busy', 'locked'));
       el.querySelector('[data-testid="widget-drag-handle"]')?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
@@ -219,7 +206,6 @@ describe('DashboardComponent', () => {
         );
       });
       expect(gridItem(fixture, 0)).toMatchObject({ x: 0, y: 0 });
-      expect(toggle(el).disabled).toBe(false);
     });
   });
 
@@ -349,9 +335,7 @@ describe('DashboardComponent', () => {
 
     it('warns when gridster moves an item without a gesture, but still saves it', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      const { fixture, el, instances } = await seededAt([{ x: 0, y: 0, w: 2, h: 2 }]);
-      el.querySelector<HTMLButtonElement>('[data-testid="toggle-layout-edit"]')?.click();
-      fixture.detectChanges();
+      const { fixture, instances } = await seededAt([{ x: 0, y: 0, w: 2, h: 2 }]);
       const spy = vi.spyOn(instances, 'updateLayout');
       const item = gridItem(fixture);
       item.x = 3;
@@ -363,9 +347,7 @@ describe('DashboardComponent', () => {
     it('does not warn during a drag', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       warn.mockClear();
-      const { fixture, el, instances } = await seededAt([{ x: 0, y: 0, w: 2, h: 2 }]);
-      el.querySelector<HTMLButtonElement>('[data-testid="toggle-layout-edit"]')?.click();
-      fixture.detectChanges();
+      const { fixture, instances } = await seededAt([{ x: 0, y: 0, w: 2, h: 2 }]);
       const spy = vi.spyOn(instances, 'updateLayout');
       const item = gridItem(fixture);
       gridOptions(fixture).draggable.start();

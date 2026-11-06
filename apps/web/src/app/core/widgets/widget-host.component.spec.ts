@@ -87,6 +87,18 @@ describe('WidgetHostComponent', () => {
     );
   });
 
+  it('always renders the drag handle, placeholder included, outside the remove button', async () => {
+    const { render } = await setup();
+    for (const type of ['fixture', 'ghost']) {
+      const { el } = await render({ widgetType: type, config: {} });
+      const handle = el.querySelector('[data-testid="widget-drag-handle"]');
+      expect(handle?.classList.contains('widget-drag-handle')).toBe(true);
+      expect(
+        el.querySelector('[data-testid="widget-remove"]')?.closest('.widget-drag-handle'),
+      ).toBeNull();
+    }
+  });
+
   it('shows an invalid config placeholder and resets it', async () => {
     const { render, store } = await setup();
     const reset = vi.spyOn(store, 'resetConfig');

@@ -7,20 +7,6 @@
   }
   @case ('ready') {
     <h1 class="sr-only">{{ title() }}</h1>
-    <div class="mb-4 flex flex-none items-center justify-end gap-2">
-      <button
-        type="button"
-        class="btn"
-        data-testid="toggle-layout-edit"
-        [attr.aria-pressed]="editing()"
-        [disabled]="store.instances().length === 0"
-        (click)="toggleEditing()"
-      >
-        <i [class]="editing() ? 'pi pi-check' : 'pi pi-pencil'" aria-hidden="true"></i>
-        {{ (editing() ? 'dashboard.doneEditing' : 'dashboard.editLayout') | transloco }}
-      </button>
-    </div>
-
     @if (store.layoutError()) {
       <p
         role="alert"
@@ -69,14 +55,10 @@
           <p>{{ 'dashboard.empty' | transloco }}</p>
         </div>
       } @else {
-        <gridster
-          [options]="gridOptions()"
-          class="dashboard-grid"
-          [class.dashboard-grid-editing]="editing()"
-        >
+        <gridster [options]="gridOptions()" class="dashboard-grid">
           @for (entry of entries(); track entry.instance.id) {
             <gridster-item [item]="entry.item">
-              <app-widget-host [instance]="entry.instance" [editing]="editing()" />
+              <app-widget-host [instance]="entry.instance" />
             </gridster-item>
           }
         </gridster>

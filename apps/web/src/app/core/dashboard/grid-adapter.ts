@@ -68,8 +68,6 @@ export function sameGridsterItem(a: GridsterItemConfig, b: GridsterItemConfig): 
 }
 
 export interface GridOptionsParams {
-  /** Drag and resize are enabled only while editing (until the always-on drag lot). */
-  readonly editing: boolean;
   /** Called by gridster, once per item whose x/y/cols/rows changed (dragged, resized or pushed). */
   readonly onItemChange: (item: DashboardGridItem) => void;
   /** Called by draggable.start and resizable.start (diagnostic: gridster must not move items alone). */
@@ -77,7 +75,7 @@ export interface GridOptionsParams {
 }
 
 export function buildGridOptions(params: GridOptionsParams): GridsterConfig {
-  const { editing, onItemChange, onInteractionStart } = params;
+  const { onItemChange, onInteractionStart } = params;
   return {
     gridType: 'fit',
     // No inline width/height written at each layout (the grid fills its area, see the CSS).
@@ -114,13 +112,13 @@ export function buildGridOptions(params: GridOptionsParams): GridsterConfig {
     disableScrollHorizontal: true,
     addEmptyRowsCount: 0,
     draggable: {
-      enabled: editing,
+      enabled: true,
       ignoreContent: true,
       dragHandleClass: DRAG_HANDLE_CLASS,
       start: () => onInteractionStart(),
     },
     resizable: {
-      enabled: editing,
+      enabled: true,
       handles: {
         s: false,
         e: false,

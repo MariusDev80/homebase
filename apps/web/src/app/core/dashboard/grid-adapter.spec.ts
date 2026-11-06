@@ -58,22 +58,20 @@ describe('grid adapter', () => {
     const onItemChange = vi.fn();
     const onInteractionStart = vi.fn();
 
-    it('enables drag and resize only while editing', () => {
-      const off = buildGridOptions({ editing: false, onItemChange, onInteractionStart });
-      const on = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
-      expect([off.draggable?.enabled, off.resizable?.enabled]).toEqual([false, false]);
+    it('always enables drag and resize', () => {
+      const on = buildGridOptions({ onItemChange, onInteractionStart });
       expect([on.draggable?.enabled, on.resizable?.enabled]).toEqual([true, true]);
     });
 
     it('keeps 12 columns and starts drags from the handle only', () => {
-      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      const options = buildGridOptions({ onItemChange, onInteractionStart });
       expect([options.minCols, options.maxCols]).toEqual([12, 12]);
       expect(options.draggable?.ignoreContent).toBe(true);
       expect(options.draggable?.dragHandleClass).toBe('widget-drag-handle');
     });
 
     it('fits 12 x 8 cells in the area without writing a size or scrolling', () => {
-      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      const options = buildGridOptions({ onItemChange, onInteractionStart });
       expect(options.gridType).toBe('fit');
       expect([options.minRows, options.maxRows]).toEqual([8, 8]);
       expect(options.setGridSize).toBe(false);
@@ -92,7 +90,7 @@ describe('grid adapter', () => {
     });
 
     it('keeps only the south-east resize handle', () => {
-      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      const options = buildGridOptions({ onItemChange, onInteractionStart });
       expect(options.resizable?.handles).toEqual({
         s: false,
         e: false,
@@ -106,19 +104,19 @@ describe('grid adapter', () => {
     });
 
     it('reports the start of a drag or a resize', () => {
-      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      const options = buildGridOptions({ onItemChange, onInteractionStart });
       options.draggable?.start?.({} as never, {} as never, {} as never);
       options.resizable?.start?.({} as never, {} as never, {} as never);
       expect(onInteractionStart).toHaveBeenCalledTimes(2);
     });
 
     it('keeps dragged and resized widgets inside the grid', () => {
-      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      const options = buildGridOptions({ onItemChange, onInteractionStart });
       expect(options.enableBoundaryControl).toBe(true);
     });
 
     it('forwards only items carrying an instance id', () => {
-      const options = buildGridOptions({ editing: true, onItemChange, onInteractionStart });
+      const options = buildGridOptions({ onItemChange, onInteractionStart });
       const item = toGridsterItem('a', { x: 0, y: 0, w: 2, h: 2 }, constraints);
       options.itemChangeCallback?.(item, undefined as never);
       options.itemChangeCallback?.({ x: 0, y: 0, cols: 1, rows: 1 }, undefined as never);

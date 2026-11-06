@@ -44,11 +44,6 @@ app-dashboard gridster-item.gridster-item-resizing .box {
   background: var(--hb-bg-subtle);
 }
 
-/* While editing, the dashed frame tells that the widgets can be moved. */
-app-dashboard .dashboard-grid-editing gridster-item .box {
-  border-style: dashed;
-}
-
 /* Drop placeholder */
 app-dashboard gridster-preview {
   border: 1px dashed var(--hb-accent);
@@ -56,18 +51,49 @@ app-dashboard gridster-preview {
   background: var(--hb-accent-subtle);
 }
 
-/* Resize handles: a visible corner grip, invisible edge strips. */
-app-dashboard .gridster-item-resizable-handler.handle-se,
-app-dashboard gridster-item:hover .gridster-item-resizable-handler.handle-se {
+/* Header: the type icon gives way to the drag handle on hover and keyboard focus. */
+app-dashboard gridster-item .widget-header-icon {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+app-dashboard gridster-item .widget-type-icon {
+  color: var(--hb-fg-muted);
+  font-size: 16px;
+  transition: opacity var(--hb-transition);
+}
+app-dashboard gridster-item .widget-drag-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  cursor: move;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity var(--hb-transition);
+}
+app-dashboard gridster-item .box-header:hover .widget-drag-handle,
+app-dashboard gridster-item .box-header:focus-within .widget-drag-handle {
+  opacity: 1;
+}
+app-dashboard gridster-item .box-header:hover .widget-type-icon,
+app-dashboard gridster-item .box-header:focus-within .widget-type-icon {
+  opacity: 0;
+}
+
+/* Resize: south-east corner only (14 x 14 px), visible on hover of the card. */
+app-dashboard .gridster-item-resizable-handler.handle-se {
   width: 0;
   height: 0;
   border-width: 0 0 14px 14px;
+  border-color: transparent;
+}
+app-dashboard gridster-item:hover .gridster-item-resizable-handler.handle-se {
   border-color: transparent transparent var(--hb-fg-muted);
 }
 app-dashboard .gridster-item-resizable-handler.handle-se:hover {
   border-color: transparent transparent var(--hb-accent);
-}
-
-app-dashboard .widget-drag-handle {
-  cursor: move;
 }
