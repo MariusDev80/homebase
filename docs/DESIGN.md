@@ -29,6 +29,7 @@ Ce sont des variables CSS sémantiques, définies une seule fois dans `apps/web/
 | `--hb-fg-on-emphasis` | `#ffffff` | `#ffffff` | texte sur fond plein (boutons primaires, badges) |
 | `--hb-accent` | `#0969da` | `#4493f8` | liens, sélection, focus, éléments actifs |
 | `--hb-accent-subtle` | `#ddf4ff` | `#388bfd1a` | fond de l'élément sélectionné |
+| `--hb-accent-emphasis` | `#0969da` | `#1f6feb` | fond plein d'accent, avec `--hb-fg-on-emphasis` (`--hb-accent` n'atteint pas AA en sombre) |
 | `--hb-success` | `#1a7f37` | `#3fb950` | succès, habit fait, service en ligne |
 | `--hb-success-emphasis` | `#1f883d` | `#238636` | fond du bouton primaire |
 | `--hb-danger` | `#d1242f` | `#f85149` | erreurs, suppression, service hors ligne |
@@ -48,9 +49,10 @@ Ce sont des variables CSS sémantiques, définies une seule fois dans `apps/web/
 - Transitions : 80 à 150 ms, uniquement sur la couleur, le fond et l'opacité. Rien n'est animé si `prefers-reduced-motion` est actif.
 
 ## 3. Composants (patterns)
-- **Barre supérieure** : fond `--hb-bg-subtle`, bordure basse, hauteur 48 px. À gauche le nom de l'app (600) puis la navigation, à droite la recherche (phase 1) et le thème.
-- **Navigation** : onglets soulignés (style « UnderlineNav ») : texte `--hb-fg-muted`, onglet actif en `--hb-fg` 600 avec un soulignement de 2 px. Une icône facultative à gauche du libellé.
-- **En-tête de page** : titre de 20 px en 600 à gauche, actions à droite, séparateur bas facultatif.
+- **Barre de navigation** : verticale à gauche, 56 px, **sans fond ni bordure propres**. Bulles de 40 px (`.sidebar-bubble`) : rondes, cadre `--hb-border`, fond `--hb-bg`, icône `--hb-fg-muted` ; actif (`aria-current="page"`) en `--hb-accent` sur `--hb-accent-subtle`. De haut en bas : tableaux de bord (zone défilante), `+` neutre, espace, Réglages, `+` vert. Pas de bouton de thème (réglage dans Réglages).
+- **Bulle de texte** (`.sidebar-label`) : au survol et au focus clavier d'une bulle, le nom à côté, sur `--hb-bg-emphasis`, texte `--hb-fg-on-emphasis`, pilule, ombre de flottant.
+- **Ajout de widget** : `+` sur `--hb-success-emphasis` (`.sidebar-bubble-add`), puis V sur `--hb-accent-emphasis` (`.sidebar-bubble-done`). Seule action primaire de la vue tableau de bord.
+- **En-tête de page** : titre de 20 px en 600 à gauche, actions à droite, séparateur bas facultatif. Le tableau de bord n'en a pas : son titre est un `<h1 class="sr-only">`.
 - **Carte « Box »**, la brique de base, que l'hôte de widget utilise toujours :
   - cadre `--hb-border`, rayon 6 px, fond `--hb-bg` ;
   - en-tête : fond `--hb-bg-subtle`, bordure basse, padding 8 × 16 px, icône + titre de 14 px en 600 à gauche, actions discrètes (boutons « invisibles » icône seule, menu ⋯) à droite ;
@@ -70,9 +72,9 @@ Ce sont des variables CSS sémantiques, définies une seule fois dans `apps/web/
 ## 4. Tableau de bord et widgets
 - Fond de page `--hb-bg-subtle` en clair (les cartes blanches ressortent par leur bordure) et `--hb-bg` en sombre.
 - Gouttière de grille de 16 px, et 16 à 24 px de marge de page.
-- L'hôte de widget (`core/widgets/widget-host`) dessine **seul** le cadre Box et l'en-tête (icône, titre, menu ⋯ avec Configurer et Supprimer). Le composant du widget ne rend que le corps : un widget ne dessine ni son propre cadre ni sa propre ombre.
+- L'hôte de widget (`core/widgets/widget-host`) dessine **seul** le cadre Box et l'en-tête (icône ou poignée, titre, Supprimer). Le composant du widget ne rend que le corps : un widget ne dessine ni son propre cadre ni sa propre ombre.
 - Les placeholders (type inconnu, config invalide, version future, erreur de chargement) utilisent le même cadre, avec un état vide ou un bandeau d'erreur.
-- En mode édition de la grille (phase 1), les poignées et contours apparaissent en `--hb-accent`. Ils sont invisibles hors édition.
+- La grille compte 12 colonnes et 8 lignes dont la taille suit la fenêtre : un tableau de bord ne défile jamais, seul le contenu d'une carte peut défiler. Le déplacement est toujours actif : la poignée remplace l'icône au survol et au focus de l'en-tête ; le coin bas-droit de redimensionnement apparaît au survol de la carte. Déplacement en cours et aperçu de dépôt en `--hb-accent`.
 
 ## 5. Mise en œuvre technique
 - **Tokens** dans `core/theme/tokens.css`, importé par `styles.css`.
@@ -96,7 +98,7 @@ Tailwind : la palette brute est désactivée (`--color-*: initial`), seules ces 
 | `default` | `--hb-border` | `border-default` |
 | `muted` | `--hb-border-muted` | `border-muted`, `divide-muted` |
 | `fg`, `fg-muted`, `fg-on-emphasis` | `--hb-fg`, `--hb-fg-muted`, `--hb-fg-on-emphasis` | `text-fg`, `text-fg-muted` |
-| `accent`, `accent-subtle` | `--hb-accent`, `--hb-accent-subtle` | `text-accent`, `bg-accent-subtle` |
+| `accent`, `accent-subtle`, `accent-emphasis` | `--hb-accent`, `--hb-accent-subtle`, `--hb-accent-emphasis` | `text-accent`, `bg-accent-subtle`, `bg-accent-emphasis` |
 | `success`, `success-emphasis`, `success-subtle` | `--hb-success`, `--hb-success-emphasis`, teinte dérivée | `text-success` |
 | `danger`, `danger-subtle` | `--hb-danger`, teinte dérivée | `text-danger`, `border-danger` |
 | `attention`, `attention-subtle` | `--hb-attention`, teinte dérivée | `text-attention` |
@@ -106,7 +108,7 @@ Attention : `default` et `muted` sont les noms Tailwind des bordures ; `text-mut
 
 Autres tokens exposés : `font-sans` / `font-mono` ; tailles `text-xs` (12 px), `text-sm` (14 px, base), `text-base` (16 px, titre de carte), `text-lg` (20 px, titre de page), `text-xl` / `text-2xl` (24 / 32 px) ; poids `font-normal` (400) et `font-semibold` (600) uniquement ; rayons `rounded-box` (6 px), `rounded-dialog` (12 px), `rounded-pill` ; ombre `shadow-floating` (flottants uniquement) ; chiffres tabulaires `tabular-nums`. Les teintes `*-subtle`, `page` et `hover` sont dérivées dans `tokens.css` (`color-mix`) et ne figurent pas dans le tableau de §2.1.
 
-Classes de composants (`core/theme/components.css`, `@layer components`) : `btn` (+ `btn-primary`, `btn-danger`, `btn-invisible`, `btn-icon`, `btn-compact`), `field` / `field-error`, `switch`, `box` / `box-header` / `box-body` / `box-row`, `topbar`, `underline-nav` / `underline-nav-item` (+ `is-active`), `page-header` / `page-title`, `menu` / `menu-item`, `flash` (+ `flash-danger`, `flash-attention`), `empty-state`.
+Classes de composants (`core/theme/components.css`, `@layer components`) : `btn` (+ `btn-primary`, `btn-danger`, `btn-invisible`, `btn-icon`, `btn-compact`), `field` / `field-error`, `switch`, `box` / `box-header` / `box-body` / `box-row`, `sidebar`, `sidebar-group`, `sidebar-group-scroll`, `sidebar-spacer`, `sidebar-bubble` (+ `sidebar-bubble-add`, `sidebar-bubble-done`), `sidebar-label`, `icon-choice`, `page-header` / `page-title`, `menu` / `menu-item`, `flash` (+ `flash-danger`, `flash-attention`), `empty-state`.
 
 Contrôles automatiques : `apps/web/scripts/check-design-tokens.mjs` (dans `npm run lint`) refuse toute couleur brute (palette Tailwind, hexadécimal, `rgb()`/`oklch()`…) hors `tokens.css` et `homebase-preset.ts` ; `apps/web/scripts/check-contrast.mjs` (dans `npm run test`) vérifie le contraste AA des paires de §6.
 

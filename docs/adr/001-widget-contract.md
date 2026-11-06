@@ -88,7 +88,7 @@ Une définition par type de widget, déclarée dans `widgets/<type>/<type>.defin
 - `titleKey`, `descriptionKey` : clés Transloco (jamais de texte en dur).
 - `icon` : classe PrimeIcons, motif `^pi pi-[a-z0-9-]+$` (pas de SVG/HTML arbitraire : pas de vecteur d'injection).
 - `loadComponent` : `() => import('./x.component').then(m => m.XComponent)`.
-- `size` : `min`, `default`, `max` en unités de grille (`w` sur une grille de `GRID_COLUMNS = 12` colonnes, `h` ≤ `GRID_MAX_ROWS = 24`), entiers, `1 ≤ min ≤ default ≤ max` sur chaque axe.
+- `size` : `min`, `default`, `max` en unités de grille (`w` sur une grille de `GRID_COLUMNS = 12` colonnes, `h` ≤ `GRID_ROWS = 8`), entiers, `1 ≤ min ≤ default ≤ max` sur chaque axe. Un widget réel a `min.h ≥ 2`, sinon sa carte ne montre que l'en-tête. *Amendement (spec dashboards-sidebar).*
 - `config` : `version` (entier ≥ 1), `schema` (Standard Schema v1, synchrone), `defaults()` (fabrique, pas d'objet partagé), `migrations` (`migrations[n]` transforme une config de version `n` en version `n+1` ; clés exactement `1..version-1`).
 - `permissions` : sous-ensemble de `'network' | 'notifications' | 'launch-apps' | 'open-url'`, sans doublon.
 - `maxInstances?` : entier ≥ 1, **par dashboard** (ex. barre de recherche unique) ; absent = illimité.
@@ -127,19 +127,22 @@ Correspondance avec le contrat (explicite, faite par l'hôte) :
 
 À l'affichage, `grid` est **borné** aux contraintes courantes de la définition (`clampGrid`) sans réécriture en base ; la valeur bornée est enregistrée à la prochaine sauvegarde de layout (`updateLayout`, phase 1).
 
-Dashboard affiché en phase 0 : le **dashboard par défaut**, créé au premier lancement par `DashboardRepository.createIfNone({ name })` (nom traduit côté front, clé `dashboard.defaultName` ; une fois créé, c'est une donnée utilisateur renommable, plus une traduction), puis premier élément de `DashboardRepository.list()`.
+*Amendement (spec dashboards-sidebar)* : la grille compte 8 lignes dont la hauteur suit la fenêtre, comme les 12 colonnes. `core/dashboard/grid-layout.ts` (`fitLayout`) calcule le rectangle affiché à partir du stocké, de façon pure et déterministe, sans écriture à la lecture : ce qui tient reste en place, le reste prend la première place libre, à sa taille puis réduite jusqu'au minimum. Toute modification (déplacement, redimensionnement, ajout, suppression) écrit tous les widgets repositionnés, si bien qu'aucun ne bouge ensuite sans action. Un widget sans place est signalé par un bandeau, avec une action de déplacement vers un nouveau tableau.
+
+Dashboard affiché : celui de la route `/dashboards/:id`. La route `/` mène au dernier ouvert (réglage `dashboard.last`, ni exporté ni importé) ou au premier ; le dashboard par défaut est créé au premier lancement par `DashboardRepository.createIfNone({ name })` (nom traduit, clé `dashboard.defaultName` ; une fois créé, c'est une donnée utilisateur). *Amendement (spec dashboards-sidebar).*
 
 Format JSON d'export de la configuration (implémenté en phase 1, figé ici) :
 ```json
 {
   "format": "homebase/dashboard-config",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "2026-10-20T08:15:00.000Z",
   "dashboards": [
     {
       "id": "8a1d5f0e-2b7c-4d3e-9f10-6c2b4a8e7d01",
       "name": "Accueil",
       "sortOrder": 0,
+      "icon": "th-large",
       "widgets": [
         {
           "id": "3f0c2a5e-8f0b-4c55-9a43-0d2a1d6c9b11",
@@ -154,6 +157,8 @@ Format JSON d'export de la configuration (implémenté en phase 1, figé ici) :
 ```
 *Amendement phase 1 (spec backup-restore)* : `exportedAt`, `dashboards` et `"settings": { "<clé>": <JsonValue> }` (éventuellement vide) sont **obligatoires**. L'enveloppe est stricte. Les clés secrètes sont exclues à l'export et refusées à l'import. Import = **remplacement par identifiant** (décision de Marius) : lignes existantes mises à jour en place, y compris une instance qui change de dashboard ; `widgetType` différent → suppression puis recréation ; dashboards et widgets absents supprimés avec leurs données, après aperçu et sauvegarde `pre-import` ; `settings` fusionné ; au moins un dashboard. Le tout est appliqué atomiquement par `config_import_apply` (`BEGIN IMMEDIATE`). `future-version` et types inconnus sont conservés tels quels ; toute autre config invalide fait refuser le fichier. Les longueurs se comptent en points de code ; `trim` = `HB_TRIM`. U+0000 est refusé dans les noms et les types ; la profondeur JSON est limitée à 127.
 
+*Amendement (spec dashboards-sidebar)* : `formatVersion` passe à 2, lu avant la validation stricte de l'enveloppe (un format plus récent est refusé en `unsupported_version` même s'il ajoute des champs). `dashboards[].icon` y est obligatoire (forme `^[a-z][a-z0-9-]{0,31}$`, liste fermée côté front ; une valeur inconnue est conservée et s'affiche avec l'icône par défaut). Les fichiers en version 1 restent acceptés, sans `icon` : leurs tableaux prennent l'icône par défaut. Le réglage `dashboard.last` n'est ni exporté ni importé.
+
 Règles d'import (principes ; détail et implémentation : amendement ci-dessus et `docs/specs/backup-restore.md` §4.12) : le fichier est une **donnée non fiable** ; taille max 1 Mio ; `format` exact et `formatVersion` ≤ supportée sinon refus ; ids en double dans le fichier → refus ; chaque config passe par `resolveConfig` ; type inconnu → instance conservée telle quelle (placeholder) ; import = **remplacement par identifiant** (voir l'amendement), appliqué atomiquement par la commande Rust `config_import_apply` (transaction sqlx `BEGIN IMMEDIATE`), le front n'ayant pas de transaction (ADR-002 §2.3).
 
 ### 3.6 Communication widget ↔ core
@@ -161,13 +166,14 @@ Règles d'import (principes ; détail et implémentation : amendement ci-dessus 
 - `updateConfig` : valide (rejet sans effet si invalide) → met à jour le signal tout de suite (optimiste) → persiste via `WidgetInstanceRepository.updateConfig(id, config, configVersion)`. **Au plus une écriture en cours par instance + une en attente** (la plus récente remplace la précédente : coalescence, dernier gagnant, cohérent avec ADR-002 §3.5). En cas d'échec, le signal revient à la dernière valeur persistée et la promesse est rejetée (`DataError('not_found')` traduit en `WidgetInstanceNotFoundError`). Debounce de saisie : à la charge du widget.
 - Les autres besoins passent par des **services typés de `core/`** (thème, i18n, puis notifications, ouverture d'URL, lancement d'apps, HTTP sortant via Rust) et par les **interfaces de `data/`** (via `data/index.ts`). Pas de bus d'événements générique à sujets libres. Si deux widgets doivent partager quelque chose, c'est soit une donnée (repository), soit un service `core/` typé ajouté par un ADR.
 - Les services sensibles prennent le `WidgetContext` appelant en premier paramètre et appellent `assertWidgetPermission(ctx, kind)` (ex. `notifications.notify(ctx, …)`).
+- *Amendement (spec dashboards-sidebar)* : `core/search` connaît le type `search` par la constante `SEARCH_WIDGET_TYPE` (raccourci `Ctrl+K`, qui ouvre le tableau contenant une barre de recherche). C'est un couplage par chaîne, assumé : `core/search` est le service propre à ce widget et n'importe rien de `widgets/`. Renommer le type `search` imposerait de changer cette constante.
 
 ### 3.7 Interface côté données : référence à l'ADR-002
 Cet ADR **ne définit aucun type de `data/`**. `core/` et `widgets/` utilisent, via `data/index.ts`, les éléments de l'ADR-002 §6.6 :
 - `JsonObject`, `JsonValue`, `parseJsonObject` (`data/json.ts`) ;
 - `DataError` / `DataErrorKind` (`data/data-error.ts`) ;
 - `GridRect { x, y, w, h }`, `WidgetInstanceRecord { id, dashboardId, widgetType, grid, config, configVersion, createdAt, updatedAt }`, `NewWidgetInstance`, `LayoutItem`, `Dashboard`, `NewDashboard` (`data/models.ts`) ;
-- `WidgetInstanceRepository { listByDashboard, get, create, updateConfig (lève DataError('not_found')), updateLayout(dashboardId, items) → number, remove }` et `DashboardRepository { list, get, create, createIfNone, rename, remove }` (`data/repositories.ts`) ;
+- `WidgetInstanceRepository { listByDashboard, get, create, updateConfig (lève DataError('not_found')), updateLayout(dashboardId, items) → number, moveToDashboard(targetDashboardId, items) → number, findFirstOfType(widgetType), remove }` et `DashboardRepository { list, get, create, createIfNone, update, remove }` (`data/repositories.ts`). La suppression d'un dashboard par l'utilisateur passe par la commande Rust `dashboard_delete`, qui prend d'abord une sauvegarde `pre-delete` (spec dashboards-sidebar) ;
 - tokens `WIDGET_INSTANCE_REPOSITORY`, `DASHBOARD_REPOSITORY` et `provideDataLayer()` (`data/data.providers.ts`).
 
 Usage par le contrat :
@@ -193,9 +199,10 @@ Règle complémentaire : restreindre les commandes Rust de l'app via `AppManifes
 - `WidgetHostComponent` (`core/`, sélecteur `app-widget-host`) : résout la définition, charge le composant, résout la config, crée un injector enfant fournissant `WIDGET_CONTEXT`, rend via `NgComponentOutlet`. États : `loading | ready | unknown-type | invalid-config | load-error`.
 - Phase 0 : grille **CSS Grid** simple (12 colonnes, `grid-column: x+1 / span w`, `grid-row: y+1 / span h`, hauteur de ligne fixe), sans drag & drop.
 - Phase 1 : **angular-gridster2 21.x** (repli : gridstack) derrière un adaptateur dans `core/dashboard/` qui consomme `GridRect` et `WidgetSizeConstraints` (gridster : `x`, `y`, `cols`, `rows`, `minItemCols`, `maxItemCols`, `minItemRows`, `maxItemRows` par item ; gridstack : `x`, `y`, `w`, `h`, `minW`, `maxW`, `minH`, `maxH`) et persiste via `updateLayout(dashboardId, items)`.
+- *Amendement (spec dashboards-sidebar)* : `gridType: 'fit'`, 12 × 8 fixes, sans `setGridSize`, `outerMargin*` à 0 pour `enableBoundaryControl`. Déplacement et redimensionnement toujours actifs, depuis la poignée de l'en-tête et le coin bas-droit seulement ; plus de mode édition.
 
 ### 3.10 Widget factice `hello`
-Config v1 `{ name: string }` (1 à 40 caractères après `trim`, défaut `"monde"`), affiche « Bonjour, {{ name }} ! » et un champ pour modifier le nom (enregistré via `updateConfig`). Tailles min 2×1, défaut 3×2, max 6×4 (`w`×`h`). Aucune permission. Il valide de bout en bout : registre, chargement lazy, contexte, écriture/lecture en base.
+Config v1 `{ name: string }` (1 à 40 caractères après `trim`, défaut `"monde"`), affiche « Bonjour, {{ name }} ! » et un champ pour modifier le nom (enregistré via `updateConfig`). Tailles min 2×2, défaut 3×2, max 6×4 (`w`×`h`). Aucune permission. Il valide de bout en bout : registre, chargement lazy, contexte, écriture/lecture en base.
 
 ## 4. Conséquences
 - Ajouter un widget = créer `widgets/<type>/` (définition, config, composant, tests) + une ligne dans `widgets.providers.ts`. Rien d'autre à toucher.
@@ -223,7 +230,8 @@ Config v1 `{ name: string }` (1 à 40 caractères après `trim`, défaut `"monde
 | `updateConfig` sur une instance supprimée entre-temps | `DataError('not_found')` → rejet `WidgetInstanceNotFoundError`, signal remis à la dernière valeur persistée |
 | Écriture layout et config concurrentes | Colonnes distinctes, aucune perte (§3.7) |
 | Grid hors contraintes (définition modifiée, colonnes dépassées) | Borné à l'affichage (`clampGrid`), pas de réécriture immédiate |
-| `maxInstances` atteint sur le dashboard | `add` rejeté (`WidgetLimitError`), entrée de menu désactivée |
+| `maxInstances` atteint sur le dashboard | `add` rejeté (`WidgetLimitError`), entrée de la pop-up désactivée |
+| Plus de place sur la grille | `add` rejeté (`GridFullError`), entrée de la pop-up désactivée, message |
 | Double clic sur « Ajouter » | Entrée désactivée pendant l'ajout (sinon deux instances, ADR-002 « Doublons ») |
 | Échec du chargement lazy du composant | État `load-error` + bouton Réessayer |
 | Premier lancement (aucun dashboard) | `createIfNone` crée le dashboard par défaut (idempotent, atomique) |
@@ -244,7 +252,7 @@ Config v1 `{ name: string }` (1 à 40 caractères après `trim`, défaut `"monde
 
 ## 7. Points ouverts
 1. Forme définitive de `CalendarSource` / `CalendarEvent` : ADR-003/004.
-2. Plusieurs dashboards affichés (navigation entre dashboards) : le modèle de données les supporte (ADR-002), l'interface reste mono-dashboard en phases 0 et 1.
+2. Plusieurs dashboards affichés (navigation entre dashboards) : le modèle de données les supporte (ADR-002). **Clos (spec dashboards-sidebar).**
 3. Permission `secrets` (GitHub, phase 6) : à ajouter par amendement quand le besoin arrive.
 4. Import/remplacement atomique (phase 1) : commande Rust ou instruction unique (§3.5). **Clos (spec backup-restore).**
 

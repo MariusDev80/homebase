@@ -23,11 +23,27 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 - [x] (S) ADR-003 lot A : fondations temps (`data/time-formats.ts`, `core/time`, fuseau utilisateur, affichage, règle ESLint, vecteurs sans récurrence). **Avant le widget TODO** (revu ; vérification manuelle CA-A8 dans Réglages à faire par Marius)
 - [x] (S) Widgets : TODO, notes, raccourcis (liens), recherche (`UrlOpener` + opener restreint ; recherche insensible à la casse ASCII seulement, pas aux accents)
 - [x] (S) Widget météo Open-Meteo (+ géocodage) (`docs/specs/weather-widget.md` ; commandes Rust `weather_*` sur le module `net` ; vérifications manuelles CA-W1-M et CA-M* à faire par Marius)
-- [x] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration (spec `docs/specs/backup-restore.md`, lots B1a à B6, chaque lot revu ; vérifications manuelles M1 à M9 et M11 à faire par Marius ; M10 (sauvegarde avant migration) à vérifier à la première migration V4, en phase 2)
+- [x] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration (spec `docs/specs/backup-restore.md`, lots B1a à B6, chaque lot revu ; vérifications manuelles M1 à M9 et M11 à faire par Marius ; M10 (sauvegarde avant migration) à vérifier à la première migration V4 (spec dashboards-sidebar, M10))
 - [x] (O) ADR-003 : modèle de temps (UTC + IANA + RRULE) (`docs/adr/003-time-model.md`, accepté ; décisions D1 à D3 validées par Marius)
 - [x] (S) Instance unique : `tauri-plugin-single-instance` 2.5.4 enregistré en premier, avant le plugin de sauvegarde ; relancer Homebase remet au premier plan la fenêtre existante (revue de fin de phase 1, I2 ; vérification manuelle à faire par Marius)
 - [x] (O) Revue de fin de phase 1 (jalon atteint sous réserve des vérifications manuelles de Marius ; ADR-001 à 003 acceptés)
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
+
+## Phase 1 bis : navigation et grille
+Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 à faire par Marius (sur l'exe release, juste avant la fusion).
+- [x] (S) Lot 0 : base et démarrage automatique de développement séparés (`tauri.dev.conf.json`, « Homebase Dev »)
+- [x] (S) Lot A : grille de 12 × 8 qui s'adapte à la fenêtre, repositionnement à l'affichage
+- [x] (S) Lot B : barre verticale à bulles, retrait du H1, du nom de l'app et du bouton de thème
+- [x] (S) Lot C1 : migration V4 `dashboards.icon`, couche de données
+- [x] (S) Lot C2a : plusieurs tableaux de bord (stores, garde, routes `/dashboards/:id`, page)
+- [x] (S) Lot C2b : recherche inter-tableaux, `Ctrl+K`, exclusion de `dashboard.last`
+- [x] (S) Lot C3a : bulles de tableaux, création, modification
+- [x] (S) Lot C3b : suppression d'un tableau (sauvegarde `pre-delete`, verrou)
+- [x] (S) Lot D : `+` vert et V bleu d'ajout de widget
+- [x] (S) Lot E : déplacement toujours actif depuis la poignée de l'en-tête
+- [x] (S) Lot F : export et import (`formatVersion` 2)
+- [ ] (O) Revue de fin de phase ; vérifications manuelles M1 à M17 à faire par Marius, juste avant la fusion
+- [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius)
 
 ## Phase 2 : Temps
 - [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource`

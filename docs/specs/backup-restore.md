@@ -135,15 +135,15 @@ Ce contrôle est fait à la création (fichier ignoré et journalisé) **et** à
 ### D3. Emplacement, nom, rétention, atomicité
 
 - **Emplacement** : `<racine>\backups\`, avec `<racine>` = `app_config_dir()`. L'export vers un dossier choisi par l'utilisateur couvre les autres emplacements (D5).
-- **Nom** : `homebase-<stamp>-<kind>.zip`. `<stamp>` est l'instant UTC sans `-` ni `:`, en largeur fixe (`20261021T081500.123Z`) ; `<kind>` ∈ `manual`, `daily`, `pre-migration`, `pre-restore`, `pre-import`. Côté front, l'**identifiant** d'une sauvegarde est ce nom, jamais un chemin.
-- **Contenu par type** : `manual`, `daily` et `pre-restore` sont complètes. `pre-migration` et `pre-import` contiennent la base seule (`includesImages: false`).
+- **Nom** : `homebase-<stamp>-<kind>.zip`. `<stamp>` est l'instant UTC sans `-` ni `:`, en largeur fixe (`20261021T081500.123Z`) ; `<kind>` ∈ `manual`, `daily`, `pre-migration`, `pre-restore`, `pre-import`, `pre-delete`. Côté front, l'**identifiant** d'une sauvegarde est ce nom, jamais un chemin.
+- **Contenu par type** : `manual`, `daily` et `pre-restore` sont complètes. `pre-migration`, `pre-import` et `pre-delete` contiennent la base seule (`includesImages: false`).
 - **Rétention par réserve** :
 
   | Réserve | Types | Conservées |
   |---|---|---|
   | manuelle | `manual` | 10 |
   | quotidienne | `daily` | 7 |
-  | sécurité | `pre-restore`, `pre-import` | 5 |
+  | sécurité | `pre-restore`, `pre-import`, `pre-delete` | 5 |
   | migration | `pre-migration` | 3 |
 
   Ne sont jamais supprimés : le fichier qui vient d'être créé, et les noms passés dans `protect` (par exemple l'archive source d'une restauration). La rétention est suspendue tant que l'alerte R6 est active.
@@ -183,6 +183,7 @@ On reprend exactement les formes de l'ADR-003 §8.9 : `src/time/{clock,formats,e
 |---|---|
 | `pre-migration` (base seule) | Base présente, avec une version ≥ 1 et inférieure à celle du binaire. **Base absente : rien, pas de marqueur.** En cas d'échec, le démarrage continue et le marqueur `pre-migration-failed` est posé |
 | `pre-restore` (complète), `pre-import` (base seule) | Avant les deux opérations destructrices |
+| `pre-delete` (base seule) | Juste avant la suppression d'un tableau de bord (commande `dashboard_delete`), après contrôle que le tableau existe et n'est pas le dernier ; son échec annule la suppression |
 | `daily` (complète, décision de Marius) | Fil Rust : 2 min après le démarrage, puis toutes les heures. Une sauvegarde est faite si aucune archive complète **non endommagée** n'a moins de 24 h. Un échec est enregistré dans `lastAutoError` |
 
 ### D8. R6 : base absente alors que des sauvegardes existent
@@ -192,7 +193,7 @@ Détecté avant le plugin SQL : marqueur `db-missing.json`, bandeau d'alerte et 
 ### D9. Export et import JSON de la configuration (décisions de Marius)
 
 - **Périmètre** : dashboards, widgets (format de l'ADR-001 §3.5) et `settings`. Les notes, tâches et raccourcis sont exclus.
-- **Champs obligatoires** : `format`, `formatVersion` (1), `exportedAt`, `dashboards` et `settings` (objet, éventuellement vide). L'enveloppe est stricte.
+- **Champs obligatoires** : `format`, `formatVersion` (2 ; 1 accepté en lecture), `exportedAt`, `dashboards` et `settings` (objet, éventuellement vide). L'enveloppe est stricte.
 - **Import par remplacement par identifiant** :
   - les lignes existantes sont mises à jour en place, y compris une instance qui change de dashboard ;
   - un `widgetType` différent entraîne la suppression puis la recréation de l'instance ;
@@ -327,7 +328,7 @@ Le verrou est pris par l'**appelant** via `BackupState::try_acquire()`, qui renv
 
 Entrées directes de `backups\` avec un nom valide, triées par `stamp` décroissant. Pour chacune : `sizeBytes`, puis `read_manifest`, qui applique les **contrôles 1 à 7 du §4.7**, sans extraction. Si `read_manifest` échoue : `damaged: true`. `createdAt` vient du nom.
 
-`newest_full_backup` ignore les archives endommagées, `pre-migration`, `pre-import`, et celles datées de plus d'une heure dans le futur.
+`newest_full_backup` ignore les archives endommagées, `pre-migration`, `pre-import`, `pre-delete`, et celles datées de plus d'une heure dans le futur.
 
 ### 4.7 Validation et extraction (`extract_validated(archive, dest) -> Manifest`)
 
@@ -505,7 +506,7 @@ DTO (`#[serde(rename_all = "camelCase")]`, sauf mention contraire) :
 ```rust
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum BackupKind { Manual, Daily, PreMigration, PreRestore, PreImport }
+pub enum BackupKind { Manual, Daily, PreMigration, PreRestore, PreImport, PreDelete }
 pub struct BackupInfo {
     pub id: String, pub kind: BackupKind, pub created_at: String, pub size_bytes: u64,
     pub includes_images: Option<bool>, pub schema_version: Option<i64>, pub app_version: Option<String>,
@@ -546,7 +547,7 @@ Les nombres de suppressions viennent de l'aperçu côté front (§4.12), pas de 
 
 **Analyse** (`parseConfigImport(text, lookup)`, front) :
 - `JSON.parse`, sinon `invalid_json`.
-- Enveloppe en `v.strictObject` : `format` (littéral) ; `formatVersion` (supérieur à 1 → `unsupported_version`, autre valeur non valide → `invalid_value`) ; `exportedAt` obligatoire, au format `InstantIso` ; `dashboards` et `settings` obligatoires. Champ manquant → `missing_field` ; champ inconnu → `unknown_field`. Les dashboards et les widgets sont eux aussi validés en `v.strictObject`.
+- Enveloppe en `v.strictObject` : `format` (littéral) ; `formatVersion`, lu avant la validation stricte (supérieur à 2 → `unsupported_version` ; autre valeur que 1 ou 2 → `invalid_value`) ; `exportedAt` obligatoire, au format `InstantIso` ; `dashboards` et `settings` obligatoires. Champ manquant → `missing_field` ; champ inconnu → `unknown_field`. Les dashboards et les widgets sont eux aussi validés en `v.strictObject`.
 - Contrôles du §4.3 ; UUID en minuscules, uniques ; `name` passé par `hbTrim` avant le contrôle de longueur.
 - Type de widget connu, selon le résultat de `resolveConfig` :
   - `ok` → `serializeConfig` ;
@@ -612,13 +613,15 @@ interface ConfigImportPlan {
 - **Transaction.** Après un commit réussi, une erreur de fermeture de la connexion est journalisée et l'import renvoie quand même `Ok` (sinon le front n'appellerait pas `reload` alors que la configuration est remplacée). Délai d'attente d'un autre écrivain : 5 s ; un `busy` SQLite arrive en `database { code: "5" }` (à traduire en B5).
 - **Contrat IPC.** Si le plan ne se désérialise pas, Tauri rejette avec une **chaîne** et non un `BackupError` : le front la traite comme une erreur inconnue et ne l'affiche jamais brute. Avant `config_import_apply`, B5 vide ou suspend les écritures différées du front (notes, layout) pour qu'aucune écriture tardive ne touche une instance supprimée avant le `reload`.
 
+**Amendement (spec dashboards-sidebar, 2026-11-06)** : `formatVersion` passe à 2 et se lit avant la validation stricte. `dashboards[].icon` y est obligatoire ; absent en version 1, où le plan reçoit l'icône par défaut. `ConfigImportPlan.dashboards[].icon` est toujours présent ; `validate_plan` contrôle sa forme (`invalid_icon`) ; `UPSERT_DASHBOARD` écrit `icon`. Le réglage `dashboard.last` est exclu de l'export, ignoré à l'analyse et jamais écrit par `config_import_apply`.
+
 ### 4.13 Erreurs
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BackupError {
-    Busy, RestartPending, NotFound, InvalidId, NoDatabase, TooLarge, DiskFull,
+    Busy, RestartPending, NotFound, LastDashboard, InvalidId, NoDatabase, TooLarge, DiskFull,
     InvalidArchive { problem: ArchiveProblem },
     SchemaTooNew { archive: i64, supported: i64 },
     InvalidImport { problem: ImportProblem },
@@ -634,9 +637,10 @@ pub enum ArchiveProblem { NotZip, Zip64, TooManyEntries, OverlappingEntries, Une
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)] #[serde(rename_all = "snake_case")]
 pub enum ImportProblem { NotConfig, NotUtf8, NoDashboard, TooManyDashboards, TooManyWidgets, TooManySettings,
     InvalidId, DuplicateId, InvalidName, InvalidWidgetType, InvalidGrid, InvalidSortOrder, InvalidConfig,
-    InvalidConfigVersion, InvalidSettingKey, SecretSetting, InvalidSettingValue, Constraint }
+    InvalidConfigVersion, InvalidIcon, InvalidSettingKey, SecretSetting, InvalidSettingValue, Constraint }
 ```
 
+- `BackupError::LastDashboard` (`last_dashboard`), renvoyé par `dashboard_delete`.
 - `StorageFull` → `DiskFull` (S6) ; `sqlx::Error` → `Database`.
 - Messages bruts : seulement dans `eprintln!`.
 - TS : `BackupErrorDto` reprend ces variantes, plus `{ kind: 'unavailable' }`.
@@ -689,7 +693,7 @@ Seuls les tokens et classes de `docs/DESIGN.md` sont autorisés ; aucun texte en
 ```
 time.justNow                    à l'instant
 backup.title                    Sauvegardes
-backup.intro                    Une sauvegarde contient la base et les images. Homebase garde les 10 dernières sauvegardes manuelles, les 7 quotidiennes, les 5 de sécurité et les 3 d'avant mise à jour.
+backup.intro                    Une sauvegarde contient la base et les images. Homebase garde les 10 dernières sauvegardes manuelles, les 7 quotidiennes, les 5 de sécurité (avant restauration, import ou suppression d'un tableau) et les 3 d'avant mise à jour.
 backup.create                   Créer une sauvegarde
 backup.creating                 Sauvegarde en cours…
 backup.created                  Sauvegarde créée.
@@ -717,6 +721,7 @@ backup.kind.daily               Quotidienne
 backup.kind.pre-migration       Avant mise à jour
 backup.kind.pre-restore         Avant restauration
 backup.kind.pre-import          Avant import
+backup.kind.pre-delete          Avant suppression d'un tableau
 backup.label.dbOnly             Base seulement
 backup.label.damaged            Endommagée
 backup.label.tooNew             Version plus récente
@@ -862,8 +867,8 @@ configTransfer.issues.<chaque code d'issue>      message court
 - **M6** « Restaurer depuis un fichier… » avec ce fichier : le résumé s'affiche, puis la restauration fonctionne. Avec un `.zip` quelconque : message d'archive invalide.
 - **M7** Après M3, un seul processus Homebase (Gestionnaire des tâches) et une seule icône dans la zone de notification. Refaire M3 après avoir masqué la fenêtre dans la zone de notification puis l'avoir rouverte : le comportement est identique.
 - **M8** Quitter, renommer `homebase.db` en `homebase.db.bak`, relancer : le bandeau « Aucune base… » s'affiche, et le lien mène à la carte. Restaurer la dernière sauvegarde.
-- **M9** Exporter la configuration (le JSON ne contient aucune clé de jeton), déplacer un widget, puis importer : la position d'origine revient et les tâches sont conservées. `"formatVersion": 2` est refusé. Un `.json` quelconque est refusé (`not_config`) et son contenu n'est pas affiché.
-- **M10** À la migration V4 : une sauvegarde « Avant mise à jour » (base seule) est créée au premier lancement.
+- **M9** Exporter la configuration (le JSON ne contient aucune clé de jeton), déplacer un widget, puis importer : la position d'origine revient et les tâches sont conservées. `"formatVersion": 3` est refusé. Un `.json` quelconque est refusé (`not_config`) et son contenu n'est pas affiché.
+- **M10** À la migration V4 : une sauvegarde « Avant mise à jour » (base seule) est créée au premier lancement. Exécutée avec la spec dashboards-sidebar (M10 de cette spec).
 - **M11** Application quittée : créer `<racine>\restore-rollback\` contenant un fichier `x.txt` (sans `restore-info.json`), puis lancer. Un message natif s'affiche, l'application ne démarre pas, et aucune base n'est créée ni modifiée. Supprimer le dossier et relancer : l'application démarre normalement, et `startup-blocked.json` a disparu (S14).
 
 ---
@@ -954,7 +959,7 @@ Signatures :
 ```rust
 pub fn format_instant(t: jiff::Timestamp) -> String;                  // "%Y-%m-%dT%H:%M:%S%.3fZ"
 pub fn parse_instant(s: &str) -> Result<jiff::Timestamp, TimeError>; // 24 car. stricts, parse, aller-retour exact, 1900..=2199
-impl BackupKind { pub fn as_str(self) -> &'static str; pub fn pool(self) -> Pool; pub fn includes_images(self) -> bool; } // false : PreMigration, PreImport
+impl BackupKind { pub fn as_str(self) -> &'static str; pub fn pool(self) -> Pool; pub fn includes_images(self) -> bool; } // false : PreMigration, PreImport, PreDelete
 pub enum Pool { Manual, Daily, Safety, Migration }
 pub struct BackupName { pub created_at: jiff::Timestamp, pub kind: BackupKind }
 impl BackupName { pub fn new(..) -> Self; pub fn stamp(&self) -> String; pub fn file_name(&self) -> String; pub fn parse(file_name: &str) -> Option<Self>; }
@@ -1184,7 +1189,7 @@ core/backup/index.ts
 **Tests** :
 - Export : ordre, forme, clé secrète écartée.
 - Aller-retour avec les fixtures du registre.
-- Refus : `formatVersion: 2` ; champ inconnu ; `settings` ou `exportedAt` absent (`missing_field`) ; `exportedAt` mal formé ; id en majuscules ; doublon ; 0 ou 101 dashboards ; `w = 0` ; `x = 1.5` ; config invalide (chemin `dashboards[0].widgets[1].config`) ; `maxInstances` dépassé ; clé secrète ; `Bad Key`.
+- Refus : `formatVersion: 3` ; champ inconnu ; `settings` ou `exportedAt` absent (`missing_field`) ; `exportedAt` mal formé ; id en majuscules ; doublon ; 0 ou 101 dashboards ; `w = 0` ; `x = 1.5` ; config invalide (chemin `dashboards[0].widgets[1].config`) ; `maxInstances` dépassé ; clé secrète ; `Bad Key`.
 - Cas acceptés : type inconnu ; `future-version` ; migration v1 → v3.
 - `hbTrim` (U+00A0, U+FEFF, U+0085), y compris la normalisation unique d'un nom stocké avec des espaces de bord.
 - `__proto__` à la racine, dans `data` (type connu et type inconnu) et dans `settings` : `({} as Record<string, unknown>)['polluted'] === undefined`.

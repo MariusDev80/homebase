@@ -24,7 +24,7 @@ Ce que Tauri complique :
 | Shell desktop | Tauri 2 (Rust) | Léger, notifications natives, tray, autostart, lancement d'apps |
 | Front | Angular 21 (zoneless, signals, Vitest) | Stack déjà maîtrisée |
 | UI | Tailwind 4 + PrimeNG, direction visuelle inspirée de GitHub (Primer) | Composants prêts, thèmes clair/sombre ; tokens `--hb-*`, preset PrimeNG maison, patterns : voir `docs/DESIGN.md` (décidé le 20/10/2026) |
-| Grille | angular-gridster2 **21.0.1 épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Intégré en phase 1 derrière `core/dashboard/grid-adapter.ts`, tests verts en zoneless ; comportement réel à confirmer à la main (issue #916) |
+| Grille | angular-gridster2 **21.0.1 épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Intégré en phase 1 derrière `core/dashboard/grid-adapter.ts`, tests verts en zoneless ; comportement réel à confirmer à la main (issue #916). Mode `fit` : 12 × 8 fixes (spec dashboards-sidebar). |
 | Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR) |
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
@@ -58,6 +58,8 @@ repo/
   .claude/             agents, settings
 ```
 Front : `core/` (thème, grille, notifications), `data/` (repositories), `widgets/<nom>/` (un dossier par widget).
+
+Navigation : barre verticale à gauche, plusieurs tableaux de bord (`/dashboards/:id`) d'une grille de 12 × 8 cellules qui ne défile jamais (`docs/specs/dashboards-sidebar.md`). `npm run dev` utilise l'identifiant `fr.mariusdev.homebase.dev` et le nom « Homebase Dev » (base, sauvegardes et démarrage automatique séparés) ; `npm run tauri dev` et `cargo tauri dev` sont proscrits.
 
 ### Contrat Widget
 Chaque widget déclare : `id`, `title`, `icon`, composant principal, tailles min/défaut, schéma de configuration (typé), éventuelle entrée calendrier (`CalendarSource`), ses permissions (réseau, notifications, lancement d'apps). Chargement en lazy-loading. Aucun widget n'en importe un autre ; ils communiquent via des services du `core/`.
