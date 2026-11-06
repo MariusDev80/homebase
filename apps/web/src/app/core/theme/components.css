@@ -9,8 +9,7 @@
   outline-offset: 2px;
 }
 .box :where(:focus-visible),
-.menu :where(:focus-visible),
-.underline-nav-item:focus-visible {
+.menu :where(:focus-visible) {
   outline-offset: -2px;
 }
 
@@ -210,39 +209,101 @@
   border-bottom: 0;
 }
 
-/* Top bar and underline navigation (3). */
-.topbar {
+/* Vertical bar (3, 4.5 of the dashboards spec). No background nor border of its own: the bar is
+   part of the page. The text bubble is a single fixed element placed by the component. */
+.sidebar {
+  position: relative;
+  z-index: 10;
   display: flex;
-  height: var(--hb-topbar-height);
+  width: 56px;
   flex: none;
-  align-items: center;
-  gap: var(--hb-space-6);
-  padding: 0 var(--hb-space-4);
-  border-bottom: 1px solid var(--hb-border);
-  background: var(--hb-bg-subtle);
+  flex-direction: column;
+  min-height: 0;
+  padding-block: var(--hb-space-4);
 }
-.underline-nav {
+.sidebar-group {
   display: flex;
-  height: 100%;
-  flex: 1;
-  align-items: stretch;
+  flex-direction: column;
+  align-items: center;
   gap: var(--hb-space-2);
+  padding-inline: var(--hb-space-2);
 }
-.underline-nav-item {
+.sidebar-group-scroll {
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-block: var(--hb-space-1);
+}
+.sidebar-spacer {
+  flex: 1 1 auto;
+  min-height: var(--hb-space-2);
+}
+.sidebar-bubble {
   display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius-full);
+  background: var(--hb-bg);
+  color: var(--hb-fg-muted);
+  transition:
+    background-color var(--hb-transition),
+    border-color var(--hb-transition),
+    color var(--hb-transition);
+}
+.sidebar-bubble:hover {
+  background: color-mix(in srgb, var(--hb-fg) 8%, var(--hb-bg));
+  color: var(--hb-fg);
+}
+.sidebar-bubble[aria-current='page'] {
+  border-color: var(--hb-accent);
+  background: var(--hb-accent-subtle);
+  color: var(--hb-accent);
+}
+.sidebar-bubble[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.sidebar-bubble-add {
+  border-color: transparent;
+  background: var(--hb-success-emphasis);
+  color: var(--hb-fg-on-emphasis);
+}
+.sidebar-bubble-add:hover {
+  background: color-mix(in srgb, black 12%, var(--hb-success-emphasis));
+  color: var(--hb-fg-on-emphasis);
+}
+.sidebar-bubble-done,
+.sidebar-bubble-done:hover {
+  border-color: transparent;
+  background: var(--hb-accent-emphasis);
+  color: var(--hb-fg-on-emphasis);
+}
+.sidebar-label {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  max-width: 20rem;
+  height: 32px;
   align-items: center;
   padding: 0 var(--hb-space-3);
-  border-bottom: 2px solid transparent;
-  color: var(--hb-fg-muted);
-  transition: color var(--hb-transition);
-}
-.underline-nav-item:hover {
-  color: var(--hb-fg);
-}
-.underline-nav-item.is-active {
-  border-bottom-color: var(--hb-accent);
-  color: var(--hb-fg);
+  border-radius: var(--hb-radius-full);
+  background: var(--hb-bg-emphasis);
+  box-shadow: var(--hb-shadow-floating);
+  color: var(--hb-fg-on-emphasis);
   font-weight: var(--hb-weight-semibold);
+  pointer-events: none;
+}
+.sidebar-label > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Page header (3). */

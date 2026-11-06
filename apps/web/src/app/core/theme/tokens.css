@@ -15,6 +15,7 @@
   --hb-fg-on-emphasis: #ffffff;
   --hb-accent: #0969da;
   --hb-accent-subtle: #ddf4ff;
+  --hb-accent-emphasis: #0969da;
   --hb-success: #1a7f37;
   --hb-success-emphasis: #1f883d;
   --hb-danger: #d1242f;
@@ -48,6 +49,7 @@
   --hb-fg-on-emphasis: #ffffff;
   --hb-accent: #4493f8;
   --hb-accent-subtle: #388bfd1a;
+  --hb-accent-emphasis: #1f6feb;
   --hb-success: #3fb950;
   --hb-success-emphasis: #238636;
   --hb-danger: #f85149;
@@ -90,6 +92,5 @@
   /* Control heights (3) and transitions (2.3) */
   --hb-control-height: 32px;
   --hb-control-height-compact: 28px;
-  --hb-topbar-height: 48px;
   --hb-transition: 100ms ease;
 }

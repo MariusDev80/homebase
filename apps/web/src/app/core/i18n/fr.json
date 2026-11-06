@@ -7,14 +7,13 @@
     "settings": { "title": "Réglages" }
   },
   "layout": {
-    "mainNav": "Navigation principale"
+    "mainNav": "Navigation principale",
+    "dashboardsNav": "Tableaux de bord"
   },
   "nav": {
-    "dashboard": "Tableau de bord",
     "settings": "Réglages"
   },
   "theme": {
-    "toggle": "Thème : {{ mode }}. Cliquer pour changer.",
     "mode": {
       "system": "Système",
       "light": "Clair",

@@ -7,7 +7,7 @@ import { SETTINGS_REPOSITORY } from '../../data';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideAppI18n } from '../i18n';
-import { ThemeService } from '../theme';
+
 import { LayoutComponent } from './layout.component';
 
 describe('LayoutComponent', () => {
@@ -25,18 +25,18 @@ describe('LayoutComponent', () => {
   });
 
   it.each(['restore', 'import'] as const)(
-    'freezes the header and the page and shows the status overlay during a %s',
+    'freezes the sidebar and the page and shows the status overlay during a %s',
     async (kind) => {
       const el = await render();
       const lock = TestBed.inject(AppLock);
       const region = el.querySelector('[data-testid="app-lock-status"]');
       expect(region?.getAttribute('role')).toBe('status');
       expect(el.querySelector('[data-testid="app-lock-overlay"]')).toBeNull();
-      expect(el.querySelector('header')?.hasAttribute('inert')).toBe(false);
+      expect(el.querySelector('app-sidebar')?.hasAttribute('inert')).toBe(false);
 
       lock.lock(kind);
       TestBed.tick();
-      expect(el.querySelector('header')?.hasAttribute('inert')).toBe(true);
+      expect(el.querySelector('app-sidebar')?.hasAttribute('inert')).toBe(true);
       expect(el.querySelector('main')?.hasAttribute('inert')).toBe(true);
       // Same live region node, outside the inert area, filled afterwards.
       expect(el.querySelector('[data-testid="app-lock-status"]')).toBe(region);
@@ -48,6 +48,7 @@ describe('LayoutComponent', () => {
       lock.unlock();
       TestBed.tick();
       expect(el.querySelector('main')?.hasAttribute('inert')).toBe(false);
+      expect(el.querySelector('app-sidebar')?.hasAttribute('inert')).toBe(false);
       expect(el.querySelector('[data-testid="app-lock-overlay"]')).toBeNull();
     },
   );
@@ -75,30 +76,18 @@ describe('LayoutComponent', () => {
     });
   });
 
-  it('renders landmarks and translated navigation links', async () => {
+  it('renders a sidebar and a main landmark, with no header, app name or theme button', async () => {
     const el = await render();
-    expect(el.querySelector('header')).not.toBeNull();
+    expect(el.querySelector('header')).toBeNull();
+    expect(el.querySelector('app-sidebar')).not.toBeNull();
     expect(el.querySelector('main')).not.toBeNull();
     const nav = el.querySelector('nav');
     expect(nav?.getAttribute('aria-label')).toBe('Navigation principale');
-    const links = Array.from(nav?.querySelectorAll('a') ?? []).map((a) => a.textContent?.trim());
+    const links = Array.from(nav?.querySelectorAll('a') ?? []).map((a) =>
+      a.getAttribute('aria-label'),
+    );
     expect(links).toEqual(['Tableau de bord', 'Réglages']);
-    expect(el.querySelector('header')?.textContent).toContain('Homebase');
-  });
-
-  it('cycles the theme when the toggle is clicked and updates its label', async () => {
-    const el = await render();
-    const theme = TestBed.inject(ThemeService);
-    const button = el.querySelector<HTMLButtonElement>('[data-testid="theme-toggle"]');
-    expect(button?.getAttribute('aria-label')).toContain('Système');
-
-    button?.click();
-    expect(theme.mode()).toBe('light');
-    await TestBed.inject(ThemeService).ready;
-    TestBed.tick();
-    await vi.waitFor(() => expect(button?.getAttribute('aria-label')).toContain('Clair'));
-
-    button?.click();
-    expect(theme.mode()).toBe('dark');
+    expect(el.textContent).not.toContain('Homebase');
+    expect(el.querySelector('[data-testid="theme-toggle"]')).toBeNull();
   });
 });

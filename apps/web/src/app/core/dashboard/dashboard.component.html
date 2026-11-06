@@ -6,60 +6,58 @@
     </p>
   }
   @case ('ready') {
-    <div class="page-header flex-none">
-      <h1 class="page-title">{{ store.dashboard()?.name }}</h1>
-      <div class="flex items-center gap-2">
+    <h1 class="sr-only">{{ store.dashboard()?.name }}</h1>
+    <div class="mb-4 flex flex-none items-center justify-end gap-2">
+      <button
+        type="button"
+        class="btn"
+        data-testid="toggle-layout-edit"
+        [attr.aria-pressed]="editing()"
+        [disabled]="store.instances().length === 0"
+        (click)="toggleEditing()"
+      >
+        <i [class]="editing() ? 'pi pi-check' : 'pi pi-pencil'" aria-hidden="true"></i>
+        {{ (editing() ? 'dashboard.doneEditing' : 'dashboard.editLayout') | transloco }}
+      </button>
+      <div class="relative" #menuRoot>
         <button
           type="button"
-          class="btn"
-          data-testid="toggle-layout-edit"
-          [attr.aria-pressed]="editing()"
-          [disabled]="store.instances().length === 0"
-          (click)="toggleEditing()"
+          class="btn btn-primary"
+          #menuTrigger
+          data-testid="add-widget"
+          aria-haspopup="menu"
+          aria-controls="add-widget-menu"
+          [attr.aria-expanded]="menuOpen()"
+          (click)="toggleMenu()"
         >
-          <i [class]="editing() ? 'pi pi-check' : 'pi pi-pencil'" aria-hidden="true"></i>
-          {{ (editing() ? 'dashboard.doneEditing' : 'dashboard.editLayout') | transloco }}
+          <i class="pi pi-plus" aria-hidden="true"></i>
+          {{ 'dashboard.addWidget' | transloco }}
         </button>
-        <div class="relative" #menuRoot>
-          <button
-            type="button"
-            class="btn btn-primary"
-            #menuTrigger
-            data-testid="add-widget"
-            aria-haspopup="menu"
-            aria-controls="add-widget-menu"
-            [attr.aria-expanded]="menuOpen()"
-            (click)="toggleMenu()"
+        @if (menuOpen()) {
+          <ul
+            id="add-widget-menu"
+            role="menu"
+            class="menu right-0"
+            [attr.aria-label]="'dashboard.addWidget' | transloco"
           >
-            <i class="pi pi-plus" aria-hidden="true"></i>
-            {{ 'dashboard.addWidget' | transloco }}
-          </button>
-          @if (menuOpen()) {
-            <ul
-              id="add-widget-menu"
-              role="menu"
-              class="menu right-0"
-              [attr.aria-label]="'dashboard.addWidget' | transloco"
-            >
-              @for (definition of registry.list(); track definition.type) {
-                <li role="none">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    tabindex="-1"
-                    class="menu-item"
-                    [attr.data-testid]="'add-' + definition.type"
-                    [disabled]="!canAdd(definition.type)"
-                    (click)="add(definition.type)"
-                  >
-                    <i [class]="definition.icon" aria-hidden="true"></i>
-                    {{ definition.titleKey | transloco }}
-                  </button>
-                </li>
-              }
-            </ul>
-          }
-        </div>
+            @for (definition of registry.list(); track definition.type) {
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabindex="-1"
+                  class="menu-item"
+                  [attr.data-testid]="'add-' + definition.type"
+                  [disabled]="!canAdd(definition.type)"
+                  (click)="add(definition.type)"
+                >
+                  <i [class]="definition.icon" aria-hidden="true"></i>
+                  {{ definition.titleKey | transloco }}
+                </button>
+              </li>
+            }
+          </ul>
+        }
       </div>
     </div>
 

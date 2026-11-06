@@ -18,9 +18,8 @@ const SHELL_KEYS = [
   'pages.dashboard.title',
   'pages.settings.title',
   'layout.mainNav',
-  'nav.dashboard',
+  'layout.dashboardsNav',
   'nav.settings',
-  'theme.toggle',
   'theme.mode.system',
   'theme.mode.light',
   'theme.mode.dark',
@@ -128,6 +127,5 @@ describe('fr.json', () => {
   it('uses Transloco interpolation for parameters', () => {
     expect(lookup('widgets.hello.greeting')).toContain('{{ name }}');
     expect(lookup('widgetHost.unknownType')).toContain('{{ type }}');
-    expect(lookup('theme.toggle')).toContain('{{ mode }}');
   });
 });

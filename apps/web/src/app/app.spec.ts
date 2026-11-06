@@ -17,11 +17,12 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should render the translated app name in the header', async () => {
+  it('should render the main navigation and no visible app name', async () => {
     await TestBed.inject(ApplicationInitStatus).donePromise;
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('header')?.textContent).toContain('Homebase');
+    expect(compiled.querySelector('nav')?.getAttribute('aria-label')).toBe('Navigation principale');
+    expect(compiled.textContent).not.toContain('Homebase');
   });
 });

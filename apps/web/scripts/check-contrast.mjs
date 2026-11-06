@@ -24,6 +24,8 @@ const PAIRS = [
   ['danger', 'bg'],
   ['success', 'bg'],
   ['fg-on-emphasis', 'success-emphasis'],
+  ['fg-on-emphasis', 'accent-emphasis'],
+  ['fg-on-emphasis', 'bg-emphasis'],
 ];
 
 const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');

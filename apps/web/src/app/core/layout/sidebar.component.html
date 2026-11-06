@@ -1,0 +1,59 @@
+<nav [attr.aria-label]="'layout.mainNav' | transloco" class="flex min-h-0 flex-1 flex-col">
+  <ul
+    #scrollArea
+    class="sidebar-group sidebar-group-scroll"
+    [attr.aria-label]="'layout.dashboardsNav' | transloco"
+    (scroll)="onListScroll()"
+  >
+    <li>
+      <a
+        routerLink="/"
+        routerLinkActive=""
+        ariaCurrentWhenActive="page"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="sidebar-bubble"
+        data-testid="sidebar-dashboard"
+        [attr.aria-label]="'pages.dashboard.title' | transloco"
+        (mouseenter)="showLabel($event, 'pages.dashboard.title')"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, 'pages.dashboard.title')"
+        (focusout)="hideLabel()"
+      >
+        <i class="pi pi-th-large" aria-hidden="true"></i>
+      </a>
+    </li>
+  </ul>
+
+  <div class="sidebar-spacer"></div>
+
+  <ul class="sidebar-group">
+    <li>
+      <a
+        routerLink="/settings"
+        routerLinkActive=""
+        ariaCurrentWhenActive="page"
+        class="sidebar-bubble"
+        data-testid="sidebar-settings"
+        [attr.aria-label]="'nav.settings' | transloco"
+        (mouseenter)="showLabel($event, 'nav.settings')"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, 'nav.settings')"
+        (focusout)="hideLabel()"
+      >
+        <i class="pi pi-cog" aria-hidden="true"></i>
+      </a>
+    </li>
+  </ul>
+</nav>
+
+@if (label(); as l) {
+  <div
+    class="sidebar-label"
+    aria-hidden="true"
+    data-testid="sidebar-label"
+    [style.top.px]="l.top"
+    [style.left.px]="l.left"
+  >
+    <span>{{ l.text }}</span>
+  </div>
+}
