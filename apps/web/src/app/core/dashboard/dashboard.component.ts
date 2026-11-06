@@ -20,7 +20,7 @@ import type { LayoutItem, WidgetInstanceRecord } from '../../data';
 import type { WidgetTypeId } from '../widgets/widget-definition';
 import { WidgetHostComponent } from '../widgets/widget-host.component';
 import { WidgetRegistry } from '../widgets/widget-registry';
-import { DashboardListStore } from './dashboard-list.store';
+import { DashboardLimitError, DashboardListStore } from './dashboard-list.store';
 import { DashboardStore } from './dashboard.store';
 import {
   buildGridOptions,
@@ -31,6 +31,9 @@ import {
 } from './grid-adapter';
 import type { DashboardGridItem } from './grid-adapter';
 import { sameRect } from './grid-layout';
+
+/** Longest dashboard name accepted by the data layer. */
+const DASHBOARD_NAME_MAX = 100;
 
 interface GridEntry {
   readonly instance: WidgetInstanceRecord;
@@ -67,6 +70,9 @@ export class DashboardComponent {
   protected readonly adding = signal(false);
   protected readonly menuOpen = signal(false);
   protected readonly addFailed = signal(false);
+  /** Move of the widgets without room to a new dashboard: running, and the key of its error. */
+  protected readonly moving = signal(false);
+  protected readonly moveErrorKey = signal<string | null>(null);
   /** Layout edit mode: drag, resize and keyboard move are enabled only while true. */
   protected readonly editing = signal(false);
 
@@ -164,11 +170,55 @@ export class DashboardComponent {
 
   private async openDashboard(id: string | null): Promise<void> {
     this.flushLayout();
+    this.moveErrorKey.set(null);
     const outcome = await this.store.open(id, this.transloco.translate('dashboard.defaultName'));
     if (outcome === 'not-found') {
       await this.router.navigateByUrl('/', { replaceUrl: true });
     } else if (outcome === 'ready' && id !== null) {
       this.list.rememberOpened(id);
+    }
+  }
+
+  /** Name of the overflow dashboard, cut by code points to fit the 100 characters of a name. */
+  private overflowName(name: string): string {
+    const key = 'dashboard.overflowName';
+    const budget = DASHBOARD_NAME_MAX - this.transloco.translate(key, { name: '' }).length;
+    let kept = '';
+    for (const codePoint of name) {
+      if (kept.length + codePoint.length > budget) break;
+      kept += codePoint;
+    }
+    return this.transloco.translate(key, { name: kept });
+  }
+
+  /**
+   * Moves the widgets without room to a new dashboard (same icon), without navigating. Creation
+   * and move are not atomic: if the move fails, the empty dashboard is removed (best effort).
+   */
+  protected async moveUnplaced(): Promise<void> {
+    const current = this.store.dashboard();
+    if (!current || this.moving()) return;
+    this.moving.set(true);
+    this.moveErrorKey.set(null);
+    let createdId: string | null = null;
+    try {
+      const created = await this.list.create({
+        name: this.overflowName(current.name),
+        icon: current.icon,
+      });
+      createdId = created.id;
+      const moved = await this.store.moveUnplacedTo(created.id);
+      if (moved === 0) throw new Error('No widget was moved');
+    } catch (error: unknown) {
+      if (error instanceof DashboardLimitError) {
+        this.moveErrorKey.set('dashboards.limit');
+      } else {
+        console.error('Could not move the widgets without room', error);
+        this.moveErrorKey.set('dashboard.moveUnplacedError');
+        if (createdId !== null) await this.list.discardEmpty(createdId);
+      }
+    } finally {
+      this.moving.set(false);
     }
   }
 

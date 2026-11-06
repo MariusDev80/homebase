@@ -234,10 +234,14 @@ describe('DashboardComponent', () => {
   });
 
   describe('8-row grid', () => {
-    const seededAt = async (grids: { x: number; y: number; w: number; h: number }[]) => {
+    const seededAt = async (
+      grids: { x: number; y: number; w: number; h: number }[],
+      name = 'Accueil',
+      icon = 'th-large',
+    ) => {
       const dashboards = new FakeDashboardRepository();
       const instances = new FakeWidgetInstanceRepository();
-      await dashboards.createIfNone({ name: 'Accueil' });
+      await dashboards.createIfNone({ name, icon });
       const [dashboard] = await dashboards.list();
       for (const grid of grids) {
         instances.seed({ dashboardId: dashboard.id, widgetType: 'fixture', grid });
@@ -260,7 +264,7 @@ describe('DashboardComponent', () => {
       await fixture.whenStable();
       fixture.detectChanges();
       document.body.appendChild(fixture.nativeElement);
-      return { fixture, el: fixture.nativeElement as HTMLElement, instances };
+      return { fixture, el: fixture.nativeElement as HTMLElement, instances, dashboards };
     };
 
     it('writes nothing on load with rows beyond 8, and shows them repositioned', async () => {
@@ -285,6 +289,72 @@ describe('DashboardComponent', () => {
       );
       expect(el.querySelectorAll('gridster-item')).toHaveLength(24);
       expect(spy).not.toHaveBeenCalled();
+    });
+
+    describe('moving the widgets that do not fit', () => {
+      const full = Array.from({ length: 25 }, () => ({ x: 0, y: 0, w: 2, h: 2 }));
+      const move = (el: HTMLElement): void =>
+        el.querySelector<HTMLButtonElement>('[data-testid="dashboard-move-unplaced"]')?.click();
+
+      it('moves them to a new dashboard with the same icon, without navigating', async () => {
+        const { fixture, el, instances, dashboards } = await seededAt(full, 'Accueil', 'briefcase');
+        const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+        const navigateByUrl = vi.spyOn(TestBed.inject(Router), 'navigateByUrl');
+        move(el);
+        await vi.waitFor(() => expect(dashboards.items).toHaveLength(2));
+        await vi.waitFor(() => {
+          fixture.detectChanges();
+          expect(el.querySelector('[data-testid="dashboard-unplaced"]')).toBeNull();
+        });
+        expect(dashboards.items[1]).toMatchObject({ name: 'Accueil (suite)', icon: 'briefcase' });
+        expect(
+          instances.items.filter((i) => i.dashboardId === dashboards.items[1].id),
+        ).toHaveLength(1);
+        expect(el.querySelectorAll('gridster-item')).toHaveLength(24);
+        expect(el.querySelector('[data-testid="dashboard-move-error"]')).toBeNull();
+        expect(navigate).not.toHaveBeenCalled();
+        expect(navigateByUrl).not.toHaveBeenCalled();
+      });
+
+      it('cuts the name of the new dashboard to 100 characters', async () => {
+        const { el, dashboards } = await seededAt(full, 'é'.repeat(100));
+        move(el);
+        await vi.waitFor(() => expect(dashboards.items).toHaveLength(2));
+        const name = dashboards.items[1].name;
+        expect(name.length).toBeLessThanOrEqual(100);
+        expect(name.endsWith(' (suite)')).toBe(true);
+      });
+
+      it('removes the empty dashboard it created and shows an error when the move fails', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { fixture, el, instances, dashboards } = await seededAt(full);
+        vi.spyOn(instances, 'moveToDashboard').mockRejectedValue(new Error('boom'));
+        move(el);
+        await vi.waitFor(() => {
+          fixture.detectChanges();
+          expect(el.querySelector('[data-testid="dashboard-move-error"]')?.textContent).toContain(
+            'Impossible de déplacer',
+          );
+        });
+        expect(dashboards.items.map((d) => d.name)).toEqual(['Accueil']);
+        expect(el.querySelector('[data-testid="dashboard-unplaced"]')).not.toBeNull();
+      });
+
+      it('only logs a failed cleanup', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { fixture, el, instances, dashboards } = await seededAt(full);
+        vi.spyOn(instances, 'moveToDashboard').mockRejectedValue(new Error('boom'));
+        vi.spyOn(dashboards, 'remove').mockRejectedValue(new Error('cleanup'));
+        move(el);
+        await vi.waitFor(() => {
+          fixture.detectChanges();
+          expect(el.querySelector('[data-testid="dashboard-move-error"]')).not.toBeNull();
+        });
+        expect(error).toHaveBeenCalledWith(
+          'Could not remove the empty dashboard',
+          expect.any(Error),
+        );
+      });
     });
 
     it('warns when gridster moves an item without a gesture, but still saves it', async () => {

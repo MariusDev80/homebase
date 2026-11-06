@@ -8,7 +8,8 @@
   },
   "layout": {
     "mainNav": "Navigation principale",
-    "dashboardsNav": "Tableaux de bord"
+    "dashboardsNav": "Tableaux de bord",
+    "current": "Tableau affiché : {{ name }}"
   },
   "nav": {
     "settings": "Réglages"
@@ -268,9 +269,60 @@
     "gridFull": "La grille est pleine : supprimez ou réduisez un widget, ou créez un autre tableau.",
     "unplaced": "{{ count }} widget(s) ne tiennent pas sur ce tableau : {{ names }}.",
     "addError": "Impossible d'ajouter ce widget.",
+    "moveUnplaced": "Les déplacer vers un nouveau tableau",
+    "moveUnplacedError": "Impossible de déplacer ces widgets.",
+    "overflowName": "{{ name }} (suite)",
     "editLayout": "Modifier la disposition",
     "doneEditing": "Terminer",
     "layoutError": "Impossible d'enregistrer la disposition ; la dernière disposition enregistrée a été rétablie."
+  },
+  "dashboards": {
+    "add": "Nouveau tableau de bord",
+    "limit": "Nombre maximal de tableaux atteint (100).",
+    "bubbleHint": "Clic droit ou Maj + F10 : modifier ou supprimer ce tableau.",
+    "form": {
+      "titleCreate": "Nouveau tableau de bord",
+      "titleEdit": "Modifier le tableau de bord",
+      "name": "Nom",
+      "nameInvalid": "Le nom doit contenir de 1 à 100 caractères.",
+      "icon": "Icône",
+      "create": "Créer",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "error": "Impossible d'enregistrer ce tableau de bord."
+    },
+    "menu": {
+      "label": "Actions du tableau {{ name }}",
+      "edit": "Modifier…",
+      "remove": "Supprimer…",
+      "removeLast": "Supprimer (impossible : dernier tableau)"
+    },
+    "icons": {
+      "th-large": "Grille",
+      "home": "Maison",
+      "briefcase": "Travail",
+      "desktop": "Ordinateur",
+      "code": "Code",
+      "wrench": "Outils",
+      "chart-line": "Graphique",
+      "wallet": "Portefeuille",
+      "calendar": "Calendrier",
+      "book": "Livre",
+      "graduation-cap": "Études",
+      "pencil": "Écriture",
+      "palette": "Création",
+      "camera": "Photo",
+      "video": "Vidéo",
+      "microphone": "Micro",
+      "headphones": "Casque",
+      "play-circle": "Lecture",
+      "trophy": "Trophée",
+      "star": "Étoile",
+      "heart": "Cœur",
+      "users": "Personnes",
+      "globe": "Monde",
+      "bolt": "Éclair"
+    }
   },
   "widgetHost": {
     "layout": {

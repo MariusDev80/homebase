@@ -99,7 +99,7 @@ describe('LayoutComponent', () => {
     const links = Array.from(nav?.querySelectorAll('a') ?? []).map((a) =>
       a.getAttribute('aria-label'),
     );
-    expect(links).toEqual(['Tableau de bord', 'Réglages']);
+    expect(links).toEqual(['Accueil', 'Réglages']);
     expect(el.textContent).not.toContain('Homebase');
     expect(el.querySelector('[data-testid="theme-toggle"]')).toBeNull();
   });

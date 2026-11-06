@@ -90,7 +90,23 @@
           'dashboard.unplaced'
             | transloco: { count: unplacedNames().length, names: unplacedNames().join(', ') }
         }}
+        <button
+          type="button"
+          class="btn btn-compact ml-auto"
+          data-testid="dashboard-move-unplaced"
+          [disabled]="moving()"
+          (click)="moveUnplaced()"
+        >
+          {{ 'dashboard.moveUnplaced' | transloco }}
+        </button>
       </div>
+    }
+
+    @if (moveErrorKey(); as key) {
+      <p role="alert" data-testid="dashboard-move-error" class="flash flash-danger mb-4 flex-none">
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+        {{ key | transloco }}
+      </p>
     }
 
     <div #gridArea class="dashboard-grid-area">

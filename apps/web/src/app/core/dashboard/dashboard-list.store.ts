@@ -99,6 +99,20 @@ export class DashboardListStore {
     return updated;
   }
 
+  /**
+   * Best-effort cleanup of an empty dashboard that was just created (no backup: it holds nothing).
+   * A failure is only logged; the dashboard then stays in the list, as it does in the database.
+   */
+  async discardEmpty(id: string): Promise<void> {
+    try {
+      if (await this.repository.remove(id)) {
+        this.dashboardsState.update((list) => list.filter((d) => d.id !== id));
+      }
+    } catch (error) {
+      console.error('Could not remove the empty dashboard', error);
+    }
+  }
+
   async countWidgets(id: string): Promise<number> {
     return (await this.instances.listByDashboard(id)).length;
   }

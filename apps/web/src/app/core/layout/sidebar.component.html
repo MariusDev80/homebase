@@ -1,26 +1,53 @@
 <nav [attr.aria-label]="'layout.mainNav' | transloco" class="flex min-h-0 flex-1 flex-col">
+  <span id="sidebar-bubble-hint" class="sr-only">{{ 'dashboards.bubbleHint' | transloco }}</span>
+
   <ul
     #scrollArea
     class="sidebar-group sidebar-group-scroll"
     [attr.aria-label]="'layout.dashboardsNav' | transloco"
     (scroll)="onListScroll()"
   >
+    @for (d of dashboards(); track d.id) {
+      <li>
+        <a
+          [routerLink]="['/dashboards', d.id]"
+          routerLinkActive=""
+          ariaCurrentWhenActive="page"
+          class="sidebar-bubble"
+          data-testid="sidebar-dashboard"
+          aria-describedby="sidebar-bubble-hint"
+          [attr.aria-label]="d.name"
+          [attr.data-dashboard-id]="d.id"
+          (mouseenter)="showLabel($event, d.name, false)"
+          (mouseleave)="hideLabel()"
+          (focusin)="showLabel($event, d.name, false)"
+          (focusout)="hideLabel()"
+          (contextmenu)="openMenu($event, d)"
+          (keydown)="onBubbleKeydown($event, d)"
+        >
+          <i [class]="iconClass(d.icon)" aria-hidden="true"></i>
+        </a>
+      </li>
+    }
+  </ul>
+
+  <ul class="sidebar-group">
     <li>
-      <a
-        routerLink="/"
-        routerLinkActive=""
-        ariaCurrentWhenActive="page"
-        [routerLinkActiveOptions]="{ exact: true }"
+      <button
+        type="button"
         class="sidebar-bubble"
-        data-testid="sidebar-dashboard"
-        [attr.aria-label]="'pages.dashboard.title' | transloco"
-        (mouseenter)="showLabel($event, 'pages.dashboard.title')"
+        data-testid="sidebar-add-dashboard"
+        aria-haspopup="dialog"
+        [attr.aria-disabled]="list.canCreate() ? null : 'true'"
+        [attr.aria-label]="addLabelKey() | transloco"
+        (click)="openCreate($event)"
+        (mouseenter)="showLabel($event, addLabelKey())"
         (mouseleave)="hideLabel()"
-        (focusin)="showLabel($event, 'pages.dashboard.title')"
+        (focusin)="showLabel($event, addLabelKey())"
         (focusout)="hideLabel()"
       >
-        <i class="pi pi-th-large" aria-hidden="true"></i>
-      </a>
+        <i class="pi pi-plus" aria-hidden="true"></i>
+      </button>
     </li>
   </ul>
 
@@ -56,4 +83,57 @@
   >
     <span>{{ l.text }}</span>
   </div>
+}
+
+@if (menu(); as m) {
+  <ul
+    #menuRoot
+    role="menu"
+    tabindex="-1"
+    class="menu sidebar-menu"
+    data-testid="sidebar-menu"
+    [attr.aria-label]="'dashboards.menu.label' | transloco: { name: m.dashboard.name }"
+    [style.top.px]="m.top"
+    [style.left.px]="m.left"
+    (keydown)="onMenuKeydown($event)"
+    (contextmenu)="$event.preventDefault()"
+  >
+    <li role="none">
+      <button
+        type="button"
+        role="menuitem"
+        tabindex="-1"
+        class="menu-item"
+        data-testid="sidebar-menu-edit"
+        (click)="openEdit()"
+      >
+        <i class="pi pi-pencil" aria-hidden="true"></i>
+        {{ 'dashboards.menu.edit' | transloco }}
+      </button>
+    </li>
+    <li role="none">
+      <!-- Lot C3b plugs the deletion here; until then the entry stays disabled. -->
+      <button
+        type="button"
+        role="menuitem"
+        tabindex="-1"
+        class="menu-item"
+        data-testid="sidebar-menu-remove"
+        disabled
+      >
+        <i class="pi pi-trash" aria-hidden="true"></i>
+        {{
+          (list.canRemove() ? 'dashboards.menu.remove' : 'dashboards.menu.removeLast') | transloco
+        }}
+      </button>
+    </li>
+  </ul>
+}
+
+<div role="status" class="sr-only" data-testid="sidebar-status">{{ announcement() }}</div>
+
+@if (form(); as f) {
+  @defer (on immediate) {
+    <app-dashboard-form-dialog [dashboard]="f.dashboard" (closed)="onFormClosed($event)" />
+  }
 }

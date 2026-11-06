@@ -1,4 +1,5 @@
 import { ARCHIVE_PROBLEMS, IMPORT_ISSUE_CODES, IMPORT_PROBLEMS } from '../backup/backup.types';
+import { DASHBOARD_ICONS } from '../dashboard/dashboard-icons';
 import fr from './fr.json';
 
 function lookup(path: string): unknown {
@@ -19,6 +20,26 @@ const SHELL_KEYS = [
   'pages.settings.title',
   'layout.mainNav',
   'layout.dashboardsNav',
+  'layout.current',
+  'dashboards.add',
+  'dashboards.limit',
+  'dashboards.bubbleHint',
+  'dashboards.form.titleCreate',
+  'dashboards.form.titleEdit',
+  'dashboards.form.name',
+  'dashboards.form.nameInvalid',
+  'dashboards.form.icon',
+  'dashboards.form.create',
+  'dashboards.form.save',
+  'dashboards.form.cancel',
+  'dashboards.form.error',
+  'dashboards.menu.label',
+  'dashboards.menu.edit',
+  'dashboards.menu.remove',
+  'dashboards.menu.removeLast',
+  'dashboard.moveUnplaced',
+  'dashboard.moveUnplacedError',
+  'dashboard.overflowName',
   'nav.settings',
   'theme.mode.system',
   'theme.mode.light',
@@ -122,6 +143,10 @@ describe('fr.json', () => {
     const value = lookup(key);
     expect(typeof value).toBe('string');
     expect((value as string).length).toBeGreaterThan(0);
+  });
+
+  it.each([...DASHBOARD_ICONS])('has a label for the dashboard icon %s', (icon) => {
+    expect(typeof lookup(`dashboards.icons.${icon}`)).toBe('string');
   });
 
   it('uses Transloco interpolation for parameters', () => {

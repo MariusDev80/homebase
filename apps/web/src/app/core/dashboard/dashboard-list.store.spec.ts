@@ -150,4 +150,16 @@ describe('DashboardListStore', () => {
     await vi.waitFor(() => expect(console.error).toHaveBeenCalled());
     expect(settings.values.get(LAST_DASHBOARD_SETTING)).toBe('abc');
   });
+
+  it('discardEmpty removes the dashboard, and only logs a failure', async () => {
+    const { store, dashboards } = setup();
+    await store.load('Accueil');
+    const extra = await store.create({ name: 'Vide', icon: 'home' });
+    await store.discardEmpty(extra.id);
+    expect(store.dashboards().map((d) => d.name)).toEqual(['Accueil']);
+    const kept = await store.create({ name: 'Reste', icon: 'home' });
+    dashboards.failNext(new DataError('unavailable', 'x'));
+    await expect(store.discardEmpty(kept.id)).resolves.toBeUndefined();
+    expect(store.dashboards()).toHaveLength(2);
+  });
 });
