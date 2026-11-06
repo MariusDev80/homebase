@@ -3,16 +3,29 @@ import { BackupService } from '../backup';
 import { AppLock } from '../lock';
 import { FakeSettingsRepository } from '../testing/fake-settings.repository';
 import { SYSTEM_TIME_ZONE_READER } from '../time';
-import { SETTINGS_REPOSITORY } from '../../data';
+import { DASHBOARD_REPOSITORY, SETTINGS_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
+import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
+import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideAppI18n } from '../i18n';
 
 import { LayoutComponent } from './layout.component';
 
+/** No root provider for the repositories: the layout loads the list of dashboards. */
+function fakeRepositories() {
+  return [
+    { provide: DASHBOARD_REPOSITORY, useValue: new FakeDashboardRepository() },
+    { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
+    { provide: WIDGET_INSTANCE_REPOSITORY, useValue: new FakeWidgetInstanceRepository() },
+  ];
+}
+
 describe('LayoutComponent', () => {
   async function render(): Promise<HTMLElement> {
-    TestBed.configureTestingModule({ providers: [provideAppI18n(), provideRouter([])] });
+    TestBed.configureTestingModule({
+      providers: [provideAppI18n(), provideRouter([]), ...fakeRepositories()],
+    });
     await TestBed.inject(ApplicationInitStatus).donePromise;
     const fixture = TestBed.createComponent(LayoutComponent);
     await fixture.whenStable();
@@ -63,7 +76,7 @@ describe('LayoutComponent', () => {
           provide: BackupService,
           useValue: { isAvailable: () => false, overview: vi.fn(), acknowledge: vi.fn() },
         },
-        { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
+        ...fakeRepositories(),
         { provide: SYSTEM_TIME_ZONE_READER, useValue: () => 'Europe/Paris' },
       ],
     });

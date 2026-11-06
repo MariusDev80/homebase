@@ -11,6 +11,7 @@ import {
 import { RouterOutlet } from '@angular/router';
 import { TranslocoService } from '@jsverse/transloco';
 import { isTauriRuntime } from '../../tauri-runtime';
+import { DashboardListStore } from '../dashboard/dashboard-list.store';
 import { AppLock } from '../lock';
 import type { AppLockKind } from '../lock';
 import { SidebarComponent } from './sidebar.component';
@@ -29,6 +30,7 @@ const LOCK_TEXT: Record<AppLockKind, string> = {
 export class LayoutComponent {
   protected readonly lock = inject(AppLock);
   private readonly transloco = inject(TranslocoService);
+  private readonly dashboards = inject(DashboardListStore);
   /** Text of the freeze overlay (null: nothing is running). */
   protected readonly lockText = computed(() => {
     const kind = this.lock.locked();
@@ -40,6 +42,7 @@ export class LayoutComponent {
   private readonly alertHost = viewChild.required('alertHost', { read: ViewContainerRef });
 
   constructor() {
+    void this.dashboards.load(this.transloco.translate('dashboard.defaultName'));
     if (isTauriRuntime()) {
       effect(() => {
         const host = this.alertHost();

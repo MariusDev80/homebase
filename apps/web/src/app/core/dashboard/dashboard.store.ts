@@ -52,7 +52,8 @@ export class GridFullError extends Error {
   }
 }
 
-export type DashboardStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type DashboardStatus = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
+export type OpenOutcome = 'ready' | 'not-found' | 'error' | 'superseded';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardStore implements WidgetConfigWriter {
@@ -64,11 +65,17 @@ export class DashboardStore implements WidgetConfigWriter {
   private readonly instancesState = signal<readonly WidgetInstanceRecord[]>([]);
   private readonly statusState = signal<DashboardStatus>('idle');
   private readonly errorState = signal<DataError | null>(null);
+  private readonly sessionState = signal(0);
+  private token = 0;
+  private lastOpen: Promise<OpenOutcome> = Promise.resolve('not-found');
+  private readonly pendingWrites = inject(PendingWrites);
 
   readonly dashboard: Signal<Dashboard | null> = this.dashboardState.asReadonly();
   readonly instances: Signal<readonly WidgetInstanceRecord[]> = this.instancesState.asReadonly();
   readonly status: Signal<DashboardStatus> = this.statusState.asReadonly();
   readonly error: Signal<DataError | null> = this.errorState.asReadonly();
+  /** +1 on every open and close. */
+  readonly session: Signal<number> = this.sessionState.asReadonly();
 
   /** Displayed rects (fitLayout of the stored ones): nothing is written by computing them. */
   readonly layout: Signal<FittedLayout> = computed(() =>
@@ -93,33 +100,83 @@ export class DashboardStore implements WidgetConfigWriter {
 
   constructor() {
     // The store is a singleton: the registration lasts as long as the application.
-    inject(PendingWrites).register(() => this.layoutDrained);
+    this.pendingWrites.register(() => this.layoutDrained);
   }
 
-  /** createIfNone({ name }) then list()[0] then listByDashboard(id). */
-  async load(defaultDashboardName: string): Promise<void> {
+  /**
+   * Opens a dashboard (id null: createIfNone then the first one). Every `open` and `close` bumps
+   * the token: after each await a changed token means 'superseded', and the state is left alone.
+   */
+  open(id: string | null, defaultDashboardName: string): Promise<OpenOutcome> {
+    const run = this.doOpen(id, defaultDashboardName);
+    this.lastOpen = run;
+    return run;
+  }
+
+  /** Outcome of the last open launched ('not-found' if none ever was). */
+  whenOpened(): Promise<OpenOutcome> {
+    return this.lastOpen;
+  }
+
+  /** No current dashboard. Does not empty `layoutPending`: the write in flight finishes by itself. */
+  close(): void {
+    this.token++;
+    this.sessionState.update((n) => n + 1);
+    this.clearCurrent();
+    this.statusState.set('idle');
+    this.errorState.set(null);
+  }
+
+  private clearCurrent(): void {
+    this.dashboardState.set(null);
+    this.instancesState.set([]);
+    this.persistedGrids.clear();
+  }
+
+  private async doOpen(id: string | null, defaultDashboardName: string): Promise<OpenOutcome> {
+    const token = ++this.token;
+    this.sessionState.update((n) => n + 1);
     this.statusState.set('loading');
     this.errorState.set(null);
+    this.clearCurrent();
+    await this.pendingWrites.flushAll();
+    if (token !== this.token) return 'superseded';
+    this.layoutErrorState.set(false);
     try {
-      await this.dashboards.createIfNone({ name: defaultDashboardName });
-      const [first] = await this.dashboards.list();
-      if (!first) {
-        throw new DataError('not_found', 'No dashboard available after createIfNone');
+      let dashboard: Dashboard | null | undefined;
+      if (id === null) {
+        await this.dashboards.createIfNone({ name: defaultDashboardName });
+        if (token !== this.token) return 'superseded';
+        [dashboard] = await this.dashboards.list();
+        if (token !== this.token) return 'superseded';
+        if (!dashboard) {
+          throw new DataError('not_found', 'No dashboard available after createIfNone');
+        }
+      } else {
+        dashboard = await this.dashboards.get(id);
+        if (token !== this.token) return 'superseded';
+        if (!dashboard) {
+          this.statusState.set('not-found');
+          return 'not-found';
+        }
       }
-      const instances = await this.instanceRepository.listByDashboard(first.id);
-      this.dashboardState.set(first);
+      const instances = await this.instanceRepository.listByDashboard(dashboard.id);
+      if (token !== this.token) return 'superseded';
+      this.dashboardState.set(dashboard);
       this.instancesState.set(instances);
       this.persistedGrids.clear();
       for (const i of instances) this.persistedGrids.set(i.id, { ...i.grid });
-      this.layoutPending.clear();
       this.statusState.set('ready');
+      return 'ready';
     } catch (error) {
+      if (token !== this.token) return 'superseded';
       this.errorState.set(
         error instanceof DataError
           ? error
           : new DataError('unknown', 'Dashboard load failed', { cause: error }),
       );
       this.statusState.set('error');
+      return 'error';
     }
   }
 
@@ -295,6 +352,29 @@ export class DashboardStore implements WidgetConfigWriter {
     } finally {
       this.layoutWriting = false;
     }
+  }
+
+  /** Places the widgets without room on an empty dashboard; returns how many were moved. */
+  async moveUnplacedTo(targetDashboardId: string): Promise<number> {
+    const unplaced = new Set(this.layout().unplaced);
+    const candidates = this.instancesState().filter((i) => unplaced.has(i.id));
+    if (candidates.length === 0) return 0;
+    const fitted = fitLayout(
+      candidates.map((i) => ({ id: i.id, grid: i.grid, constraints: this.constraintsOf(i) })),
+    );
+    const items: LayoutItem[] = [...fitted.placed].map(([id, grid]) => ({ id, grid }));
+    if (items.length === 0) return 0;
+    const token = this.token;
+    const moved = await this.instanceRepository.moveToDashboard(targetDashboardId, items);
+    if (token === this.token) {
+      const ids = new Set(items.map((i) => i.id));
+      for (const id of ids) {
+        this.persistedGrids.delete(id);
+        this.layoutPending.delete(id);
+      }
+      this.instancesState.update((list) => list.filter((i) => !ids.has(i.id)));
+    }
+    return moved;
   }
 
   private constraintsOf(instance: WidgetInstanceRecord): WidgetSizeConstraints {

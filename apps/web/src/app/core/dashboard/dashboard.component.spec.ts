@@ -1,6 +1,16 @@
 import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { DASHBOARD_REPOSITORY, DataError, WIDGET_INSTANCE_REPOSITORY } from '../../data';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject, of } from 'rxjs';
+import { LAST_DASHBOARD_SETTING } from './dashboard-list.store';
+import { DashboardStore } from './dashboard.store';
+import {
+  DASHBOARD_REPOSITORY,
+  DataError,
+  SETTINGS_REPOSITORY,
+  WIDGET_INSTANCE_REPOSITORY,
+} from '../../data';
+import { FakeSettingsRepository } from '../testing/fake-settings.repository';
 import { provideAppI18n } from '../i18n';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
@@ -20,19 +30,27 @@ function gridOptions(fixture: ComponentFixture<DashboardComponent>) {
   return fixture.debugElement.query(By.directive(Gridster)).componentInstance.options();
 }
 
+function routeFor(id: string) {
+  return { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id })) } };
+}
+
 async function render(
   configure?: (dashboards: FakeDashboardRepository) => void,
   definitions: WidgetDefinition[] = [fixtureDefinition({ type: 'fixture' }) as WidgetDefinition],
 ) {
   const dashboards = new FakeDashboardRepository();
   const instances = new FakeWidgetInstanceRepository();
+  await dashboards.createIfNone({ name: 'Accueil' });
   configure?.(dashboards);
   TestBed.configureTestingModule({
     providers: [
       provideAppI18n(),
+      provideRouter([]),
+      routeFor(dashboards.items[0].id),
       ...definitions.map((d) => provideWidget(d)),
       { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
       { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
+      { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
     ],
   });
   await TestBed.inject(ApplicationInitStatus).donePromise;
@@ -46,7 +64,7 @@ async function render(
 }
 
 describe('DashboardComponent', () => {
-  it('creates the default dashboard and shows the empty state', async () => {
+  it('opens the dashboard of the route and shows the empty state', async () => {
     const { el, dashboards } = await render();
     expect(dashboards.items.map((d) => d.name)).toEqual(['Accueil']);
     expect(el.querySelector('[data-testid="dashboard-empty"]')?.textContent).toContain(
@@ -116,9 +134,12 @@ describe('DashboardComponent', () => {
       TestBed.configureTestingModule({
         providers: [
           provideAppI18n(),
+          provideRouter([]),
+          routeFor(dashboard.id),
           provideWidget(fixtureDefinition({ type: 'fixture' }) as WidgetDefinition),
           { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
           { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
+          { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
         ],
       });
       await TestBed.inject(ApplicationInitStatus).donePromise;
@@ -224,9 +245,12 @@ describe('DashboardComponent', () => {
       TestBed.configureTestingModule({
         providers: [
           provideAppI18n(),
+          provideRouter([]),
+          routeFor(dashboard.id),
           provideWidget(fixtureDefinition({ type: 'fixture' }) as WidgetDefinition),
           { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
           { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
+          { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
         ],
       });
       await TestBed.inject(ApplicationInitStatus).donePromise;
@@ -451,6 +475,78 @@ describe('DashboardComponent', () => {
       document.body.click();
       fixture.detectChanges();
       expect(el.querySelector('[role="menu"]')).toBeNull();
+    });
+  });
+
+  describe('route', () => {
+    async function routed() {
+      const dashboards = new FakeDashboardRepository();
+      const instances = new FakeWidgetInstanceRepository();
+      const settings = new FakeSettingsRepository();
+      await dashboards.createIfNone({ name: 'Accueil' });
+      const second = await dashboards.create({ name: 'Autre' });
+      const first = dashboards.items[0];
+      const params = new BehaviorSubject(convertToParamMap({ id: first.id }));
+      TestBed.configureTestingModule({
+        providers: [
+          provideAppI18n(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { paramMap: params } },
+          provideWidget(fixtureDefinition({ type: 'fixture' }) as WidgetDefinition),
+          { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
+          { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
+          { provide: SETTINGS_REPOSITORY, useValue: settings },
+        ],
+      });
+      await TestBed.inject(ApplicationInitStatus).donePromise;
+      const fixture = TestBed.createComponent(DashboardComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      document.body.appendChild(fixture.nativeElement);
+      return { fixture, el: fixture.nativeElement as HTMLElement, params, first, second, settings };
+    }
+
+    it('opens the dashboard of the route, remembers it and follows the parameter', async () => {
+      const { fixture, el, params, first, second, settings } = await routed();
+      const store = TestBed.inject(DashboardStore);
+      await vi.waitFor(() => expect(store.dashboard()?.id).toBe(first.id));
+      await vi.waitFor(() => expect(settings.values.get(LAST_DASHBOARD_SETTING)).toBe(first.id));
+      params.next(convertToParamMap({ id: second.id }));
+      await vi.waitFor(() => expect(store.dashboard()?.id).toBe(second.id));
+      fixture.detectChanges();
+      await vi.waitFor(() => expect(settings.values.get(LAST_DASHBOARD_SETTING)).toBe(second.id));
+      expect(el.querySelector('h1')?.textContent).toBe('Autre');
+    });
+
+    it('goes back to the root when the id is unknown', async () => {
+      const { params } = await routed();
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      params.next(convertToParamMap({ id: 'missing' }));
+      await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/', { replaceUrl: true }));
+    });
+
+    it('does not take the focus when the dashboard changes', async () => {
+      const { fixture, params, second } = await routed();
+      const store = TestBed.inject(DashboardStore);
+      await vi.waitFor(() => expect(store.status()).toBe('ready'));
+      const outside = document.createElement('button');
+      document.body.appendChild(outside);
+      outside.focus();
+      params.next(convertToParamMap({ id: second.id }));
+      await vi.waitFor(() => expect(store.dashboard()?.id).toBe(second.id));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.activeElement).toBe(outside);
+      outside.remove();
+    });
+
+    it('closes the store when destroyed', async () => {
+      const { fixture } = await routed();
+      const store = TestBed.inject(DashboardStore);
+      await vi.waitFor(() => expect(store.status()).toBe('ready'));
+      fixture.destroy();
+      expect(store.status()).toBe('idle');
+      expect(store.dashboard()).toBeNull();
     });
   });
 });

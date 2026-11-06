@@ -1,5 +1,6 @@
 import { ApplicationInitStatus, Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { DASHBOARD_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
@@ -26,6 +27,7 @@ async function setup(definition: WidgetDefinition = fixtureDefinition() as Widge
   TestBed.configureTestingModule({
     providers: [
       provideAppI18n(),
+      provideRouter([]),
       provideWidget(definition),
       { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
       { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
@@ -33,12 +35,12 @@ async function setup(definition: WidgetDefinition = fixtureDefinition() as Widge
   });
   await TestBed.inject(ApplicationInitStatus).donePromise;
   const store = TestBed.inject(DashboardStore);
-  await store.load('Accueil');
+  await store.open(null, 'Accueil');
   const dashboardId = store.dashboard()?.id as string;
 
   async function render(partial: Partial<WidgetInstanceRecord>) {
     const record = instances.seed({ dashboardId, widgetType: 'fixture', ...partial });
-    await store.load('Accueil');
+    await store.open(null, 'Accueil');
     const fixture = TestBed.createComponent(TestHostComponent);
     fixture.componentInstance.instance = record;
     fixture.detectChanges();

@@ -12,12 +12,15 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Gridster, GridsterItem } from 'angular-gridster2';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import type { LayoutItem, WidgetInstanceRecord } from '../../data';
 import type { WidgetTypeId } from '../widgets/widget-definition';
 import { WidgetHostComponent } from '../widgets/widget-host.component';
 import { WidgetRegistry } from '../widgets/widget-registry';
+import { DashboardListStore } from './dashboard-list.store';
 import { DashboardStore } from './dashboard.store';
 import {
   buildGridOptions,
@@ -52,6 +55,9 @@ export class DashboardComponent {
   protected readonly store = inject(DashboardStore);
   protected readonly registry = inject(WidgetRegistry);
   private readonly transloco = inject(TranslocoService);
+  private readonly list = inject(DashboardListStore);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
   private readonly menuRoot = viewChild<ElementRef<HTMLElement>>('menuRoot');
   private readonly menuTrigger = viewChild<ElementRef<HTMLButtonElement>>('menuTrigger');
@@ -118,15 +124,19 @@ export class DashboardComponent {
   constructor() {
     // A widget was removed (its host is destroyed with the focus on it): keep the focus in the
     // page by moving it to the add-widget button.
+    // Not after a change of dashboard: the count then drops with the session, not by a removal.
     let previousCount = 0;
+    let previousSession = this.store.session();
     effect(() => {
       const count = this.store.instances().length;
-      if (count < previousCount) {
+      const session = this.store.session();
+      if (session === previousSession && count < previousCount) {
         afterNextRender(() => this.menuTrigger()?.nativeElement.focus(), {
           injector: this.injector,
         });
       }
       previousCount = count;
+      previousSession = session;
     });
     // Gridster only listens to window.resize: a banner changing the area height needs a nudge.
     effect((onCleanup) => {
@@ -136,8 +146,30 @@ export class DashboardComponent {
       observer.observe(area);
       onCleanup(() => observer.disconnect());
     });
-    this.destroyRef.onDestroy(() => this.flushLayout());
-    void this.store.load(this.transloco.translate('dashboard.defaultName'));
+    this.destroyRef.onDestroy(() => {
+      this.flushLayout();
+      this.store.close();
+    });
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      void this.openDashboard(params.get('id'));
+    });
+  }
+
+  /** Hidden title (h1): the name known by the list, which follows a rename. */
+  protected readonly title = computed(() => {
+    const current = this.store.dashboard();
+    if (!current) return '';
+    return this.list.dashboards().find((d) => d.id === current.id)?.name ?? current.name;
+  });
+
+  private async openDashboard(id: string | null): Promise<void> {
+    this.flushLayout();
+    const outcome = await this.store.open(id, this.transloco.translate('dashboard.defaultName'));
+    if (outcome === 'not-found') {
+      await this.router.navigateByUrl('/', { replaceUrl: true });
+    } else if (outcome === 'ready' && id !== null) {
+      this.list.rememberOpened(id);
+    }
   }
 
   protected toggleMenu(): void {
