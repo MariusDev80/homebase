@@ -102,4 +102,33 @@ mod tests {
         assert_eq!(preload.len(), 1);
         assert_eq!(preload[0].as_str(), Some(DB_URL));
     }
+
+    #[test]
+    fn dev_conf_only_overrides_identifier_and_product_name() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let read = |name: &str| -> serde_json::Value {
+            let text = fs::read_to_string(root.join(name)).expect(name);
+            serde_json::from_str(&text).expect("valid json")
+        };
+        let real = read("tauri.conf.json");
+        let dev = read("tauri.dev.conf.json");
+        let obj = dev.as_object().expect("dev conf is an object");
+        let mut keys: Vec<&str> = obj.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["identifier", "productName"]);
+        assert_eq!(
+            dev["identifier"].as_str().expect("identifier"),
+            format!("{}.dev", real["identifier"].as_str().expect("identifier"))
+        );
+        assert_eq!(
+            dev["productName"].as_str().expect("productName"),
+            format!("{} Dev", real["productName"].as_str().expect("productName"))
+        );
+
+        let package = fs::read_to_string(root.join("../../../package.json")).expect("package.json");
+        let package: serde_json::Value = serde_json::from_str(&package).expect("valid json");
+        let script = package["scripts"]["dev"].as_str().expect("dev script");
+        assert!(script.contains("--config"));
+        assert!(script.contains("tauri.dev.conf.json"));
+    }
 }
