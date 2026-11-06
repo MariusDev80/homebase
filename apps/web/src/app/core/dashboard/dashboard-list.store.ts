@@ -122,6 +122,11 @@ export class DashboardListStore {
     return this.pendingWrites.flushAll();
   }
 
+  /** Drops a deleted dashboard from the local list when rereading it failed. */
+  forget(id: string): void {
+    this.dashboardsState.update((list) => list.filter((d) => d.id !== id));
+  }
+
   /** After the successful deletion (or a `not_found`): rereads the list. */
   async afterRemoval(): Promise<void> {
     this.dashboardsState.set(await this.repository.list());

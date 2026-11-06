@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { NavigationError, Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { provideAppI18n } from './core/i18n';
+import { AppLock } from './core/lock';
 import { LAST_DASHBOARD_SETTING } from './core/dashboard/dashboard-list.store';
 import { FakeDashboardRepository } from './core/testing/fake-dashboard.repository';
 import { FakeSettingsRepository } from './core/testing/fake-settings.repository';
@@ -94,6 +95,22 @@ describe('routes', () => {
     });
     expect(failures).toEqual([]);
     expect(TestBed.inject(Router).url).toBe('/');
+  });
+
+  it('refuses the navigation away from a dashboard under AppLock', async () => {
+    await dashboards().createIfNone({ name: 'Accueil' });
+    await dashboards().create({ name: 'Autre' });
+    await RouterTestingHarness.create('/dashboards/dashboard-1');
+    const router = TestBed.inject(Router);
+    expect(router.url).toBe('/dashboards/dashboard-1');
+    const lock = TestBed.inject(AppLock);
+    lock.lock('delete');
+    expect(await router.navigateByUrl('/dashboards/dashboard-2')).toBe(false);
+    expect(router.url).toBe('/dashboards/dashboard-1');
+    expect(await router.navigateByUrl('/settings')).toBe(false);
+    lock.unlock();
+    await router.navigateByUrl('/settings');
+    expect(router.url).toBe('/settings');
   });
 
   it('serves the settings page', async () => {

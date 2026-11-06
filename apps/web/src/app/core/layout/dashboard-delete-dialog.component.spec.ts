@@ -30,6 +30,7 @@ describe('DashboardDeleteDialogComponent', () => {
   let deleteDashboard: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.spyOn>;
   let lockedDuringDelete: boolean[];
+  let lockedAtNavigate: boolean[];
 
   async function open(options: { widgets?: number; viewed?: 'target' | 'none' } = {}) {
     repository = new FakeDashboardRepository();
@@ -40,6 +41,7 @@ describe('DashboardDeleteDialogComponent', () => {
     for (let i = 0; i < (options.widgets ?? 2); i++) instances.seed({ dashboardId: target.id });
     events = [];
     lockedDuringDelete = [];
+    lockedAtNavigate = [];
     deleteDashboard = vi.fn(() => {
       events.push('delete');
       lockedDuringDelete.push(lock.isLocked());
@@ -66,6 +68,7 @@ describe('DashboardDeleteDialogComponent', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockImplementation(() => {
       events.push('navigate');
+      lockedAtNavigate.push(lock.isLocked());
       return Promise.resolve(true);
     });
     vi.spyOn(list, 'prepareRemoval').mockImplementation(() => {
@@ -191,7 +194,43 @@ describe('DashboardDeleteDialogComponent', () => {
     await confirm();
     expect(navigate).toHaveBeenCalledWith(['/dashboards', repository.items[1]?.id]);
     expect(events).toEqual(['navigate', 'prepare', 'delete']);
+    expect(lockedAtNavigate).toEqual([false]);
     expect(closed).toEqual([true]);
+  });
+
+  it('navigates away first when the URL shows the dashboard but the store is empty', async () => {
+    await open();
+    const target = repository.items[0] as Dashboard;
+    await TestBed.inject(Router).navigateByUrl(`/dashboards/${target.id}`);
+    await acknowledge();
+    await confirm();
+    expect(navigate).toHaveBeenCalledWith(['/dashboards', repository.items[1]?.id]);
+    expect(lockedAtNavigate).toEqual([false]);
+    expect(closed).toEqual([true]);
+  });
+
+  it('forgets the dashboard and closes when only the reread fails after the deletion', async () => {
+    await open();
+    vi.spyOn(list, 'afterRemoval').mockRejectedValue(new Error('reread'));
+    await acknowledge();
+    await confirm();
+    expect(errorText()).toBeUndefined();
+    expect(closed).toEqual([true]);
+    expect(lock.isLocked()).toBe(false);
+    expect(list.dashboards().map((d) => d.name)).toEqual(['Pro']);
+  });
+
+  it('shows the generic message for restart_pending', async () => {
+    await open();
+    fail({ kind: 'restart_pending' });
+    await acknowledge();
+    await confirm();
+    expect(errorText()).toContain('Rien n');
+  });
+
+  it('shows the singular warning for one widget', async () => {
+    await open({ widgets: 1 });
+    expect(q('dashboard-delete-warning')?.textContent).toContain('Son widget');
   });
 
   it('does not navigate for another dashboard', async () => {
@@ -248,7 +287,7 @@ describe('DashboardDeleteDialogComponent', () => {
     expect(errorText()).toBeDefined();
   });
 
-  it('ignores Escape while deleting and closes on Escape at rest', async () => {
+  it('closes on Escape at rest', async () => {
     await open();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(closed).toEqual([false]);

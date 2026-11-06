@@ -106,11 +106,12 @@ const BACKUP_KEYS = [
   'configTransfer.removedWidgets',
   'configTransfer.confirm',
 ];
-const KINDS = ['manual', 'daily', 'pre-migration', 'pre-restore', 'pre-import'];
+const KINDS = ['manual', 'daily', 'pre-migration', 'pre-restore', 'pre-import', 'pre-delete'];
 const ERROR_KINDS = [
   'busy',
   'restart_pending',
   'not_found',
+  'last_dashboard',
   'invalid_id',
   'no_database',
   'too_large',

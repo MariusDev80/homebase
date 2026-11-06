@@ -1,5 +1,5 @@
 use super::create::create_backup;
-use super::dashboard_delete::delete_dashboard;
+use super::dashboard_delete::{delete_dashboard, delete_row};
 use super::error::BackupError;
 use super::list::list_backups;
 use super::names::{BackupKind, BackupName};
@@ -121,7 +121,12 @@ fn backup_failure_cancels_the_deletion() {
     fs::create_dir_all(state.root.backups()).expect("dir");
     fs::write(state.root.backups().join(&name), b"x").expect("write");
     let result = run(delete_dashboard(&state, OTHER));
-    assert!(result.is_err(), "{result:?}");
+    assert_eq!(
+        result,
+        Err(BackupError::Io {
+            code: "AlreadyExists".into()
+        })
+    );
     assert_eq!(count(&state.root, "dashboards"), 2);
     assert_eq!(count(&state.root, "todos"), 1);
     assert_eq!(
@@ -212,4 +217,50 @@ fn sixth_safety_backup_evicts_the_oldest_of_any_safety_type() {
     assert_eq!(list.len(), 5);
     assert!(list.iter().all(|b| b.id != ids[0]));
     assert!(list.iter().any(|b| b.kind == BackupKind::PreDelete));
+}
+
+#[test]
+fn delete_row_refuses_the_last_dashboard_itself() {
+    let (_d, state, _c) = setup(false);
+    assert_eq!(run(delete_row(&state.root.db(), HOME)).expect("ran"), 0);
+    assert_eq!(count(&state.root, "dashboards"), 1);
+}
+
+#[test]
+fn missing_database_is_reported() {
+    let (_d, state, _c) = setup(true);
+    fs::remove_file(state.root.db()).expect("remove");
+    assert_eq!(
+        run(delete_dashboard(&state, OTHER)),
+        Err(BackupError::NoDatabase)
+    );
+}
+
+#[test]
+fn archive_snapshot_still_holds_the_deleted_rows() {
+    let (_d, state, _c) = setup(true);
+    run(delete_dashboard(&state, OTHER)).expect("delete");
+    let info = list_backups(&state.root).remove(0);
+    let file = fs::File::open(state.root.backups().join(&info.id)).expect("open");
+    let mut zip = zip::ZipArchive::new(file).expect("zip");
+    let out = state.root.backups_tmp().join("check.db");
+    fs::create_dir_all(state.root.backups_tmp()).expect("dir");
+    let mut db = zip.by_name("homebase.db").expect("db entry");
+    std::io::copy(&mut db, &mut fs::File::create(&out).expect("create")).expect("copy");
+    drop(db);
+    let found: (i64, i64) = run(async {
+        let options = SqliteConnectOptions::new().filename(&out).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let row = sqlx::query_as(&format!(
+            "SELECT (SELECT COUNT(*) FROM dashboards WHERE id = '{OTHER}'), (SELECT COUNT(*) FROM todos WHERE id = '{TODO}')"
+        ))
+        .fetch_one(&mut conn)
+        .await
+        .expect("row");
+        conn.close().await.expect("close");
+        row
+    });
+    assert_eq!(found, (1, 1));
 }

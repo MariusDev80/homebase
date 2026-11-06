@@ -1,7 +1,7 @@
 //! `dashboard_delete`: removes one dashboard after a `pre-delete` backup (spec dashboards-sidebar
 //! 4.8). Refusals decided in advance (absent, last, busy) never create an archive.
 
-use super::create::create_backup;
+use super::create::{blocking, create_backup};
 use super::error::BackupError;
 use super::names::{is_uuid_shape, BackupKind};
 use super::BackupState;
@@ -11,6 +11,10 @@ use std::path::Path;
 use std::time::Duration;
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn read_options(db: &Path) -> SqliteConnectOptions {
+    options(db).read_only(true)
+}
 
 fn options(db: &Path) -> SqliteConnectOptions {
     SqliteConnectOptions::new()
@@ -23,7 +27,7 @@ fn options(db: &Path) -> SqliteConnectOptions {
 
 /// Counts `(rows with this id, all rows)` of `dashboards`.
 async fn count_dashboards(db: &Path, id: &str) -> Result<(i64, i64), BackupError> {
-    let mut conn = SqliteConnection::connect_with(&options(db)).await?;
+    let mut conn = SqliteConnection::connect_with(&read_options(db)).await?;
     let result = sqlx::query_as::<_, (i64, i64)>(
         "SELECT (SELECT COUNT(*) FROM dashboards WHERE id = ?1), (SELECT COUNT(*) FROM dashboards)",
     )
@@ -36,7 +40,7 @@ async fn count_dashboards(db: &Path, id: &str) -> Result<(i64, i64), BackupError
     Ok(result?)
 }
 
-async fn delete_row(db: &Path, id: &str) -> Result<u64, BackupError> {
+pub(super) async fn delete_row(db: &Path, id: &str) -> Result<u64, BackupError> {
     let mut conn = SqliteConnection::connect_with(&options(db)).await?;
     let result = sqlx::query(
         "DELETE FROM dashboards WHERE id = ?1 AND EXISTS (SELECT 1 FROM dashboards WHERE id <> ?1)",
@@ -59,6 +63,13 @@ pub async fn delete_dashboard(state: &BackupState, id: &str) -> Result<(), Backu
     }
     let _guard = state.try_acquire()?;
     let db = state.root.db();
+    let present = {
+        let db = db.clone();
+        blocking(move || db.is_file()).await?
+    };
+    if !present {
+        return Err(BackupError::NoDatabase);
+    }
     let (found, total) = count_dashboards(&db, id).await?;
     if found == 0 {
         return Err(BackupError::NotFound);
@@ -74,7 +85,13 @@ pub async fn delete_dashboard(state: &BackupState, id: &str) -> Result<(), Backu
     )
     .await?;
     if delete_row(&db, id).await? == 0 {
-        return Err(BackupError::NotFound);
+        // The guard refused: the dashboard still exists only if it became the last one.
+        let (still, _) = count_dashboards(&db, id).await?;
+        return Err(if still > 0 {
+            BackupError::LastDashboard
+        } else {
+            BackupError::NotFound
+        });
     }
     Ok(())
 }

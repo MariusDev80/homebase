@@ -37,7 +37,7 @@ describe('LayoutComponent', () => {
     delete (globalThis as Record<string, unknown>)['__TAURI_INTERNALS__'];
   });
 
-  it.each(['restore', 'import'] as const)(
+  it.each(['restore', 'import', 'delete'] as const)(
     'freezes the sidebar and the page and shows the status overlay during a %s',
     async (kind) => {
       const el = await render();
@@ -55,7 +55,11 @@ describe('LayoutComponent', () => {
       expect(el.querySelector('[data-testid="app-lock-status"]')).toBe(region);
       expect(region?.closest('[inert]')).toBeNull();
       expect(region?.textContent).toContain(
-        kind === 'restore' ? 'Restauration en cours' : 'Opération en cours',
+        {
+          restore: 'Restauration en cours',
+          import: 'Opération en cours',
+          delete: 'Suppression du tableau en cours',
+        }[kind],
       );
 
       lock.unlock();

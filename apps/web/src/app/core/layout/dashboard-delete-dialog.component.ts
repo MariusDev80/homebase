@@ -56,7 +56,10 @@ import { AppLock } from '../lock/app-lock';
             @if (widgetCount() === 0) {
               {{ 'dashboards.remove.warningEmpty' | transloco }}
             } @else {
-              {{ 'dashboards.remove.warning' | transloco: { count: widgetCount() } }}
+              {{
+                (widgetCount() === 1 ? 'dashboards.remove.warningOne' : 'dashboards.remove.warning')
+                  | transloco: { count: widgetCount() }
+              }}
             }
           </p>
           <p data-testid="dashboard-delete-safety">
@@ -168,6 +171,13 @@ export class DashboardDeleteDialogComponent {
     return (sorted[index + 1] ?? sorted[index - 1])?.id ?? null;
   }
 
+  /** The store is empty while a dashboard loads or failed: the URL tells which one is shown. */
+  private isCurrent(id: string): boolean {
+    if (this.store.dashboard()?.id === id) return true;
+    const path = this.router.url.split(/[?#]/)[0];
+    return path === `/dashboards/${id}`;
+  }
+
   protected async confirm(): Promise<void> {
     if (!this.canConfirm()) return;
     const id = this.dashboard().id;
@@ -176,7 +186,7 @@ export class DashboardDeleteDialogComponent {
     let deleted = false;
     try {
       // 1. Leave the dashboard before the lock (the navigation is refused once it is taken).
-      if (this.store.dashboard()?.id === id) {
+      if (this.isCurrent(id)) {
         const target = this.neighbourId(id);
         let navigated = false;
         try {
@@ -202,7 +212,13 @@ export class DashboardDeleteDialogComponent {
           }
           // Already deleted: the list is reread below.
         }
-        await this.list.afterRemoval();
+        try {
+          await this.list.afterRemoval();
+        } catch (error: unknown) {
+          // The dashboard is gone; only the reread failed: forget it locally and carry on.
+          console.error('Could not reread the dashboards after the deletion', error);
+          this.list.forget(id);
+        }
         deleted = true;
       } catch (error: unknown) {
         console.error('Could not delete the dashboard', error);
@@ -222,7 +238,6 @@ export class DashboardDeleteDialogComponent {
       case 'last_dashboard':
         return 'dashboards.remove.last';
       case 'busy':
-      case 'restart_pending':
         return 'dashboards.remove.busy';
       case 'unavailable':
         return 'dashboards.remove.unavailable';

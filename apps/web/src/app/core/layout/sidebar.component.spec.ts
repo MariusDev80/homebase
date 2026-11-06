@@ -1,5 +1,6 @@
 import { ApplicationInitStatus } from '@angular/core';
 import { ComponentFixture, DeferBlockBehavior, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { DASHBOARD_REPOSITORY, SETTINGS_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import { DashboardListStore, MAX_DASHBOARDS } from '../dashboard/dashboard-list.store';
@@ -8,6 +9,7 @@ import { provideAppI18n } from '../i18n';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeSettingsRepository } from '../testing/fake-settings.repository';
 import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
+import { DashboardDeleteDialogComponent } from './dashboard-delete-dialog.component';
 import { SidebarComponent } from './sidebar.component';
 
 function rect(top: number, height = 40, left = 8): DOMRect {
@@ -319,6 +321,41 @@ describe('SidebarComponent', () => {
       expect(document.activeElement).toBe(remove);
       press('Home');
       expect(document.activeElement).toBe(edit);
+    });
+
+    it('opens the deletion dialog from "Supprimer…" and gives the focus back on cancel', async () => {
+      const bubble = bubbles()[1] as HTMLElement;
+      await rightClick(bubble);
+      menuItems()[1]?.click();
+      await flush();
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(document.querySelector('[data-testid="dashboard-delete-dialog"]')).not.toBeNull();
+      });
+      expect(menu()).toBeNull();
+      (
+        document.querySelector('[data-testid="dashboard-delete-cancel"]') as HTMLButtonElement
+      ).click();
+      await flush();
+      await vi.waitFor(() => expect(document.activeElement).toBe(bubble));
+      expect(document.querySelector('[data-testid="dashboard-delete-dialog"]')).toBeNull();
+    });
+
+    it('focuses the + bubble after a deletion when no bubble is active', async () => {
+      await rightClick(bubbles()[1] as HTMLElement);
+      menuItems()[1]?.click();
+      await flush();
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(
+          fixture.debugElement.query(By.directive(DashboardDeleteDialogComponent)),
+        ).toBeTruthy();
+      });
+      fixture.debugElement
+        .query(By.directive(DashboardDeleteDialogComponent))
+        .componentInstance.closed.emit(true);
+      await flush();
+      await vi.waitFor(() => expect(document.activeElement).toBe(addButton()));
     });
 
     it('labels the removal as impossible for the last dashboard', async () => {

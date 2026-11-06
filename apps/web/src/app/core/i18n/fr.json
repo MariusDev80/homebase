@@ -294,6 +294,7 @@
     "remove": {
       "header": "Supprimer le tableau de bord",
       "question": "Supprimer le tableau « {{ name }} » ?",
+      "warningOne": "Son widget, ainsi que les notes et les tâches qu'il contient, sera supprimé définitivement. Les raccourcis sont conservés.",
       "warning": "Ses {{ count }} widgets, ainsi que les notes et les tâches qu'ils contiennent, seront supprimés définitivement. Les raccourcis sont conservés.",
       "warningEmpty": "Ce tableau est vide. Les raccourcis sont conservés.",
       "safety": "Une sauvegarde de sécurité de la base est faite juste avant la suppression.",
