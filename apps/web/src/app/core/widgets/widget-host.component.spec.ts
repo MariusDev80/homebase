@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { DASHBOARD_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { WidgetAddFlow } from '../dashboard/widget-add-flow';
 import { WidgetFocus } from '../dashboard/widget-focus';
 import { provideAppI18n } from '../i18n';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
@@ -123,6 +124,47 @@ describe('WidgetHostComponent', () => {
     expect(remove).not.toHaveBeenCalled();
     (await confirmDialogButton(fixture, 'Supprimer')).click();
     await vi.waitFor(() => expect(remove).toHaveBeenCalledWith(record.id));
+  });
+
+  it('gives the focus to the add button trigger after a removal, not after a failure', async () => {
+    const { render, instances } = await setup();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const focus = vi.fn();
+    TestBed.inject(WidgetAddFlow).registerTrigger(focus);
+    const { fixture, el } = await render({ config: { label: 'x' } });
+    instances.failNext(new Error('db down'));
+    (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    (await confirmDialogButton(fixture, 'Supprimer')).click();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="widget-action-error"]')).not.toBeNull();
+    });
+    expect(focus).not.toHaveBeenCalled();
+    (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    (await confirmDialogButton(fixture, 'Supprimer')).click();
+    await vi.waitFor(() => expect(focus).toHaveBeenCalledTimes(1));
+  });
+
+  it('highlights the widget just added (isNew) until the add is finished', async () => {
+    const { render, store } = await setup();
+    const flow = TestBed.inject(WidgetAddFlow);
+    const { el: otherEl } = await render({ config: { label: 'x' } });
+    flow.open();
+    await flow.pick('fixture');
+    const added = store.instances().find((i) => i.id === flow.newInstanceId());
+    expect(added).toBeDefined();
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.instance = added as WidgetInstanceRecord;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const card = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="widget-card"]',
+    ) as HTMLElement;
+    expect(card.classList.contains('is-highlighted')).toBe(true);
+    expect(otherEl.querySelector('.is-highlighted')).toBeNull();
+    flow.finish();
+    fixture.detectChanges();
+    expect(card.classList.contains('is-highlighted')).toBe(false);
   });
 
   it('uses the definition removeConfirmKey as confirmation message', async () => {

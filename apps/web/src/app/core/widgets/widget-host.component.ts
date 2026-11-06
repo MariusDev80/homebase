@@ -21,6 +21,7 @@ import { ConfirmDialog } from 'primeng/confirmdialog';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
 import { DRAG_HANDLE_CLASS } from '../dashboard/grid-adapter';
+import { WidgetAddFlow } from '../dashboard/widget-add-flow';
 import { WidgetFocus } from '../dashboard/widget-focus';
 import { clampGrid } from './grid';
 import { resolveConfig } from './widget-config';
@@ -61,10 +62,13 @@ export class WidgetHostComponent {
   private readonly confirmation = inject(ConfirmationService);
   private readonly transloco = inject(TranslocoService);
   private readonly widgetFocus = inject(WidgetFocus);
+  private readonly addFlow = inject(WidgetAddFlow);
   private readonly section = viewChild<ElementRef<HTMLElement>>('section');
 
   /** Brief highlight after a focus request (see WidgetFocus). */
   protected readonly highlighted = signal(false);
+  /** The widget just added, while the blue V is shown. */
+  protected readonly isNew = computed(() => this.addFlow.newInstanceId() === this.instance().id);
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly state = signal<WidgetHostState>({ kind: 'loading' });
@@ -197,23 +201,31 @@ export class WidgetHostComponent {
       // Cancel button + Escape are enough: no unlabeled close icon.
       closable: false,
       // Cancel/Escape: focus goes back to the trash button. On accept the host is destroyed;
-      // the dashboard then moves the focus to its add-widget button.
+      // the focus then goes to the add-widget button of the sidebar.
       reject: () => this.removeButton()?.nativeElement.focus(),
-      accept: () => void this.runAction(() => this.store.remove(this.instance().id)),
+      accept: () => void this.removeInstance(),
     });
   }
 
-  protected reset(): Promise<void> {
-    return this.runAction(() => this.store.resetConfig(this.instance().id));
+  protected async reset(): Promise<void> {
+    await this.runAction(() => this.store.resetConfig(this.instance().id));
   }
 
-  private async runAction(action: () => Promise<void>): Promise<void> {
+  /** Removes the widget, then hands the focus to the add-widget button of the sidebar. */
+  private async removeInstance(): Promise<void> {
+    const removed = await this.runAction(() => this.store.remove(this.instance().id));
+    if (removed) this.addFlow.focusTrigger();
+  }
+
+  private async runAction(action: () => Promise<void>): Promise<boolean> {
     this.actionFailed.set(false);
     try {
       await action();
+      return true;
     } catch (error: unknown) {
       console.error('Widget action failed', error);
       this.actionFailed.set(true);
+      return false;
     }
   }
 }

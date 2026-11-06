@@ -5,6 +5,10 @@ import { Router, provideRouter } from '@angular/router';
 import { DASHBOARD_REPOSITORY, SETTINGS_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import { DashboardListStore, MAX_DASHBOARDS } from '../dashboard/dashboard-list.store';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { WidgetAddFlow } from '../dashboard/widget-add-flow';
+import { fixtureDefinition } from '../testing/fixture-definitions';
+import type { WidgetDefinition } from '../widgets/widget-definition';
+import { provideWidget } from '../widgets/widget-registry';
 import { provideAppI18n } from '../i18n';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeSettingsRepository } from '../testing/fake-settings.repository';
@@ -32,7 +36,10 @@ describe('SidebarComponent', () => {
   let repository: FakeDashboardRepository;
   let list: DashboardListStore;
 
-  async function setup(seed: readonly { name: string; icon?: string }[] = [{ name: 'Accueil' }]) {
+  async function setup(
+    seed: readonly { name: string; icon?: string }[] = [{ name: 'Accueil' }],
+    definitions: readonly WidgetDefinition[] = [],
+  ) {
     repository = new FakeDashboardRepository();
     for (const item of seed) await repository.create(item);
     TestBed.configureTestingModule({
@@ -40,6 +47,7 @@ describe('SidebarComponent', () => {
       deferBlockBehavior: DeferBlockBehavior.Playthrough,
       providers: [
         provideAppI18n(),
+        ...definitions.map((d) => provideWidget(d)),
         provideRouter([{ path: '**', children: [] }]),
         { provide: DASHBOARD_REPOSITORY, useValue: repository },
         { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
@@ -477,6 +485,106 @@ describe('SidebarComponent', () => {
       await flush();
       expect(bubbles()[1]?.getAttribute('aria-label')).toBe('Travail');
       await vi.waitFor(() => expect(document.activeElement).toBe(bubbles()[1]));
+    });
+  });
+
+  describe('add widget button (green +, blue V)', () => {
+    const widgetButton = (): HTMLButtonElement =>
+      el.querySelector<HTMLButtonElement>('[data-testid="add-widget"]') as HTMLButtonElement;
+    const icon = (): string => widgetButton().querySelector('i')?.className ?? '';
+    let flow: WidgetAddFlow;
+    let store: DashboardStore;
+
+    beforeEach(async () => {
+      await setup([{ name: 'Accueil' }], [fixtureDefinition({ type: 'aa' }) as WidgetDefinition]);
+      flow = TestBed.inject(WidgetAddFlow);
+      store = TestBed.inject(DashboardStore);
+    });
+
+    it('is aria-disabled and inert outside a dashboard', async () => {
+      expect(widgetButton().getAttribute('aria-disabled')).toBe('true');
+      expect(widgetButton().getAttribute('aria-label')).toBe(
+        'Ouvrez un tableau de bord pour ajouter un widget',
+      );
+      expect(widgetButton().disabled).toBe(false);
+      widgetButton().click();
+      await flush();
+      expect(flow.phase()).toBe('unavailable');
+      expect(dialog()).toBeNull();
+    });
+
+    it('shows a green + that opens the pop-up, separate from the neutral + of dashboards', async () => {
+      await store.open(null, 'Accueil');
+      await flush();
+      expect(widgetButton()).not.toBe(addButton());
+      expect(widgetButton().classList.contains('sidebar-bubble-add')).toBe(true);
+      expect(widgetButton().classList.contains('sidebar-bubble-done')).toBe(false);
+      expect(icon()).toBe('pi pi-plus');
+      expect(widgetButton().getAttribute('aria-haspopup')).toBe('dialog');
+      expect(widgetButton().getAttribute('aria-disabled')).toBeNull();
+      expect(widgetButton().getAttribute('aria-label')).toBe('Ajouter un widget');
+      widgetButton().click();
+      await flush();
+      expect(flow.phase()).toBe('choosing');
+      expect(widgetButton().getAttribute('aria-expanded')).toBe('true');
+      expect(document.querySelector('[data-testid="add-aa"]')).not.toBeNull();
+    });
+
+    it('turns blue with a V after a pick, on the same button node, and the V ends the add', async () => {
+      await store.open(null, 'Accueil');
+      await flush();
+      const node = widgetButton();
+      node.click();
+      await flush();
+      document.querySelector<HTMLButtonElement>('[data-testid="add-aa"]')?.click();
+      await vi.waitFor(() => expect(flow.phase()).toBe('confirming'));
+      await flush();
+      expect(widgetButton()).toBe(node);
+      expect(node.classList.contains('sidebar-bubble-done')).toBe(true);
+      expect(node.classList.contains('sidebar-bubble-add')).toBe(false);
+      expect(icon()).toBe('pi pi-check');
+      expect(node.getAttribute('aria-label')).toBe("Terminer l'ajout du widget");
+      expect(el.querySelector('[data-testid="sidebar-status"]')?.textContent).toContain('ajouté');
+      expect(document.querySelector('[data-testid="widget-picker-dialog"]')).toBeNull();
+      await vi.waitFor(() => expect(document.activeElement).toBe(node));
+      node.click();
+      await flush();
+      expect(flow.phase()).toBe('idle');
+      expect(widgetButton()).toBe(node);
+      expect(node.classList.contains('sidebar-bubble-add')).toBe(true);
+      expect(icon()).toBe('pi pi-plus');
+      // The V created, cancelled and removed nothing.
+      expect(store.instances()).toHaveLength(1);
+    });
+
+    it('Escape on the V ends the add', async () => {
+      await store.open(null, 'Accueil');
+      flow.open();
+      await flow.pick('aa');
+      await flush();
+      widgetButton().focus();
+      widgetButton().dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+      await flush();
+      expect(flow.phase()).toBe('idle');
+      expect(store.instances()).toHaveLength(1);
+    });
+
+    it('Escape on the + does nothing', async () => {
+      await store.open(null, 'Accueil');
+      await flush();
+      widgetButton().focus();
+      widgetButton().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await flush();
+      expect(flow.phase()).toBe('idle');
+    });
+
+    it('registers itself as the focus trigger', async () => {
+      await store.open(null, 'Accueil');
+      await flush();
+      flow.focusTrigger();
+      expect(document.activeElement).toBe(widgetButton());
     });
   });
 });

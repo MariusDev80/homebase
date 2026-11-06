@@ -3,7 +3,7 @@
   class="box h-full"
   tabindex="-1"
   data-testid="widget-card"
-  [class.is-highlighted]="highlighted()"
+  [class.is-highlighted]="highlighted() || isNew()"
 >
   <header class="box-header">
     @if (editing()) {

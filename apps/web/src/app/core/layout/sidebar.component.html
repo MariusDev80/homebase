@@ -55,6 +55,33 @@
 
   <ul class="sidebar-group">
     <li>
+      <button
+        #addWidgetButton
+        type="button"
+        class="sidebar-bubble"
+        [class.sidebar-bubble-add]="flow.phase() !== 'confirming'"
+        [class.sidebar-bubble-done]="flow.phase() === 'confirming'"
+        data-testid="add-widget"
+        [attr.aria-haspopup]="
+          flow.phase() === 'idle' || flow.phase() === 'choosing' ? 'dialog' : null
+        "
+        [attr.aria-expanded]="flow.phase() === 'choosing' ? 'true' : null"
+        [attr.aria-disabled]="flow.phase() === 'unavailable' ? 'true' : null"
+        [attr.aria-label]="widgetLabelKey() | transloco"
+        (click)="onWidgetButton()"
+        (keydown.escape)="onWidgetEscape($event)"
+        (mouseenter)="showLabel($event, widgetLabelKey())"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, widgetLabelKey())"
+        (focusout)="hideLabel()"
+      >
+        <i
+          [class]="flow.phase() === 'confirming' ? 'pi pi-check' : 'pi pi-plus'"
+          aria-hidden="true"
+        ></i>
+      </button>
+    </li>
+    <li>
       <a
         routerLink="/settings"
         routerLinkActive=""
@@ -136,6 +163,12 @@
 @if (form(); as f) {
   @defer (on immediate) {
     <app-dashboard-form-dialog [dashboard]="f.dashboard" (closed)="onFormClosed($event)" />
+  }
+}
+
+@if (flow.phase() === 'choosing') {
+  @defer (on immediate) {
+    <app-widget-picker-dialog />
   }
 }
 

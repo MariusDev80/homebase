@@ -265,7 +265,15 @@
     "defaultName": "Accueil",
     "loadError": "Impossible de charger le tableau de bord.",
     "addWidget": "Ajouter un widget",
-    "empty": "Aucun widget pour l'instant.",
+    "addWidgetUnavailable": "Ouvrez un tableau de bord pour ajouter un widget",
+    "finishAdd": "Terminer l'ajout du widget",
+    "widgetAdded": "Widget {{ title }} ajouté. Le bouton Terminer l'ajout est actif.",
+    "empty": "Aucun widget pour l'instant. Utilisez le bouton vert pour en ajouter un.",
+    "picker": {
+      "cancel": "Annuler",
+      "limitReached": "Déjà présent sur ce tableau",
+      "noRoom": "Plus assez de place"
+    },
     "gridFull": "La grille est pleine : supprimez ou réduisez un widget, ou créez un autre tableau.",
     "unplaced": "{{ count }} widget(s) ne tiennent pas sur ce tableau : {{ names }}.",
     "addError": "Impossible d'ajouter ce widget.",

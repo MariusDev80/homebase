@@ -4,11 +4,9 @@ import {
   DestroyRef,
   ElementRef,
   ViewEncapsulation,
-  afterNextRender,
   computed,
   effect,
   inject,
-  Injector,
   signal,
   viewChild,
 } from '@angular/core';
@@ -17,7 +15,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Gridster, GridsterItem } from 'angular-gridster2';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import type { LayoutItem, WidgetInstanceRecord } from '../../data';
-import type { WidgetTypeId } from '../widgets/widget-definition';
 import { WidgetHostComponent } from '../widgets/widget-host.component';
 import { WidgetRegistry } from '../widgets/widget-registry';
 import { DashboardLimitError, DashboardListStore } from './dashboard-list.store';
@@ -49,8 +46,6 @@ interface GridEntry {
   encapsulation: ViewEncapsulation.None,
   host: {
     class: 'flex min-h-0 flex-1 flex-col',
-    '(document:click)': 'onDocumentClick($event)',
-    '(keydown)': 'onMenuKeydown($event)',
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -61,15 +56,9 @@ export class DashboardComponent {
   private readonly list = inject(DashboardListStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly injector = inject(Injector);
-  private readonly menuRoot = viewChild<ElementRef<HTMLElement>>('menuRoot');
-  private readonly menuTrigger = viewChild<ElementRef<HTMLButtonElement>>('menuTrigger');
   private readonly gridster = viewChild(Gridster);
   private readonly gridArea = viewChild<ElementRef<HTMLElement>>('gridArea');
 
-  protected readonly adding = signal(false);
-  protected readonly menuOpen = signal(false);
-  protected readonly addFailed = signal(false);
   /** Move of the widgets without room to a new dashboard: running, and the key of its error. */
   protected readonly moving = signal(false);
   protected readonly moveErrorKey = signal<string | null>(null);
@@ -128,22 +117,6 @@ export class DashboardComponent {
   });
 
   constructor() {
-    // A widget was removed (its host is destroyed with the focus on it): keep the focus in the
-    // page by moving it to the add-widget button.
-    // Not after a change of dashboard: the count then drops with the session, not by a removal.
-    let previousCount = 0;
-    let previousSession = this.store.session();
-    effect(() => {
-      const count = this.store.instances().length;
-      const session = this.store.session();
-      if (session === previousSession && count < previousCount) {
-        afterNextRender(() => this.menuTrigger()?.nativeElement.focus(), {
-          injector: this.injector,
-        });
-      }
-      previousCount = count;
-      previousSession = session;
-    });
     // Gridster only listens to window.resize: a banner changing the area height needs a nudge.
     effect((onCleanup) => {
       const area = this.gridArea()?.nativeElement;
@@ -219,108 +192,6 @@ export class DashboardComponent {
       }
     } finally {
       this.moving.set(false);
-    }
-  }
-
-  protected toggleMenu(): void {
-    if (this.menuOpen()) {
-      this.closeMenu(false);
-    } else {
-      this.openMenu('first');
-    }
-  }
-
-  private openMenu(focus: 'first' | 'last' | null): void {
-    this.menuOpen.set(true);
-    if (focus) {
-      afterNextRender(() => this.focusItem(focus === 'first' ? 0 : -1), {
-        injector: this.injector,
-      });
-    }
-  }
-
-  private closeMenu(restoreFocus: boolean): void {
-    this.menuOpen.set(false);
-    if (restoreFocus) this.menuTrigger()?.nativeElement.focus();
-  }
-
-  /** Enabled items only: disabled entries (maxInstances reached, add in progress) are skipped. */
-  private enabledItems(): HTMLButtonElement[] {
-    const root = this.menuRoot()?.nativeElement;
-    if (!root) return [];
-    return Array.from(root.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'));
-  }
-
-  private focusItem(index: number): void {
-    const items = this.enabledItems();
-    if (items.length === 0) return;
-    items.at(index)?.focus();
-  }
-
-  protected onDocumentClick(event: MouseEvent): void {
-    if (!this.menuOpen()) return;
-    const root = this.menuRoot()?.nativeElement;
-    if (root && event.target instanceof Node && root.contains(event.target)) return;
-    this.closeMenu(false);
-  }
-
-  protected onMenuKeydown(event: KeyboardEvent): void {
-    const root = this.menuRoot()?.nativeElement;
-    if (!root || !(event.target instanceof Node) || !root.contains(event.target)) return;
-    const open = this.menuOpen();
-    switch (event.key) {
-      case 'Escape':
-        if (!open) return;
-        event.preventDefault();
-        this.closeMenu(true);
-        return;
-      case 'ArrowDown':
-      case 'ArrowUp': {
-        event.preventDefault();
-        const down = event.key === 'ArrowDown';
-        if (!open) {
-          this.openMenu(down ? 'first' : 'last');
-          return;
-        }
-        const items = this.enabledItems();
-        if (items.length === 0) return;
-        const current = items.indexOf(document.activeElement as HTMLButtonElement);
-        const next = current === -1 ? (down ? 0 : items.length - 1) : current + (down ? 1 : -1);
-        items.at(next % items.length)?.focus();
-        return;
-      }
-      case 'Home':
-      case 'End':
-        if (!open) return;
-        event.preventDefault();
-        this.focusItem(event.key === 'Home' ? 0 : -1);
-        return;
-      case 'Tab':
-        if (open) this.closeMenu(false);
-        return;
-    }
-  }
-
-  protected canAdd(type: WidgetTypeId): boolean {
-    return !this.adding() && this.store.canAdd(type);
-  }
-
-  protected async add(type: WidgetTypeId): Promise<void> {
-    if (!this.canAdd(type)) return;
-    this.adding.set(true);
-    this.addFailed.set(false);
-    try {
-      await this.store.add(type);
-      this.closeMenu(true);
-    } catch (error: unknown) {
-      console.error('Could not add widget', error);
-      this.addFailed.set(true);
-    } finally {
-      this.adding.set(false);
-      // Entries were disabled while adding, which dropped the focus: restore it on a failure.
-      if (this.addFailed()) {
-        afterNextRender(() => this.focusItem(0), { injector: this.injector });
-      }
     }
   }
 

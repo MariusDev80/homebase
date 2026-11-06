@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -19,6 +20,9 @@ import { DashboardListStore } from '../dashboard/dashboard-list.store';
 import { DashboardStore } from '../dashboard/dashboard.store';
 import { DashboardFormDialogComponent } from './dashboard-form-dialog.component';
 import { DashboardDeleteDialogComponent } from './dashboard-delete-dialog.component';
+import { WidgetPickerDialogComponent } from './widget-picker-dialog.component';
+import { WidgetAddFlow } from '../dashboard/widget-add-flow';
+import { WidgetRegistry } from '../widgets/widget-registry';
 
 interface SidebarLabel {
   readonly text: string;
@@ -44,6 +48,7 @@ const MENU_MIN_ROOM = 96;
     TranslocoPipe,
     DashboardFormDialogComponent,
     DashboardDeleteDialogComponent,
+    WidgetPickerDialogComponent,
   ],
   templateUrl: './sidebar.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,6 +70,9 @@ export class SidebarComponent {
   protected readonly form = signal<{ readonly dashboard: Dashboard | null } | null>(null);
   protected readonly removal = signal<{ readonly dashboard: Dashboard } | null>(null);
   protected readonly announcement = signal('');
+  protected readonly flow = inject(WidgetAddFlow);
+  private readonly registry = inject(WidgetRegistry);
+  private readonly addButton = viewChild<ElementRef<HTMLButtonElement>>('addWidgetButton');
   private readonly scrollArea = viewChild<ElementRef<HTMLElement>>('scrollArea');
   private readonly menuRoot = viewChild<ElementRef<HTMLElement>>('menuRoot');
   /** Current anchor: the hovered or focused bubble, to reposition on list scroll. */
@@ -82,7 +90,32 @@ export class SidebarComponent {
       : 'dashboards.add',
   );
 
+  protected readonly widgetLabelKey = computed(() => {
+    switch (this.flow.phase()) {
+      case 'unavailable':
+        return 'dashboard.addWidgetUnavailable';
+      case 'confirming':
+        return 'dashboard.finishAdd';
+      default:
+        return 'dashboard.addWidget';
+    }
+  });
+
   constructor() {
+    // The add button tells the flow how to take the focus back (after the pop-up, a removal).
+    const unregister = this.flow.registerTrigger(() => this.addButton()?.nativeElement.focus());
+    inject(DestroyRef).onDestroy(unregister);
+    // Announce the widget just added (the blue V is then the active control).
+    effect(() => {
+      const id = this.flow.newInstanceId();
+      if (id === null) return;
+      untracked(() => {
+        const type = this.store.instances().find((i) => i.id === id)?.widgetType;
+        const key = type ? this.registry.get(type)?.titleKey : undefined;
+        const title = key ? this.transloco.translate(key) : (type ?? '');
+        this.announcement.set(this.transloco.translate('dashboard.widgetAdded', { title }));
+      });
+    });
     // Announce the dashboard shown at each change (not the first one).
     let seen: string | null = null;
     effect(() => {
@@ -218,6 +251,29 @@ export class SidebarComponent {
     const root = this.menuRoot()?.nativeElement;
     if (root && event.target instanceof Node && root.contains(event.target)) return;
     this.closeMenu(false);
+  }
+
+  // ---- Add widget (green +, blue V) ----
+
+  protected onWidgetButton(): void {
+    switch (this.flow.phase()) {
+      case 'idle':
+        this.hideLabel();
+        this.flow.open();
+        return;
+      case 'confirming':
+        this.flow.finish();
+        return;
+      default:
+        return;
+    }
+  }
+
+  /** Escape on the V ends the add, like a click. */
+  protected onWidgetEscape(event: Event): void {
+    if (this.flow.phase() !== 'confirming') return;
+    event.preventDefault();
+    this.flow.finish();
   }
 
   // ---- Dialog ----
