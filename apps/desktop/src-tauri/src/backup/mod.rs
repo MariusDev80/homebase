@@ -11,6 +11,9 @@ pub mod config_transfer;
 mod config_transfer_tests;
 pub mod create;
 pub mod daily;
+pub mod dashboard_delete;
+#[cfg(test)]
+mod dashboard_delete_tests;
 pub mod dialogs;
 pub mod error;
 pub mod external;

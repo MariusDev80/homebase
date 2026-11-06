@@ -291,6 +291,22 @@
       "cancel": "Annuler",
       "error": "Impossible d'enregistrer ce tableau de bord."
     },
+    "remove": {
+      "header": "Supprimer le tableau de bord",
+      "question": "Supprimer le tableau « {{ name }} » ?",
+      "warning": "Ses {{ count }} widgets, ainsi que les notes et les tâches qu'ils contiennent, seront supprimés définitivement. Les raccourcis sont conservés.",
+      "warningEmpty": "Ce tableau est vide. Les raccourcis sont conservés.",
+      "safety": "Une sauvegarde de sécurité de la base est faite juste avant la suppression.",
+      "acknowledge": "Je comprends que les widgets, les notes et les tâches de ce tableau seront supprimés.",
+      "cancel": "Annuler",
+      "confirm": "Supprimer",
+      "inProgress": "Suppression du tableau en cours…",
+      "countError": "Impossible de compter les widgets de ce tableau : suppression bloquée.",
+      "last": "Le dernier tableau de bord ne peut pas être supprimé.",
+      "busy": "Une autre opération de sauvegarde est en cours. Réessayez dans un instant.",
+      "unavailable": "La suppression n'est disponible que dans l'application Windows.",
+      "error": "Impossible de supprimer ce tableau de bord. Rien n'a été supprimé."
+    },
     "menu": {
       "label": "Actions du tableau {{ name }}",
       "edit": "Modifier…",
@@ -401,7 +417,8 @@
       "daily": "Quotidienne",
       "pre-migration": "Avant mise à jour",
       "pre-restore": "Avant restauration",
-      "pre-import": "Avant import"
+      "pre-import": "Avant import",
+      "pre-delete": "Avant suppression d'un tableau"
     },
     "label": {
       "dbOnly": "Base seulement",
@@ -427,6 +444,7 @@
       "busy": "Une autre opération de sauvegarde est en cours.",
       "restart_pending": "Homebase redémarre pour terminer une restauration.",
       "not_found": "Cette sauvegarde n'existe plus.",
+      "last_dashboard": "Le dernier tableau de bord ne peut pas être supprimé.",
       "invalid_id": "Sauvegarde inconnue.",
       "no_database": "Aucune base à sauvegarder.",
       "too_large": "Fichier trop volumineux.",

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { DASHBOARD_REPOSITORY, DataError, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { AppLock } from '../lock/app-lock';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
 import { fixtureDefinition } from '../testing/fixture-definitions';
@@ -61,6 +62,18 @@ describe('SearchHotkey', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('ignores every key under the application lock', async () => {
+    const { hotkey, key, ctrlK, navigate } = await setup();
+    const focus = vi.fn();
+    hotkey.register(focus);
+    TestBed.inject(AppLock).lock('delete');
+    expect(ctrlK().defaultPrevented).toBe(false);
+    expect(key({ key: '/' }).defaultPrevented).toBe(false);
+    expect(focus).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    TestBed.inject(AppLock).unlock();
+    expect(ctrlK().defaultPrevented).toBe(true);
+  });
   it('does nothing for / without a bar, and leaves the key free', async () => {
     const { key, navigate, instances } = await setup();
     const spy = vi.spyOn(instances, 'findFirstOfType');

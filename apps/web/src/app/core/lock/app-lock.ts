@@ -2,7 +2,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import type { CanDeactivateFn } from '@angular/router';
 import { inject } from '@angular/core';
 
-export type AppLockKind = 'restore' | 'import';
+export type AppLockKind = 'restore' | 'import' | 'delete';
 
 /**
  * Global freeze of the application while an operation replaces the data (restoration, import).

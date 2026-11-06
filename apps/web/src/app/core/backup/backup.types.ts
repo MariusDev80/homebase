@@ -9,6 +9,7 @@ export const BACKUP_KINDS = [
   'pre-migration',
   'pre-restore',
   'pre-import',
+  'pre-delete',
 ] as const;
 export type BackupKind = (typeof BACKUP_KINDS)[number];
 
@@ -126,6 +127,7 @@ export type BackupErrorDto =
   | { readonly kind: 'busy' }
   | { readonly kind: 'restart_pending' }
   | { readonly kind: 'not_found' }
+  | { readonly kind: 'last_dashboard' }
   | { readonly kind: 'invalid_id' }
   | { readonly kind: 'no_database' }
   | { readonly kind: 'too_large' }

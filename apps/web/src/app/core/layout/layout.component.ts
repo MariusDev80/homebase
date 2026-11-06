@@ -19,6 +19,7 @@ import { SidebarComponent } from './sidebar.component';
 const LOCK_TEXT: Record<AppLockKind, string> = {
   restore: 'backup.restore.inProgress',
   import: 'configTransfer.working',
+  delete: 'dashboards.remove.inProgress',
 };
 
 @Component({

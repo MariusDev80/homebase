@@ -18,6 +18,7 @@ import { dashboardIconClass } from '../dashboard/dashboard-icons';
 import { DashboardListStore } from '../dashboard/dashboard-list.store';
 import { DashboardStore } from '../dashboard/dashboard.store';
 import { DashboardFormDialogComponent } from './dashboard-form-dialog.component';
+import { DashboardDeleteDialogComponent } from './dashboard-delete-dialog.component';
 
 interface SidebarLabel {
   readonly text: string;
@@ -37,7 +38,13 @@ const MENU_MIN_ROOM = 96;
 /** Vertical bar: one icon bubble per destination, with a floating text bubble on hover/focus. */
 @Component({
   selector: 'app-sidebar',
-  imports: [RouterLink, RouterLinkActive, TranslocoPipe, DashboardFormDialogComponent],
+  imports: [
+    RouterLink,
+    RouterLinkActive,
+    TranslocoPipe,
+    DashboardFormDialogComponent,
+    DashboardDeleteDialogComponent,
+  ],
   templateUrl: './sidebar.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -56,6 +63,7 @@ export class SidebarComponent {
   protected readonly menu = signal<BubbleMenu | null>(null);
   /** Dialog state: `dashboard` null creates, otherwise edits. */
   protected readonly form = signal<{ readonly dashboard: Dashboard | null } | null>(null);
+  protected readonly removal = signal<{ readonly dashboard: Dashboard } | null>(null);
   protected readonly announcement = signal('');
   private readonly scrollArea = viewChild<ElementRef<HTMLElement>>('scrollArea');
   private readonly menuRoot = viewChild<ElementRef<HTMLElement>>('menuRoot');
@@ -219,6 +227,35 @@ export class SidebarComponent {
     this.trigger = event.currentTarget as HTMLElement;
     this.hideLabel();
     this.form.set({ dashboard: null });
+  }
+
+  protected openRemove(): void {
+    const target = this.menu()?.dashboard;
+    if (!target || !this.list.canRemove()) return;
+    // `trigger` is still the bubble of the menu.
+    this.menu.set(null);
+    this.hideLabel();
+    this.removal.set({ dashboard: target });
+  }
+
+  /** `deleted`: the dashboard is gone; the focus goes to the active bubble, else the `+`. */
+  protected onRemovalClosed(deleted: boolean): void {
+    const trigger = this.trigger;
+    this.trigger = null;
+    this.removal.set(null);
+    afterNextRender(
+      () => {
+        const root = this.host.nativeElement;
+        const target = deleted
+          ? (root.querySelector<HTMLElement>('[data-dashboard-id][aria-current="page"]') ??
+            root.querySelector<HTMLElement>('[data-testid="sidebar-add-dashboard"]'))
+          : trigger?.isConnected
+            ? trigger
+            : null;
+        target?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   protected openEdit(): void {

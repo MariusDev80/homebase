@@ -112,14 +112,15 @@
       </button>
     </li>
     <li role="none">
-      <!-- Lot C3b plugs the deletion here; until then the entry stays disabled. -->
       <button
         type="button"
         role="menuitem"
         tabindex="-1"
         class="menu-item"
         data-testid="sidebar-menu-remove"
-        disabled
+        [disabled]="!list.canRemove()"
+        aria-haspopup="dialog"
+        (click)="openRemove()"
       >
         <i class="pi pi-trash" aria-hidden="true"></i>
         {{
@@ -135,5 +136,11 @@
 @if (form(); as f) {
   @defer (on immediate) {
     <app-dashboard-form-dialog [dashboard]="f.dashboard" (closed)="onFormClosed($event)" />
+  }
+}
+
+@if (removal(); as r) {
+  @defer (on immediate) {
+    <app-dashboard-delete-dialog [dashboard]="r.dashboard" (closed)="onRemovalClosed($event)" />
   }
 }

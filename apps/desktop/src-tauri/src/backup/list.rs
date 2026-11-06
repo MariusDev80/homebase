@@ -103,7 +103,7 @@ pub fn list_backups(root: &DataRoot) -> Vec<BackupInfo> {
     found.into_iter().map(|(_, info)| info).collect()
 }
 
-/// Most recent complete archive: ignores damaged archives, `pre-migration`, `pre-import`
+/// Most recent complete archive: ignores damaged archives, `pre-migration`, `pre-import`, `pre-delete`
 /// and those dated more than one hour in the future.
 pub fn newest_full_backup(backups: &[BackupInfo], now: Timestamp) -> Option<&BackupInfo> {
     let limit = now.checked_add(SignedDuration::from_hours(1)).ok()?;
@@ -114,6 +114,7 @@ pub fn newest_full_backup(backups: &[BackupInfo], now: Timestamp) -> Option<&Bac
                 && b.includes_images == Some(true)
                 && b.kind.pool() != Pool::Migration
                 && b.kind != BackupKind::PreImport
+                && b.kind != BackupKind::PreDelete
         })
         .filter(|b| BackupName::parse(&b.id).is_some_and(|n| n.created_at <= limit))
         .max_by(|a, b| a.created_at.cmp(&b.created_at))
@@ -193,6 +194,7 @@ mod tests {
         let valid_old = create(&root, "2026-10-20T08:00:00.000Z", BackupKind::Daily);
         create(&root, "2026-10-21T09:00:00.000Z", BackupKind::PreMigration);
         create(&root, "2026-10-21T09:30:00.000Z", BackupKind::PreImport);
+        create(&root, "2026-10-21T09:45:00.000Z", BackupKind::PreDelete);
         write_garbage(&root, "2026-10-21T10:00:00.000Z", BackupKind::Manual);
         create(&root, "2026-10-21T13:30:00.000Z", BackupKind::Manual); // > 1 h in the future
 

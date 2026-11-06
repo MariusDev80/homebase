@@ -3,6 +3,7 @@ import { DestroyRef, Injectable, Injector, afterNextRender, inject } from '@angu
 import { Router } from '@angular/router';
 import { WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { AppLock } from '../lock/app-lock';
 
 /**
  * Type id of the search widget. Declared here (core/ imports no widget): the string coupling with
@@ -37,6 +38,7 @@ function isTextEntry(target: EventTarget | null): boolean {
 export class SearchHotkey {
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
+  private readonly lock = inject(AppLock);
   private readonly store = inject(DashboardStore);
   private readonly instances = inject(WIDGET_INSTANCE_REPOSITORY);
   private readonly injector = inject(Injector);
@@ -75,7 +77,7 @@ export class SearchHotkey {
   }
 
   private onKeydown(event: KeyboardEvent): void {
-    if (event.defaultPrevented) return;
+    if (this.lock.isLocked() || event.defaultPrevented) return;
     const withModifier = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
     const isCtrlK = withModifier && event.key.toLowerCase() === 'k';
     const isSlash =

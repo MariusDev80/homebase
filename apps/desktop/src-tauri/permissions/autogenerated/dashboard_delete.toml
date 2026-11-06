@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dashboard-delete"
+description = "Enables the dashboard_delete command without any pre-configured scope."
+commands.allow = ["dashboard_delete"]
+
+[[permission]]
+identifier = "deny-dashboard-delete"
+description = "Denies the dashboard_delete command without any pre-configured scope."
+commands.deny = ["dashboard_delete"]

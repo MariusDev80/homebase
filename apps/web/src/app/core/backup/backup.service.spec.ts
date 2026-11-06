@@ -168,6 +168,14 @@ describe('BackupService', () => {
       result: undefined,
     },
     {
+      name: 'deleteDashboard',
+      run: (s) => s.deleteDashboard('11111111-8f0b-4c55-9a43-0d2a1d6c9b11'),
+      command: 'dashboard_delete',
+      args: { id: '11111111-8f0b-4c55-9a43-0d2a1d6c9b11' },
+      answer: null,
+      result: undefined,
+    },
+    {
       name: 'saveConfigFile',
       run: (s) => s.saveConfigFile('{"a":1}'),
       command: 'config_export_save',

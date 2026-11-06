@@ -302,15 +302,22 @@ describe('SidebarComponent', () => {
 
     it('moves with the arrow keys, Home and End, skipping disabled entries', async () => {
       await rightClick(bubbles()[0] as HTMLElement);
-      // Two dashboards: the removal is disabled until lot C3b, only "Modifier…" can be focused.
+      // Two dashboards: the removal is enabled and focusable.
       const [edit, remove] = menuItems();
-      expect(remove?.disabled).toBe(true);
+      expect(remove?.disabled).toBe(false);
       expect(remove?.textContent).toContain('Supprimer…');
-      edit?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      const press = (key: string): void => {
+        (document.activeElement as HTMLElement).dispatchEvent(
+          new KeyboardEvent('keydown', { key, bubbles: true }),
+        );
+      };
+      press('ArrowDown');
+      expect(document.activeElement).toBe(remove);
+      press('ArrowDown');
       expect(document.activeElement).toBe(edit);
-      edit?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
-      expect(document.activeElement).toBe(edit);
-      edit?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      press('End');
+      expect(document.activeElement).toBe(remove);
+      press('Home');
       expect(document.activeElement).toBe(edit);
     });
 

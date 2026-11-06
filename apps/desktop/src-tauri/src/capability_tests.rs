@@ -59,6 +59,7 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-config-export-save",
             "allow-config-import-pick",
             "allow-config-import-apply",
+            "allow-dashboard-delete",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",

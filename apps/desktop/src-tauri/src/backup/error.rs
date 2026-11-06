@@ -7,6 +7,8 @@ pub enum BackupError {
     Busy,
     RestartPending,
     NotFound,
+    /// `dashboard_delete` refused: it is the only dashboard left.
+    LastDashboard,
     InvalidId,
     NoDatabase,
     TooLarge,
