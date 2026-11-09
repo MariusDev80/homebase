@@ -282,6 +282,22 @@
     "overflowName": "{{ name }} (suite)",
     "layoutError": "Impossible d'enregistrer la disposition ; la dernière disposition enregistrée a été rétablie."
   },
+  "dashboardTheme": {
+    "tints": {
+      "rose": "Rose",
+      "peach": "Pêche",
+      "vanilla": "Vanille",
+      "anis": "Anis",
+      "mint": "Menthe",
+      "lagoon": "Lagon",
+      "sky": "Ciel",
+      "periwinkle": "Pervenche",
+      "lavender": "Lavande",
+      "orchid": "Orchidée",
+      "slate": "Ardoise",
+      "sand": "Sable"
+    }
+  },
   "dashboards": {
     "add": "Nouveau tableau de bord",
     "limit": "Nombre maximal de tableaux atteint (100).",

@@ -1,5 +1,6 @@
 import { ARCHIVE_PROBLEMS, IMPORT_ISSUE_CODES, IMPORT_PROBLEMS } from '../backup/backup.types';
 import { DASHBOARD_ICONS } from '../dashboard/dashboard-icons';
+import { CARD_TINTS } from '../dashboard/dashboard-theme';
 import fr from './fr.json';
 
 function lookup(path: string): unknown {
@@ -154,6 +155,10 @@ describe('fr.json', () => {
 
   it.each([...DASHBOARD_ICONS])('has a label for the dashboard icon %s', (icon) => {
     expect(typeof lookup(`dashboards.icons.${icon}`)).toBe('string');
+  });
+
+  it.each([...CARD_TINTS])('has a label for the dashboard tint %s', (tint) => {
+    expect(typeof lookup(`dashboardTheme.tints.${tint}`)).toBe('string');
   });
 
   it('uses Transloco interpolation for parameters', () => {

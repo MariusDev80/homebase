@@ -94,3 +94,143 @@
   --hb-control-height-compact: 28px;
   --hb-transition: 100ms ease;
 }
+
+/* Card tints of a dashboard theme (spec dashboard-theme 4.1). Per tint: body (card body), header
+   (card header, a bit stronger), muted (secondary text and icons on both), border (card frame and
+   header separator). Light: steps 100/200/800/300-500 of a pastel scale (Tailwind CSS v3, MIT);
+   dark: step 950 mixed into the page. Meaning colors on a tinted body: --hb-on-tint-*. Checked by
+   scripts/check-contrast.mjs; adjustable here without any migration. */
+:root {
+  --hb-tint-rose-body: #ffe4e6;
+  --hb-tint-rose-header: #fecdd3;
+  --hb-tint-rose-muted: #9f1239;
+  --hb-tint-rose-border: #fda4af;
+
+  --hb-tint-peach-body: #ffedd5;
+  --hb-tint-peach-header: #fed7aa;
+  --hb-tint-peach-muted: #9a3412;
+  --hb-tint-peach-border: #fb923c;
+
+  --hb-tint-vanilla-body: #fef3c7;
+  --hb-tint-vanilla-header: #fde68a;
+  --hb-tint-vanilla-muted: #92400e;
+  --hb-tint-vanilla-border: #fbbf24;
+
+  --hb-tint-anis-body: #ecfccb;
+  --hb-tint-anis-header: #d9f99d;
+  --hb-tint-anis-muted: #3f6212;
+  --hb-tint-anis-border: #84cc16;
+
+  --hb-tint-mint-body: #d1fae5;
+  --hb-tint-mint-header: #a7f3d0;
+  --hb-tint-mint-muted: #065f46;
+  --hb-tint-mint-border: #34d399;
+
+  --hb-tint-lagoon-body: #cffafe;
+  --hb-tint-lagoon-header: #a5f3fc;
+  --hb-tint-lagoon-muted: #155e75;
+  --hb-tint-lagoon-border: #22d3ee;
+
+  --hb-tint-sky-body: #e0f2fe;
+  --hb-tint-sky-header: #bae6fd;
+  --hb-tint-sky-muted: #075985;
+  --hb-tint-sky-border: #38bdf8;
+
+  --hb-tint-periwinkle-body: #e0e7ff;
+  --hb-tint-periwinkle-header: #c7d2fe;
+  --hb-tint-periwinkle-muted: #3730a3;
+  --hb-tint-periwinkle-border: #a5b4fc;
+
+  --hb-tint-lavender-body: #ede9fe;
+  --hb-tint-lavender-header: #ddd6fe;
+  --hb-tint-lavender-muted: #5b21b6;
+  --hb-tint-lavender-border: #c4b5fd;
+
+  --hb-tint-orchid-body: #fae8ff;
+  --hb-tint-orchid-header: #f5d0fe;
+  --hb-tint-orchid-muted: #86198f;
+  --hb-tint-orchid-border: #e879f9;
+
+  --hb-tint-slate-body: #f1f5f9;
+  --hb-tint-slate-header: #e2e8f0;
+  --hb-tint-slate-muted: #475569;
+  --hb-tint-slate-border: #94a3b8;
+
+  --hb-tint-sand-body: #f5f5f4;
+  --hb-tint-sand-header: #e7e5e4;
+  --hb-tint-sand-muted: #57534e;
+  --hb-tint-sand-border: #a8a29e;
+
+  --hb-on-tint-accent: #0550ae;
+  --hb-on-tint-danger: #a40e26;
+  --hb-on-tint-success: #116329;
+  --hb-on-tint-attention: #7d4e00;
+}
+
+.app-dark {
+  --hb-tint-rose-body: #230d18;
+  --hb-tint-rose-header: #3c0c1c;
+  --hb-tint-rose-muted: #fb7185;
+  --hb-tint-rose-border: #881337;
+
+  --hb-tint-peach-body: #201211;
+  --hb-tint-peach-header: #35160f;
+  --hb-tint-peach-muted: #fb923c;
+  --hb-tint-peach-border: #7c2d12;
+
+  --hb-tint-vanilla-body: #211410;
+  --hb-tint-vanilla-header: #371a0d;
+  --hb-tint-vanilla-muted: #fbbf24;
+  --hb-tint-vanilla-border: #78350f;
+
+  --hb-tint-anis-body: #121b11;
+  --hb-tint-anis-header: #19280e;
+  --hb-tint-anis-muted: #a3e635;
+  --hb-tint-anis-border: #365314;
+
+  --hb-tint-mint-body: #091a1b;
+  --hb-tint-mint-header: #082722;
+  --hb-tint-mint-muted: #34d399;
+  --hb-tint-mint-border: #064e3b;
+
+  --hb-tint-lagoon-body: #0b1d27;
+  --hb-tint-lagoon-header: #0c2c3a;
+  --hb-tint-lagoon-muted: #22d3ee;
+  --hb-tint-lagoon-border: #164e63;
+
+  --hb-tint-sky-body: #0b1c29;
+  --hb-tint-sky-header: #0c293e;
+  --hb-tint-sky-muted: #38bdf8;
+  --hb-tint-sky-border: #0c4a6e;
+
+  --hb-tint-periwinkle-body: #131529;
+  --hb-tint-periwinkle-header: #1b1b3f;
+  --hb-tint-periwinkle-muted: #818cf8;
+  --hb-tint-periwinkle-border: #312e81;
+
+  --hb-tint-lavender-body: #191132;
+  --hb-tint-lavender-header: #271351;
+  --hb-tint-lavender-muted: #a78bfa;
+  --hb-tint-lavender-border: #4c1d95;
+
+  --hb-tint-orchid-body: #220c2a;
+  --hb-tint-orchid-header: #3a0b41;
+  --hb-tint-orchid-muted: #e879f9;
+  --hb-tint-orchid-border: #701a75;
+
+  --hb-tint-slate-body: #131924;
+  --hb-tint-slate-header: #1b2534;
+  --hb-tint-slate-muted: #94a3b8;
+  --hb-tint-slate-border: #334155;
+
+  --hb-tint-sand-body: #17181c;
+  --hb-tint-sand-header: #232224;
+  --hb-tint-sand-muted: #a8a29e;
+  --hb-tint-sand-border: #44403c;
+
+  /* Same as the default meaning colors: dark tints are dark enough. */
+  --hb-on-tint-accent: #4493f8;
+  --hb-on-tint-danger: #f85149;
+  --hb-on-tint-success: #3fb950;
+  --hb-on-tint-attention: #d29922;
+}

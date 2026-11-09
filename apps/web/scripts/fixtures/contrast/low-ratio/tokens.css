@@ -1,0 +1,136 @@
+/* Design tokens of Homebase (see docs/DESIGN.md section 2). Light on :root, dark on .app-dark. */
+
+:root {
+  color-scheme: light;
+
+  /* Colors (2.1) */
+  --hb-bg: #ffffff;
+  --hb-bg-subtle: #f6f8fa;
+  --hb-bg-inset: #f6f8fa;
+  --hb-bg-emphasis: #25292e;
+  --hb-border: #d1d9e0;
+  --hb-border-muted: #d1d9e0b3;
+  --hb-fg: #1f2328;
+  --hb-fg-muted: #59636e;
+  --hb-fg-on-emphasis: #ffffff;
+  --hb-accent: #0969da;
+  --hb-accent-subtle: #ddf4ff;
+  --hb-accent-emphasis: #0969da;
+  --hb-success: #1a7f37;
+  --hb-success-emphasis: #1f883d;
+  --hb-danger: #d1242f;
+  --hb-attention: #9a6700;
+  --hb-focus: #0969da;
+
+  /* Derived (tints of the meaning colors, hover overlay) */
+  --hb-success-subtle: color-mix(in srgb, var(--hb-success) 10%, var(--hb-bg));
+  --hb-danger-subtle: color-mix(in srgb, var(--hb-danger) 10%, var(--hb-bg));
+  --hb-attention-subtle: color-mix(in srgb, var(--hb-attention) 12%, var(--hb-bg));
+  --hb-hover: color-mix(in srgb, var(--hb-fg) 8%, transparent);
+
+  /* Page background: subtle in light so white cards stand out by their border (4) */
+  --hb-page-bg: var(--hb-bg-subtle);
+
+  /* Elevation: floating elements only (2.3) */
+  --hb-shadow-floating: 0 8px 24px color-mix(in srgb, #1f2328 12%, transparent);
+}
+
+.app-dark {
+  color-scheme: dark;
+
+  --hb-bg: #0d1117;
+  --hb-bg-subtle: #151b23;
+  --hb-bg-inset: #010409;
+  --hb-bg-emphasis: #3d444d;
+  --hb-border: #3d444d;
+  --hb-border-muted: #3d444db3;
+  --hb-fg: #f0f6fc;
+  --hb-fg-muted: #9198a1;
+  --hb-fg-on-emphasis: #ffffff;
+  --hb-accent: #4493f8;
+  --hb-accent-subtle: #388bfd1a;
+  --hb-accent-emphasis: #1f6feb;
+  --hb-success: #3fb950;
+  --hb-success-emphasis: #238636;
+  --hb-danger: #f85149;
+  --hb-attention: #d29922;
+  --hb-focus: #1f6feb;
+
+  --hb-page-bg: var(--hb-bg);
+  --hb-shadow-floating: 0 8px 24px #010409;
+}
+
+:root {
+  /* Typography (2.2) */
+  --hb-font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --hb-font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --hb-text-xs: 12px;
+  --hb-text-base: 14px;
+  --hb-text-md: 16px;
+  --hb-text-lg: 20px;
+  --hb-text-xl: 24px;
+  --hb-text-2xl: 32px;
+  --hb-line-height: 1.5;
+  --hb-weight-normal: 400;
+  --hb-weight-semibold: 600;
+
+  /* Radii (2.3) */
+  --hb-radius: 6px;
+  --hb-radius-lg: 12px;
+  --hb-radius-full: 999px;
+
+  /* Spacing, 4 px grid (2.3) */
+  --hb-space-1: 4px;
+  --hb-space-2: 8px;
+  --hb-space-3: 12px;
+  --hb-space-4: 16px;
+  --hb-space-6: 24px;
+  --hb-space-8: 32px;
+
+  /* Control heights (3) and transitions (2.3) */
+  --hb-control-height: 32px;
+  --hb-control-height-compact: 28px;
+  --hb-transition: 100ms ease;
+}
+
+/* Card tints of a dashboard theme (spec dashboard-theme 4.1). Per tint: body (card body), header
+   (card header, a bit stronger), muted (secondary text and icons on both), border (card frame and
+   header separator). Light: steps 100/200/800/300-500 of a pastel scale (Tailwind CSS v3, MIT);
+   dark: step 950 mixed into the page. Meaning colors on a tinted body: --hb-on-tint-*. Checked by
+   scripts/check-contrast.mjs; adjustable here without any migration. */
+:root {
+  --hb-tint-rose-body: #ffe4e6;
+  --hb-tint-rose-header: #fecdd3;
+  --hb-tint-rose-muted: #e11d48;
+  --hb-tint-rose-border: #fda4af;
+
+  --hb-tint-sky-body: #e0f2fe;
+  --hb-tint-sky-header: #bae6fd;
+  --hb-tint-sky-muted: #075985;
+  --hb-tint-sky-border: #38bdf8;
+
+  --hb-on-tint-accent: #0550ae;
+  --hb-on-tint-danger: #a40e26;
+  --hb-on-tint-success: #116329;
+  --hb-on-tint-attention: #7d4e00;
+}
+
+.app-dark {
+  --hb-tint-rose-body: #230d18;
+  --hb-tint-rose-header: #3c0c1c;
+  --hb-tint-rose-muted: #fb7185;
+  --hb-tint-rose-border: #881337;
+
+  --hb-tint-sky-body: #0b1c29;
+  --hb-tint-sky-header: #0c293e;
+  --hb-tint-sky-muted: #38bdf8;
+  --hb-tint-sky-border: #0c4a6e;
+
+  /* Same as the default meaning colors: dark tints are dark enough. */
+  --hb-on-tint-accent: #4493f8;
+  --hb-on-tint-danger: #f85149;
+  --hb-on-tint-success: #3fb950;
+  --hb-on-tint-attention: #d29922;
+}
