@@ -136,4 +136,57 @@ describe('migrations', () => {
       }
     });
   });
+
+  describe('V5 (dashboards.theme)', () => {
+    const AT = '2026-01-01T00:00:00.000Z';
+    const ID = '00000000-0000-4000-8000-000000000001';
+    /** Serialized object of exactly `chars` characters. */
+    const object = (chars: number): string => `{"a":"${'x'.repeat(chars - 8)}"}`;
+
+    it('gives existing rows the default theme and leaves icon and updated_at untouched', async () => {
+      const db = createTestDatabase(4);
+      try {
+        await db.execute(
+          "INSERT INTO dashboards (id, name, sort_order, icon, created_at, updated_at) VALUES ($1, 'Home', 0, 'briefcase', $2, $2)",
+          [ID, AT],
+        );
+        const v5 = listMigrationFiles().find((m) => m.version === 5);
+        expect(v5?.name).toBe('dashboard_theme');
+        db.exec('BEGIN');
+        db.exec(v5?.sql ?? '');
+        db.exec('COMMIT');
+        expect(
+          await db.select('SELECT theme, theme_version, icon, updated_at FROM dashboards'),
+        ).toEqual([{ theme: '{}', theme_version: 1, icon: 'briefcase', updated_at: AT }]);
+        expect(await db.select('PRAGMA integrity_check')).toEqual([{ integrity_check: 'ok' }]);
+        expect(await db.select('PRAGMA foreign_key_check')).toEqual([]);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('checks the shape of the theme and of its version', async () => {
+      const db = createTestDatabase();
+      try {
+        const insert = (theme: string, version = 1) =>
+          db.execute(
+            "INSERT INTO dashboards (id, name, sort_order, theme, theme_version, created_at, updated_at) VALUES ($1, 'D', 0, $2, $3, $4, $4)",
+            [ID, theme, version, AT],
+          );
+        const bad = ['pas du json', '[]', '"x"', 'null', object(4097)];
+        for (const theme of bad) {
+          await expect(insert(theme), theme.slice(0, 20)).rejects.toMatchObject({
+            kind: 'constraint',
+          });
+        }
+        await expect(insert('{}', 0)).rejects.toMatchObject({ kind: 'constraint' });
+        await insert('{"cardBody":"rose"}');
+        await db.execute('DELETE FROM dashboards');
+        await insert(object(4096));
+        expect(await db.select('SELECT length(theme) AS n FROM dashboards')).toEqual([{ n: 4096 }]);
+      } finally {
+        db.close();
+      }
+    });
+  });
 });

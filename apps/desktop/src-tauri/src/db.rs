@@ -33,6 +33,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/V4__dashboard_icon.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "dashboard_theme",
+            sql: include_str!("../migrations/V5__dashboard_theme.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

@@ -1,5 +1,16 @@
-import { DEFAULT_DASHBOARD_ICON, DataError } from '../../data';
-import type { Dashboard, DashboardPatch, DashboardRepository, NewDashboard } from '../../data';
+import {
+  DEFAULT_DASHBOARD_ICON,
+  DEFAULT_DASHBOARD_THEME_VERSION,
+  DataError,
+  validTheme,
+} from '../../data';
+import type {
+  Dashboard,
+  DashboardPatch,
+  DashboardRepository,
+  JsonObject,
+  NewDashboard,
+} from '../../data';
 
 /** In-memory DashboardRepository with deterministic ids and timestamps (specs only). */
 export class FakeDashboardRepository implements DashboardRepository {
@@ -22,6 +33,8 @@ export class FakeDashboardRepository implements DashboardRepository {
   }
 
   private build(input: NewDashboard): Dashboard {
+    const themeVersion = input.themeVersion ?? DEFAULT_DASHBOARD_THEME_VERSION;
+    const theme = JSON.parse(validTheme(input.theme ?? {}, themeVersion)) as JsonObject;
     this.counter++;
     const stamp = new Date(Date.UTC(2026, 0, 1, 0, 0, this.counter)).toISOString();
     const sortOrder = this.items.reduce((max, d) => Math.max(max, d.sortOrder), -1) + 1;
@@ -30,6 +43,8 @@ export class FakeDashboardRepository implements DashboardRepository {
       name: input.name,
       sortOrder,
       icon: input.icon ?? DEFAULT_DASHBOARD_ICON,
+      theme,
+      themeVersion,
       createdAt: stamp,
       updatedAt: stamp,
     };
@@ -70,6 +85,21 @@ export class FakeDashboardRepository implements DashboardRepository {
     const current = this.items[index];
     if (!current) throw new DataError('not_found', `Dashboard ${id} not found`);
     const updated: Dashboard = { ...current, name: patch.name.trim(), icon: patch.icon };
+    this.items[index] = updated;
+    return updated;
+  }
+
+  async updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard> {
+    await this.check();
+    const serialized = validTheme(theme, themeVersion);
+    const index = this.items.findIndex((d) => d.id === id);
+    const current = this.items[index];
+    if (!current) throw new DataError('not_found', `Dashboard ${id} not found`);
+    const updated: Dashboard = {
+      ...current,
+      theme: JSON.parse(serialized) as JsonObject,
+      themeVersion,
+    };
     this.items[index] = updated;
     return updated;
   }

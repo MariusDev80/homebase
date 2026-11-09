@@ -626,19 +626,19 @@ fn contiguous_history_beyond_the_supported_version_is_schema_too_new() {
         try_extract(&path).expect_err("refused"),
         BackupError::SchemaTooNew {
             archive: 99,
-            supported: 4
+            supported: 5
         }
     );
     // A schema that also differs from ours stays "too new" (R4).
     let dir = TempDir::new().expect("tmp");
     let path = db_archive(
         &dir,
-        4,
-        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (5, 'x', 1, X'00', 0); CREATE TABLE future (a)",
+        5,
+        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (6, 'x', 1, X'00', 0); CREATE TABLE future (a)",
     );
     assert!(matches!(
         try_extract(&path).expect_err("refused"),
-        BackupError::SchemaTooNew { archive: 5, .. }
+        BackupError::SchemaTooNew { archive: 6, .. }
     ));
 }
 
@@ -911,18 +911,26 @@ fn expected_schema_of_version_4_matches_a_real_database() {
     assert_ne!(expected, run(expected_schema(3)).expect("v3"));
 }
 
-#[test]
-fn v3_database_migrated_to_v4_has_the_schema_of_v4_and_the_default_icon() {
-    let dir = TempDir::new().expect("tmp");
-    let path = dir.path().join("homebase.db");
-    make_database(&path, 3, true);
-    assert_eq!(
-        schema_of(&path),
-        run(expected_schema(3)).expect("expected v3")
-    );
+/// One integer column of the first `dashboards` row.
+fn dashboard_int(path: &Path, column: &str) -> i64 {
+    use sqlx::Row;
+    run(async {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let sql = format!("SELECT {column} FROM dashboards ORDER BY id LIMIT 1");
+        let row = sqlx::query(&sql).fetch_one(&mut conn).await.expect("row");
+        conn.close().await.expect("close");
+        row.get(0)
+    })
+}
+
+/// Applies the remaining migrations with the real sqlx migrator (the path of a real database).
+fn migrate_for_real(path: &Path) {
     run(async {
         let options = SqliteConnectOptions::new()
-            .filename(&path)
+            .filename(path)
             .journal_mode(SqliteJournalMode::Wal);
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .max_connections(1)
@@ -932,20 +940,96 @@ fn v3_database_migrated_to_v4_has_the_schema_of_v4_and_the_default_icon() {
         super::test_support::migrate_with_real_migrator(&pool).await;
         pool.close().await;
     });
+}
+
+#[test]
+fn expected_schema_of_version_5_matches_a_real_database() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 5, false);
+    let expected = run(expected_schema(5)).expect("expected");
+    assert_eq!(schema_of(&path), expected);
+    let dashboards = expected
+        .iter()
+        .find(|r| r.1 == "dashboards")
+        .and_then(|r| r.3.clone())
+        .expect("dashboards sql");
+    // Frozen text (see the V4 test): the two ADD COLUMN of V5 are appended before the closing
+    // parenthesis, each after the previous column.
+    let frozen = "CREATE TABLE dashboards (
+  id          TEXT    NOT NULL PRIMARY KEY
+              CHECK (length(id) = 36 AND id NOT GLOB '*[^0-9a-f-]*'),
+  name        TEXT    NOT NULL
+              CHECK (length(trim(name)) >= 1 AND length(name) <= 100),
+  sort_order  INTEGER NOT NULL CHECK (sort_order >= 0),
+  created_at  TEXT    NOT NULL
+              CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z'),
+  updated_at  TEXT    NOT NULL
+              CHECK (updated_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z')
+, icon TEXT NOT NULL DEFAULT 'th-large'
+  CHECK (length(icon) BETWEEN 1 AND 32
+         AND icon GLOB '[a-z]*'
+         AND icon NOT GLOB '*[^a-z0-9-]*'), theme TEXT NOT NULL DEFAULT '{}'
+  CHECK (json_valid(theme) AND json_type(theme) = 'object' AND length(theme) <= 4096), theme_version INTEGER NOT NULL DEFAULT 1
+  CHECK (theme_version >= 1)) STRICT";
+    assert_eq!(dashboards, frozen);
+
+    assert_ne!(expected, run(expected_schema(4)).expect("v4"));
+}
+
+#[test]
+fn v3_database_migrated_to_the_supported_version_has_its_schema_and_defaults() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 3, true);
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(3)).expect("expected v3")
+    );
+    migrate_for_real(&path);
     assert_eq!(dashboard_value(&path, "icon"), "th-large");
+    assert_eq!(dashboard_value(&path, "theme"), "{}");
+    assert_eq!(dashboard_int(&path, "theme_version"), 1);
     assert_eq!(
         dashboard_value(&path, "updated_at"),
         "2026-10-21T08:15:00.123Z"
     );
-    // ALTER TABLE ADD COLUMN rewrites the CREATE TABLE text, so compare to a fresh v4 database,
-    // not to the v3 text.
+    // ALTER TABLE ADD COLUMN rewrites the CREATE TABLE text, so compare to a fresh database at the
+    // supported version, not to the v3 text.
     let fresh = dir.path().join("fresh.db");
-    make_database(&fresh, 4, false);
+    make_database(&fresh, supported_schema_version(), false);
     assert_eq!(schema_of(&path), schema_of(&fresh));
     assert_eq!(
         schema_of(&path),
-        run(expected_schema(4)).expect("expected v4")
+        run(expected_schema(supported_schema_version())).expect("expected supported")
     );
+}
+
+#[test]
+fn v4_database_migrated_to_v5_keeps_the_icon_and_gets_the_default_theme() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 4, true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(&path);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        sqlx::query("UPDATE dashboards SET icon = 'briefcase'")
+            .execute(&mut conn)
+            .await
+            .expect("icon");
+        conn.close().await.expect("close");
+    });
+    migrate_for_real(&path);
+    assert_eq!(dashboard_value(&path, "icon"), "briefcase");
+    assert_eq!(dashboard_value(&path, "theme"), "{}");
+    assert_eq!(dashboard_int(&path, "theme_version"), 1);
+    assert_eq!(
+        dashboard_value(&path, "updated_at"),
+        "2026-10-21T08:15:00.123Z"
+    );
+    assert_eq!(schema_of(&path), run(expected_schema(5)).expect("v5"));
 }
 
 #[test]
@@ -959,6 +1043,16 @@ fn archive_of_version_3_is_still_accepted() {
 }
 
 #[test]
+fn archive_of_version_4_is_still_accepted() {
+    let dir = TempDir::new().expect("tmp");
+    let path = db_archive(&dir, 4, "");
+    let dest = dir.path().join("dest");
+    let manifest = run(extract_validated(&path, &dest)).expect("accepted");
+    assert_eq!(manifest.schema_version, 4);
+    assert!(supported_schema_version() > 4);
+}
+
+#[test]
 fn archive_at_the_supported_version_made_by_the_real_migrator_is_accepted() {
     let dir = TempDir::new().expect("tmp");
     let root = DataRoot::new(dir.path().join("data"));
@@ -969,7 +1063,7 @@ fn archive_at_the_supported_version_made_by_the_real_migrator_is_accepted() {
         let mut conn = SqliteConnection::connect_with(&options)
             .await
             .expect("open");
-        sqlx::query("UPDATE dashboards SET icon = 'briefcase'")
+        sqlx::query("UPDATE dashboards SET icon = 'briefcase', theme = '{\"cardBody\":\"rose\",\"cardHeader\":\"default\"}'")
             .execute(&mut conn)
             .await
             .expect("icon");
@@ -986,4 +1080,9 @@ fn archive_at_the_supported_version_made_by_the_real_migrator_is_accepted() {
         dashboard_value(&dest.join("homebase.db"), "icon"),
         "briefcase"
     );
+    assert_eq!(
+        dashboard_value(&dest.join("homebase.db"), "theme"),
+        "{\"cardBody\":\"rose\",\"cardHeader\":\"default\"}"
+    );
+    assert_eq!(dashboard_int(&dest.join("homebase.db"), "theme_version"), 1);
 }

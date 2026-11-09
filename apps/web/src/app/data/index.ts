@@ -21,7 +21,13 @@ export type {
 } from './models';
 export type { JsonObject, JsonPrimitive, JsonValue } from './json';
 export { parseJsonObject, parseJsonValue } from './json';
-export { DASHBOARD_ICON_PATTERN, DEFAULT_DASHBOARD_ICON } from './models';
+export {
+  DASHBOARD_ICON_PATTERN,
+  DEFAULT_DASHBOARD_ICON,
+  DEFAULT_DASHBOARD_THEME_VERSION,
+  MAX_DASHBOARD_THEME_CHARS,
+} from './models';
+export { validTheme } from './dashboard-theme-input';
 export { DataError } from './data-error';
 export type { DataErrorKind } from './data-error';
 export { randomUuid } from './clock';

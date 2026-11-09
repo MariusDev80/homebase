@@ -5,11 +5,19 @@ export const DEFAULT_DASHBOARD_ICON = 'th-large';
 /** Same shape as the CHECK of V4. The closed list lives in core/dashboard/dashboard-icons.ts. */
 export const DASHBOARD_ICON_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
 
+/** Same bound as the CHECK of V5, in code points of the serialized object. */
+export const MAX_DASHBOARD_THEME_CHARS = 4096;
+/** Same as the DEFAULT of V5. */
+export const DEFAULT_DASHBOARD_THEME_VERSION = 1;
+
 export interface Dashboard {
   id: string;
   name: string;
   sortOrder: number;
   icon: string;
+  /** Opaque versioned object (V5); interpreted by core/dashboard/dashboard-theme.ts. */
+  theme: JsonObject;
+  themeVersion: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +44,9 @@ export interface NewDashboard {
   id?: string;
   name: string;
   icon?: string;
+  /** Copied as is (e.g. the overflow dashboard inherits it); default {} and version 1. */
+  theme?: JsonObject;
+  themeVersion?: number;
 }
 
 export interface DashboardPatch {
