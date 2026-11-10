@@ -21,6 +21,8 @@ import { DashboardStore } from '../dashboard/dashboard.store';
 import { DashboardFormDialogComponent } from './dashboard-form-dialog.component';
 import { DashboardDeleteDialogComponent } from './dashboard-delete-dialog.component';
 import { WidgetPickerDialogComponent } from './widget-picker-dialog.component';
+import { DashboardThemeFlow } from '../dashboard/dashboard-theme-flow';
+import { DashboardThemeDialogComponent } from './dashboard-theme-dialog.component';
 import { WidgetAddFlow } from '../dashboard/widget-add-flow';
 import { WidgetRegistry } from '../widgets/widget-registry';
 
@@ -49,6 +51,7 @@ const MENU_MIN_ROOM = 96;
     DashboardFormDialogComponent,
     DashboardDeleteDialogComponent,
     WidgetPickerDialogComponent,
+    DashboardThemeDialogComponent,
   ],
   templateUrl: './sidebar.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -71,7 +74,9 @@ export class SidebarComponent {
   protected readonly removal = signal<{ readonly dashboard: Dashboard } | null>(null);
   protected readonly announcement = signal('');
   protected readonly flow = inject(WidgetAddFlow);
+  protected readonly themeFlow = inject(DashboardThemeFlow);
   private readonly registry = inject(WidgetRegistry);
+  private readonly themeButton = viewChild<ElementRef<HTMLButtonElement>>('themeButton');
   private readonly addButton = viewChild<ElementRef<HTMLButtonElement>>('addWidgetButton');
   private readonly scrollArea = viewChild<ElementRef<HTMLElement>>('scrollArea');
   private readonly menuRoot = viewChild<ElementRef<HTMLElement>>('menuRoot');
@@ -101,7 +106,15 @@ export class SidebarComponent {
     }
   });
 
+  protected readonly themeLabelKey = computed(() =>
+    this.themeFlow.phase() === 'unavailable' ? 'dashboardTheme.unavailable' : 'dashboardTheme.open',
+  );
+
   constructor() {
+    const unregisterTheme = this.themeFlow.registerTrigger(() =>
+      this.themeButton()?.nativeElement.focus(),
+    );
+    inject(DestroyRef).onDestroy(unregisterTheme);
     // The add button tells the flow how to take the focus back (after the pop-up, a removal).
     const unregister = this.flow.registerTrigger(() => this.addButton()?.nativeElement.focus());
     inject(DestroyRef).onDestroy(unregister);
@@ -267,6 +280,16 @@ export class SidebarComponent {
       default:
         return;
     }
+  }
+
+  // ---- Dashboard theme (palette) ----
+
+  /** Opens the theme panel; a pending add (blue V) ends first, like a click on the V (D8). */
+  protected onThemeButton(): void {
+    if (this.themeFlow.phase() !== 'idle') return;
+    this.hideLabel();
+    if (this.flow.phase() === 'confirming') this.flow.finish();
+    this.themeFlow.open();
   }
 
   /** Escape on the V ends the add, like a click. */

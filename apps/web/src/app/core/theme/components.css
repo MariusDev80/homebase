@@ -379,6 +379,51 @@
   opacity: 0.5;
 }
 
+/* Tint choice of the dashboard theme panel: native radio hidden, the label is the target. The
+   swatch shows the header color on top of the body color (inline --hb-swatch-*, closed list of
+   tints). Selection: 2 px accent border and a check mark, never the color alone; the outline is
+   reserved to the keyboard focus. */
+.tint-choice {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hb-swatch-border, var(--hb-border));
+  border-radius: var(--hb-radius);
+  background: linear-gradient(
+    var(--hb-swatch-top, var(--hb-bg-subtle)) 0 40%,
+    var(--hb-swatch-fill, var(--hb-bg)) 40% 100%
+  );
+  color: var(--hb-swatch-ink, var(--hb-fg-muted));
+}
+.tint-choice > i {
+  visibility: hidden;
+  font-size: 14px;
+}
+.tint-choice:has(input:checked) {
+  border: 2px solid var(--hb-accent);
+}
+.tint-choice:has(input:checked) > i {
+  visibility: visible;
+}
+.tint-choice:has(input:focus-visible) {
+  outline: 2px solid var(--hb-focus);
+  outline-offset: 2px;
+}
+.tint-choice:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Theme panel: the mask stays modal but does not dim the live preview of the grid (S3). */
+.dialog-mask-clear {
+  --p-mask-background: transparent;
+  background: transparent;
+}
+
 /* Page header (3). */
 .page-header {
   display: flex;

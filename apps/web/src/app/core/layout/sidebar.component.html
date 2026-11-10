@@ -56,6 +56,25 @@
   <ul class="sidebar-group">
     <li>
       <button
+        #themeButton
+        type="button"
+        class="sidebar-bubble"
+        data-testid="dashboard-theme"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="themeFlow.phase() === 'editing' ? 'true' : null"
+        [attr.aria-disabled]="themeFlow.phase() === 'unavailable' ? 'true' : null"
+        [attr.aria-label]="themeLabelKey() | transloco"
+        (click)="onThemeButton()"
+        (mouseenter)="showLabel($event, themeLabelKey())"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, themeLabelKey())"
+        (focusout)="hideLabel()"
+      >
+        <i class="pi pi-palette" aria-hidden="true"></i>
+      </button>
+    </li>
+    <li>
+      <button
         #addWidgetButton
         type="button"
         class="sidebar-bubble"
@@ -169,6 +188,12 @@
 @if (flow.phase() === 'choosing') {
   @defer (on immediate) {
     <app-widget-picker-dialog />
+  }
+}
+
+@if (themeFlow.phase() === 'editing') {
+  @defer (on immediate) {
+    <app-dashboard-theme-dialog />
   }
 }
 

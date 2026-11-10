@@ -5,7 +5,9 @@ import { Router, provideRouter } from '@angular/router';
 import { DASHBOARD_REPOSITORY, SETTINGS_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import { DashboardListStore, MAX_DASHBOARDS } from '../dashboard/dashboard-list.store';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { DashboardThemeFlow } from '../dashboard/dashboard-theme-flow';
 import { WidgetAddFlow } from '../dashboard/widget-add-flow';
+import { AppLock } from '../lock/app-lock';
 import { fixtureDefinition } from '../testing/fixture-definitions';
 import type { WidgetDefinition } from '../widgets/widget-definition';
 import { provideWidget } from '../widgets/widget-registry';
@@ -599,6 +601,114 @@ describe('SidebarComponent', () => {
       await flush();
       flow.focusTrigger();
       expect(document.activeElement).toBe(widgetButton());
+    });
+  });
+
+  describe('theme button (palette)', () => {
+    const themeButton = (): HTMLButtonElement =>
+      el.querySelector<HTMLButtonElement>('[data-testid="dashboard-theme"]') as HTMLButtonElement;
+    let themeFlow: DashboardThemeFlow;
+    let flow: WidgetAddFlow;
+    let store: DashboardStore;
+
+    beforeEach(async () => {
+      await setup([{ name: 'Accueil' }], [fixtureDefinition({ type: 'aa' }) as WidgetDefinition]);
+      themeFlow = TestBed.inject(DashboardThemeFlow);
+      flow = TestBed.inject(WidgetAddFlow);
+      store = TestBed.inject(DashboardStore);
+    });
+
+    it('sits right before the green + in the DOM order, with a palette icon', () => {
+      const buttons = Array.from(el.querySelectorAll('.sidebar-group:last-of-type button'));
+      const add = el.querySelector('[data-testid="add-widget"]');
+      expect(buttons.indexOf(themeButton())).toBe(buttons.indexOf(add as Element) - 1);
+      expect(themeButton().querySelector('i')?.className).toBe('pi pi-palette');
+      expect(themeButton().getAttribute('aria-haspopup')).toBe('dialog');
+    });
+
+    it('is aria-disabled outside a dashboard, with its own label, and does nothing', async () => {
+      expect(themeButton().getAttribute('aria-disabled')).toBe('true');
+      expect(themeButton().disabled).toBe(false);
+      expect(themeButton().getAttribute('aria-label')).toBe(
+        'Ouvrez un tableau de bord pour modifier son thème',
+      );
+      themeButton().click();
+      await flush();
+      expect(themeFlow.phase()).toBe('unavailable');
+      expect(dialog()).toBeNull();
+    });
+
+    it('is aria-disabled under AppLock', async () => {
+      await store.open(null, 'Accueil');
+      TestBed.inject(AppLock).lock('import');
+      await flush();
+      expect(themeButton().getAttribute('aria-disabled')).toBe('true');
+      themeButton().click();
+      await flush();
+      expect(themeFlow.phase()).toBe('unavailable');
+    });
+
+    it('shows the text bubble on mouseenter', async () => {
+      await store.open(null, 'Accueil');
+      await flush();
+      themeButton().getBoundingClientRect = () => rect(300);
+      themeButton().dispatchEvent(new MouseEvent('mouseenter'));
+      await flush();
+      expect(label()?.textContent).toContain('Thème du tableau de bord');
+    });
+
+    it('opens the panel on click, aria-expanded, and gives the focus back on close', async () => {
+      await store.open(null, 'Accueil');
+      await flush();
+      expect(themeButton().getAttribute('aria-label')).toBe('Thème du tableau de bord');
+      expect(themeButton().getAttribute('aria-expanded')).toBeNull();
+      themeButton().click();
+      await flush();
+      expect(themeFlow.phase()).toBe('editing');
+      expect(themeButton().getAttribute('aria-expanded')).toBe('true');
+      await vi.waitFor(() =>
+        expect(document.querySelector('[data-testid="dashboard-theme-dialog"]')).not.toBeNull(),
+      );
+      themeFlow.close();
+      await flush();
+      expect(themeButton().getAttribute('aria-expanded')).toBeNull();
+      await vi.waitFor(() => expect(document.activeElement).toBe(themeButton()));
+    });
+
+    it('full path: palette, choice, preview, save, close, focus back', async () => {
+      await store.open(null, 'Accueil');
+      await flush();
+      themeButton().click();
+      await flush();
+      await vi.waitFor(() =>
+        expect(document.querySelector('[data-testid="dashboard-theme-dialog"]')).not.toBeNull(),
+      );
+      document
+        .querySelector<HTMLInputElement>('label[data-slot="cardBody"][data-tint="rose"] input')
+        ?.click();
+      expect(themeFlow.preview()).toEqual({ cardBody: 'rose', cardHeader: 'default' });
+      expect(repository.items[0]?.theme).toEqual({});
+      (document.querySelector('form') as HTMLFormElement).dispatchEvent(
+        new Event('submit', { cancelable: true }),
+      );
+      await vi.waitFor(() => expect(themeFlow.phase()).toBe('idle'));
+      expect(repository.items[0]?.theme).toEqual({ cardBody: 'rose', cardHeader: 'default' });
+      await flush();
+      expect(document.querySelector('[data-testid="dashboard-theme-dialog"]')).toBeNull();
+      await vi.waitFor(() => expect(document.activeElement).toBe(themeButton()));
+    });
+
+    it('ends a pending add (blue V) before opening the panel', async () => {
+      await store.open(null, 'Accueil');
+      flow.open();
+      await flow.pick('aa');
+      await flush();
+      expect(flow.phase()).toBe('confirming');
+      themeButton().click();
+      await flush();
+      expect(flow.phase()).toBe('idle');
+      expect(themeFlow.phase()).toBe('editing');
+      expect(store.instances()).toHaveLength(1);
     });
   });
 });

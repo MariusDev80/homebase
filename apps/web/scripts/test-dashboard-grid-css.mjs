@@ -92,6 +92,26 @@ const resizeHover =
 if (!resizeHover || !/var\(--hb-card-body-muted\)/.test(resizeHover[1])) {
   errors.push('the resize corner must read --hb-card-body-muted on hover of the card');
 }
+// Theme panel (spec dashboard-theme 4.6): the selection is a border, the outline is reserved to the
+// keyboard focus; the mask of the panel stays modal but transparent.
+const checkedRule = /\.tint-choice:has\(input:checked\)\s*\{([^}]*)\}/.exec(themeCss);
+if (!checkedRule) {
+  errors.push('components.css: .tint-choice:has(input:checked) not found');
+} else if (/outline/.test(checkedRule[1])) {
+  errors.push('.tint-choice:has(input:checked) must not set an outline');
+}
+const focusRule = /\.tint-choice:has\(input:focus-visible\)\s*\{([^}]*)\}/.exec(themeCss);
+if (!focusRule || !/outline:\s*2px solid var\(--hb-focus\)/.test(focusRule[1])) {
+  errors.push('.tint-choice:has(input:focus-visible) must set the focus outline');
+}
+const maskRule = /\.dialog-mask-clear\s*\{([^}]*)\}/.exec(themeCss);
+if (
+  !maskRule ||
+  !/--p-mask-background:\s*transparent\s*;/.test(maskRule[1]) ||
+  !/(^|[;\s])background:\s*transparent\s*;/.test(maskRule[1])
+) {
+  errors.push('.dialog-mask-clear must set --p-mask-background and background to transparent');
+}
 if (errors.length > 0) {
   for (const error of errors) console.error(error);
   process.exit(1);
