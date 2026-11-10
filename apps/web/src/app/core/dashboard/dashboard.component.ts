@@ -18,6 +18,9 @@ import type { LayoutItem, WidgetInstanceRecord } from '../../data';
 import { WidgetHostComponent } from '../widgets/widget-host.component';
 import { WidgetRegistry } from '../widgets/widget-registry';
 import { DashboardLimitError, DashboardListStore } from './dashboard-list.store';
+import { DashboardThemeFlow } from './dashboard-theme-flow';
+import { bodyTint, cardThemeStyle, headerTint, resolveCardTheme } from './dashboard-theme';
+import type { CardTheme, CardTint } from './dashboard-theme';
 import { DashboardStore } from './dashboard.store';
 import {
   buildGridOptions,
@@ -54,6 +57,7 @@ export class DashboardComponent {
   protected readonly registry = inject(WidgetRegistry);
   private readonly transloco = inject(TranslocoService);
   private readonly list = inject(DashboardListStore);
+  private readonly themeFlow = inject(DashboardThemeFlow);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gridster = viewChild(Gridster);
@@ -117,6 +121,29 @@ export class DashboardComponent {
         const key = this.registry.get(i.widgetType)?.titleKey;
         return key ? this.transloco.translate(key) : i.widgetType;
       });
+  });
+
+  /** Theme shown on the grid: the panel's draft while editing this dashboard, else the stored one. */
+  private readonly displayedTheme = computed<CardTheme | null>(() => {
+    const current = this.store.dashboard();
+    if (!current) return null;
+    const preview = this.themeFlow.preview();
+    if (preview && this.themeFlow.dashboardId() === current.id) return preview;
+    // The list is up to date after a save; the store keeps what was loaded.
+    const stored = this.list.dashboards().find((d) => d.id === current.id) ?? current;
+    const resolved = resolveCardTheme(stored.theme, stored.themeVersion);
+    return resolved.status === 'ok' ? resolved.theme : null;
+  });
+  protected readonly cardStyle = computed(() => cardThemeStyle(this.displayedTheme()));
+  /** Effective tints (body, header), each null when the default applies. */
+  protected readonly effectiveTints = computed<{
+    readonly body: CardTint | null;
+    readonly header: CardTint | null;
+  }>(() => {
+    const theme = this.displayedTheme();
+    return theme
+      ? { body: bodyTint(theme), header: headerTint(theme) }
+      : { body: null, header: null };
   });
 
   constructor() {
@@ -183,6 +210,8 @@ export class DashboardComponent {
       const created = await this.list.create({
         name: this.overflowName(current.name),
         icon: current.icon,
+        theme: current.theme,
+        themeVersion: current.themeVersion,
       });
       createdId = created.id;
       const moved = await this.store.moveUnplacedTo(created.id);

@@ -209,6 +209,37 @@
   border-bottom: 0;
 }
 
+/* Card theme of a dashboard (spec dashboard-theme 4.5). The scope declares one slot per themable
+   color, defaulting to the current Box rendering; the dashboard overrides the slots of its tints
+   inline (var(--hb-tint-<id>-<role>)). Everything inside a card follows through the tokens.
+   Never put .card-theme on a .box itself: the slots would refer to the tokens they redefine. */
+.card-theme {
+  --hb-card-body-bg: var(--hb-bg);
+  --hb-card-body-muted: var(--hb-fg-muted);
+  --hb-card-body-border: var(--hb-border);
+  --hb-card-body-accent: var(--hb-accent);
+  --hb-card-body-danger: var(--hb-danger);
+  --hb-card-body-success: var(--hb-success);
+  --hb-card-body-attention: var(--hb-attention);
+  --hb-card-header-bg: var(--hb-bg-subtle);
+  --hb-card-header-muted: var(--hb-fg-muted);
+  --hb-card-header-border: var(--hb-border);
+}
+.card-theme .box {
+  --hb-bg: var(--hb-card-body-bg);
+  --hb-fg-muted: var(--hb-card-body-muted);
+  --hb-border: var(--hb-card-body-border);
+  --hb-accent: var(--hb-card-body-accent);
+  --hb-danger: var(--hb-card-body-danger);
+  --hb-success: var(--hb-card-body-success);
+  --hb-attention: var(--hb-card-body-attention);
+}
+.card-theme .box-header {
+  --hb-bg-subtle: var(--hb-card-header-bg);
+  --hb-fg-muted: var(--hb-card-header-muted);
+  --hb-border: var(--hb-card-header-border);
+}
+
 /* Vertical bar (3, 4.5 of the dashboards spec). No background nor border of its own: the bar is
    part of the page. The text bubble is a single fixed element placed by the component. */
 .sidebar {

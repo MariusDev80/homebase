@@ -5,6 +5,7 @@ import {
   WIDGET_INSTANCE_REPOSITORY,
   type Dashboard,
   type DashboardPatch,
+  type JsonObject,
 } from '../../data';
 import { PendingWrites } from '../widgets/pending-writes';
 
@@ -86,11 +87,29 @@ export class DashboardListStore {
     }
   }
 
-  async create(input: { readonly name: string; readonly icon: string }): Promise<Dashboard> {
+  /** theme/themeVersion optional, copied as is (overflow dashboard). */
+  async create(input: {
+    readonly name: string;
+    readonly icon: string;
+    readonly theme?: JsonObject;
+    readonly themeVersion?: number;
+  }): Promise<Dashboard> {
     if (this.dashboardsState().length >= MAX_DASHBOARDS) throw new DashboardLimitError();
-    const created = await this.repository.create({ name: input.name, icon: input.icon });
+    const created = await this.repository.create({
+      name: input.name,
+      icon: input.icon,
+      ...(input.theme !== undefined ? { theme: input.theme } : {}),
+      ...(input.themeVersion !== undefined ? { themeVersion: input.themeVersion } : {}),
+    });
     this.dashboardsState.update((list) => [...list, created]);
     return created;
+  }
+
+  /** Writes the theme (opaque object + version, see dashboard-theme.ts) and replaces the dashboard in the list. */
+  async updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard> {
+    const updated = await this.repository.updateTheme(id, theme, themeVersion);
+    this.dashboardsState.update((list) => list.map((d) => (d.id === id ? updated : d)));
+    return updated;
   }
 
   async update(id: string, patch: DashboardPatch): Promise<Dashboard> {

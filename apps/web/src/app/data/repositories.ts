@@ -38,7 +38,11 @@ export interface DashboardRepository {
   get(id: string): Promise<Dashboard | null>;
   /** sort_order = max + 1 (or 0), computed in the same INSERT … SELECT. Icon defaults to DEFAULT_DASHBOARD_ICON. Theme defaults to {} / DEFAULT_DASHBOARD_THEME_VERSION, validated like updateTheme. */
   create(input: NewDashboard): Promise<Dashboard>;
-  /** INSERT … SELECT … WHERE NOT EXISTS (SELECT 1 FROM dashboards); true when created. */
+  /**
+   * INSERT … SELECT … WHERE NOT EXISTS (SELECT 1 FROM dashboards); true when created. Same
+   * defaults as create (icon DEFAULT_DASHBOARD_ICON; theme {} and DEFAULT_DASHBOARD_THEME_VERSION),
+   * and the theme is validated like updateTheme even when nothing is inserted (invalid_input).
+   */
   createIfNone(input: NewDashboard): Promise<boolean>;
   /**
    * Replaces name and icon in one statement. not_found when absent. Name trimmed, 1 to 100
@@ -48,7 +52,7 @@ export interface DashboardRepository {
   /**
    * Replaces theme and theme_version in one statement; returns the updated dashboard. not_found
    * when absent. invalid_input when the serialized object exceeds MAX_DASHBOARD_THEME_CHARS code
-   * points or when themeVersion is not an integer >= 1. The data layer never interprets it.
+   * points or when themeVersion is not a safe integer >= 1. The data layer never interprets it.
    */
   updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard>;
   /** Cascades to widget_instances. false when already absent. */

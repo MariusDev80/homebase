@@ -55,6 +55,43 @@ if (!sidebar) {
 } else if (/(^|[;\s])(background|border)[\w-]*\s*:/.test(sidebar[2])) {
   errors.push('.sidebar must have no background nor border of its own');
 }
+// Card theme (spec dashboard-theme 4.5): ten slots with the current Box rendering as default, the
+// mapping inside .box and .box-header, and the resize corner reading the body slot.
+const SLOTS = [
+  ['body-bg', '--hb-bg'],
+  ['body-muted', '--hb-fg-muted'],
+  ['body-border', '--hb-border'],
+  ['body-accent', '--hb-accent'],
+  ['body-danger', '--hb-danger'],
+  ['body-success', '--hb-success'],
+  ['body-attention', '--hb-attention'],
+  ['header-bg', '--hb-bg-subtle'],
+  ['header-muted', '--hb-fg-muted'],
+  ['header-border', '--hb-border'],
+];
+const scope = /(^|[\s,}])\.card-theme\s*\{([^}]*)\}/.exec(themeCss);
+const onBox = /\.card-theme \.box\s*\{([^}]*)\}/.exec(themeCss);
+const onHeader = /\.card-theme \.box-header\s*\{([^}]*)\}/.exec(themeCss);
+if (!scope || !onBox || !onHeader) {
+  errors.push('components.css: .card-theme, .card-theme .box and .card-theme .box-header needed');
+} else {
+  for (const [slot, token] of SLOTS) {
+    const decl = new RegExp('--hb-card-' + slot + ':\\s*var\\(--hb-[a-z-]+\\)\\s*;');
+    if (!decl.test(scope[2]))
+      errors.push('.card-theme must declare --hb-card-' + slot + ' as var()');
+    const target = slot.startsWith('body') ? onBox[1] : onHeader[1];
+    const map = new RegExp(token + ':\\s*var\\(--hb-card-' + slot + '\\)\\s*;');
+    if (!map.test(target)) errors.push(token + ' must read --hb-card-' + slot);
+  }
+  if ((scope[2].match(/--hb-card-[a-z-]+:/g) ?? []).length !== SLOTS.length) {
+    errors.push('.card-theme must declare exactly ' + SLOTS.length + ' slots');
+  }
+}
+const resizeHover =
+  /gridster-item:hover \.gridster-item-resizable-handler\.handle-se\s*\{([^}]*)\}/.exec(css);
+if (!resizeHover || !/var\(--hb-card-body-muted\)/.test(resizeHover[1])) {
+  errors.push('the resize corner must read --hb-card-body-muted on hover of the card');
+}
 if (errors.length > 0) {
   for (const error of errors) console.error(error);
   process.exit(1);

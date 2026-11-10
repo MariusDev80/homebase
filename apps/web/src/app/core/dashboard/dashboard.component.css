@@ -92,7 +92,7 @@ app-dashboard .gridster-item-resizable-handler.handle-se {
   border-color: transparent;
 }
 app-dashboard gridster-item:hover .gridster-item-resizable-handler.handle-se {
-  border-color: transparent transparent var(--hb-fg-muted);
+  border-color: transparent transparent var(--hb-card-body-muted);
 }
 app-dashboard .gridster-item-resizable-handler.handle-se:hover {
   border-color: transparent transparent var(--hb-accent);

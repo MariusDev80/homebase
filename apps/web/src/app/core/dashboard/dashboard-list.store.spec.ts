@@ -163,3 +163,48 @@ describe('DashboardListStore', () => {
     expect(store.dashboards()).toHaveLength(2);
   });
 });
+
+describe('DashboardListStore theme', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  it('create passes theme and themeVersion through', async () => {
+    const { store, dashboards } = setup();
+    await store.load('Accueil');
+    const created = await store.create({
+      name: 'Suite',
+      icon: 'home',
+      theme: { cardBody: 'rose' },
+      themeVersion: 2,
+    });
+    expect(created).toMatchObject({ theme: { cardBody: 'rose' }, themeVersion: 2 });
+    expect(dashboards.items[1]).toMatchObject({ theme: { cardBody: 'rose' }, themeVersion: 2 });
+  });
+
+  it('create without theme keeps the defaults', async () => {
+    const { store } = setup();
+    await store.load('Accueil');
+    const created = await store.create({ name: 'Autre', icon: 'home' });
+    expect(created).toMatchObject({ theme: {}, themeVersion: 1 });
+  });
+
+  it('updateTheme replaces the entry of the list', async () => {
+    const { store } = setup();
+    await store.load('Accueil');
+    const updated = await store.updateTheme(store.dashboards()[0].id, { cardBody: 'sky' }, 1);
+    expect(store.dashboards()[0]).toBe(updated);
+    expect(store.dashboards()[0].theme).toEqual({ cardBody: 'sky' });
+  });
+
+  it('updateTheme propagates a failure and leaves the list unchanged', async () => {
+    const { store, dashboards } = setup();
+    await store.load('Accueil');
+    const before = store.dashboards();
+    dashboards.failNext(new DataError('busy', 'locked'));
+    await expect(store.updateTheme(before[0].id, { cardBody: 'sky' }, 1)).rejects.toBeInstanceOf(
+      DataError,
+    );
+    expect(store.dashboards()).toEqual(before);
+  });
+});

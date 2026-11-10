@@ -16,6 +16,7 @@ import type {
 export class FakeDashboardRepository implements DashboardRepository {
   readonly items: Dashboard[] = [];
   private counter = 0;
+  private writes = 0;
   private nextFailure: unknown;
 
   /** The next call rejects with `error`. */
@@ -30,6 +31,12 @@ export class FakeDashboardRepository implements DashboardRepository {
       return Promise.reject(error);
     }
     return Promise.resolve();
+  }
+
+  /** Every write gets a later updatedAt than any creation, like the real repository. */
+  private tick(): string {
+    this.writes++;
+    return new Date(Date.UTC(2026, 0, 1, 1, 0, this.writes)).toISOString();
   }
 
   private build(input: NewDashboard): Dashboard {
@@ -84,7 +91,12 @@ export class FakeDashboardRepository implements DashboardRepository {
     const index = this.items.findIndex((d) => d.id === id);
     const current = this.items[index];
     if (!current) throw new DataError('not_found', `Dashboard ${id} not found`);
-    const updated: Dashboard = { ...current, name: patch.name.trim(), icon: patch.icon };
+    const updated: Dashboard = {
+      ...current,
+      name: patch.name.trim(),
+      icon: patch.icon,
+      updatedAt: this.tick(),
+    };
     this.items[index] = updated;
     return updated;
   }
@@ -99,6 +111,7 @@ export class FakeDashboardRepository implements DashboardRepository {
       ...current,
       theme: JSON.parse(serialized) as JsonObject,
       themeVersion,
+      updatedAt: this.tick(),
     };
     this.items[index] = updated;
     return updated;

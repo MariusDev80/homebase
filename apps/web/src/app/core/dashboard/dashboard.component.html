@@ -48,7 +48,14 @@
       </p>
     }
 
-    <div #gridArea class="dashboard-grid-area">
+    <div
+      #gridArea
+      class="dashboard-grid-area card-theme"
+      data-testid="dashboard-grid-area"
+      [style]="cardStyle()"
+      [attr.data-card-body]="effectiveTints().body"
+      [attr.data-card-header]="effectiveTints().header"
+    >
       @if (store.instances().length === 0) {
         <div data-testid="dashboard-empty" class="empty-state">
           <i class="pi pi-objects-column" aria-hidden="true"></i>

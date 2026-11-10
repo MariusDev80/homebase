@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 import { BehaviorSubject, of } from 'rxjs';
 import { DashboardListStore, LAST_DASHBOARD_SETTING } from './dashboard-list.store';
 import { DashboardStore } from './dashboard.store';
+import { DashboardThemeFlow } from './dashboard-theme-flow';
 import {
   DASHBOARD_REPOSITORY,
   DataError,
@@ -103,6 +104,65 @@ describe('DashboardComponent', () => {
     expect(el.querySelector('[data-testid="dashboard-error"]')?.textContent).toContain(
       'Impossible de charger le tableau de bord.',
     );
+  });
+
+  describe('card theme', () => {
+    const area = (el: HTMLElement): HTMLElement =>
+      el.querySelector<HTMLElement>('[data-testid="dashboard-grid-area"]') as HTMLElement;
+    const withTheme =
+      (theme: Record<string, string>, themeVersion = 1) =>
+      (d: FakeDashboardRepository) => {
+        d.items[0] = { ...d.items[0], theme, themeVersion };
+      };
+
+    it('puts card-theme on the grid area, never on a box', async () => {
+      const { el } = await render();
+      expect(area(el).classList.contains('card-theme')).toBe(true);
+      expect(el.querySelectorAll('.card-theme.box')).toHaveLength(0);
+      expect(area(el).hasAttribute('data-card-body')).toBe(false);
+      expect(area(el).style.getPropertyValue('--hb-card-body-bg')).toBe('');
+    });
+
+    it('tints the grid from the stored theme (S2)', async () => {
+      const { el } = await render(withTheme({ cardBody: 'rose' }));
+      expect(area(el).style.getPropertyValue('--hb-card-body-bg')).toBe('var(--hb-tint-rose-body)');
+      expect(area(el).getAttribute('data-card-body')).toBe('rose');
+      expect(area(el).getAttribute('data-card-header')).toBe('rose');
+    });
+
+    it('applies no property for a future theme', async () => {
+      const { el } = await render(withTheme({ cardBody: 'rose' }, 2));
+      expect(area(el).style.getPropertyValue('--hb-card-body-bg')).toBe('');
+      expect(area(el).hasAttribute('data-card-body')).toBe(false);
+    });
+
+    it('applies no property for an invalid theme', async () => {
+      const { el } = await render(withTheme({ cardBody: 'Rose' }));
+      expect(area(el).style.getPropertyValue('--hb-card-body-bg')).toBe('');
+      expect(area(el).hasAttribute('data-card-body')).toBe(false);
+    });
+
+    it('shows the draft of the edited dashboard, then the stored theme after close', async () => {
+      const { fixture, el } = await render(withTheme({ cardBody: 'rose' }));
+      const flow = TestBed.inject(DashboardThemeFlow);
+      flow.open();
+      flow.setPreview({ cardBody: 'sky', cardHeader: 'default' });
+      fixture.detectChanges();
+      expect(area(el).getAttribute('data-card-body')).toBe('sky');
+      flow.close();
+      fixture.detectChanges();
+      expect(area(el).getAttribute('data-card-body')).toBe('rose');
+    });
+
+    it('follows list.updateTheme without reopening', async () => {
+      const { fixture, el, dashboards } = await render();
+      const list = TestBed.inject(DashboardListStore);
+      await list.load('Accueil');
+      await list.updateTheme(dashboards.items[0].id, { cardBody: 'mint', cardHeader: 'sky' }, 1);
+      fixture.detectChanges();
+      expect(area(el).getAttribute('data-card-body')).toBe('mint');
+      expect(area(el).getAttribute('data-card-header')).toBe('sky');
+    });
   });
 
   describe('layout', () => {
@@ -290,6 +350,28 @@ describe('DashboardComponent', () => {
         expect(el.querySelector('[data-testid="dashboard-move-error"]')).toBeNull();
         expect(navigate).not.toHaveBeenCalled();
         expect(navigateByUrl).not.toHaveBeenCalled();
+      });
+
+      it('copies the raw theme, even a future one, to the new dashboard', async () => {
+        const { el, dashboards } = await seededAt(full, 'Accueil', 'briefcase');
+        const list = TestBed.inject(DashboardListStore);
+        await list.load('Accueil');
+        dashboards.items[0] = {
+          ...dashboards.items[0],
+          theme: { cardBody: 'coral', later: 'x' },
+          themeVersion: 3,
+        };
+        await list.update(dashboards.items[0].id, { name: 'Accueil', icon: 'briefcase' });
+        const create = vi.spyOn(list, 'create');
+        move(el);
+        await vi.waitFor(() => expect(dashboards.items).toHaveLength(2));
+        expect(create).toHaveBeenCalledWith(
+          expect.objectContaining({ theme: { cardBody: 'coral', later: 'x' }, themeVersion: 3 }),
+        );
+        expect(dashboards.items[1]).toMatchObject({
+          theme: { cardBody: 'coral', later: 'x' },
+          themeVersion: 3,
+        });
       });
 
       it('names the new dashboard after the edited name and icon of the list', async () => {
