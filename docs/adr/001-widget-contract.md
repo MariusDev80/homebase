@@ -135,7 +135,7 @@ Format JSON d'export de la configuration (implémenté en phase 1, figé ici) :
 ```json
 {
   "format": "homebase/dashboard-config",
-  "formatVersion": 2,
+  "formatVersion": 3,
   "exportedAt": "2026-10-20T08:15:00.000Z",
   "dashboards": [
     {
@@ -143,6 +143,7 @@ Format JSON d'export de la configuration (implémenté en phase 1, figé ici) :
       "name": "Accueil",
       "sortOrder": 0,
       "icon": "th-large",
+      "theme": { "version": 1, "data": { "cardBody": "default", "cardHeader": "default" } },
       "widgets": [
         {
           "id": "3f0c2a5e-8f0b-4c55-9a43-0d2a1d6c9b11",
@@ -159,6 +160,8 @@ Format JSON d'export de la configuration (implémenté en phase 1, figé ici) :
 
 *Amendement (spec dashboards-sidebar)* : `formatVersion` passe à 2, lu avant la validation stricte de l'enveloppe (un format plus récent est refusé en `unsupported_version` même s'il ajoute des champs). `dashboards[].icon` y est obligatoire (forme `^[a-z][a-z0-9-]{0,31}$`, liste fermée côté front ; une valeur inconnue est conservée et s'affiche avec l'icône par défaut). Les fichiers en version 1 restent acceptés, sans `icon` : leurs tableaux prennent l'icône par défaut. Le réglage `dashboard.last` n'est ni exporté ni importé.
 
+*Amendement (spec dashboard-theme)* : `formatVersion` passe à 3. `dashboards[].theme = { version, data }` y est obligatoire : thème du tableau, objet versionné validé et migré par `resolveConfig` avec `DASHBOARD_THEME_SPEC` (`core/dashboard/dashboard-theme.ts`), comme une config de widget ; une version future est conservée telle quelle, toute autre valeur invalide fait refuser le fichier ; longueurs en points de code. Les formats 1 et 2 restent acceptés, sans `theme` : leurs tableaux prennent le thème par défaut, ce que l'aperçu d'import annonce.
+
 Règles d'import (principes ; détail et implémentation : amendement ci-dessus et `docs/specs/backup-restore.md` §4.12) : le fichier est une **donnée non fiable** ; taille max 1 Mio ; `format` exact et `formatVersion` ≤ supportée sinon refus ; ids en double dans le fichier → refus ; chaque config passe par `resolveConfig` ; type inconnu → instance conservée telle quelle (placeholder) ; import = **remplacement par identifiant** (voir l'amendement), appliqué atomiquement par la commande Rust `config_import_apply` (transaction sqlx `BEGIN IMMEDIATE`), le front n'ayant pas de transaction (ADR-002 §2.3).
 
 ### 3.6 Communication widget ↔ core
@@ -167,13 +170,14 @@ Règles d'import (principes ; détail et implémentation : amendement ci-dessus 
 - Les autres besoins passent par des **services typés de `core/`** (thème, i18n, puis notifications, ouverture d'URL, lancement d'apps, HTTP sortant via Rust) et par les **interfaces de `data/`** (via `data/index.ts`). Pas de bus d'événements générique à sujets libres. Si deux widgets doivent partager quelque chose, c'est soit une donnée (repository), soit un service `core/` typé ajouté par un ADR.
 - Les services sensibles prennent le `WidgetContext` appelant en premier paramètre et appellent `assertWidgetPermission(ctx, kind)` (ex. `notifications.notify(ctx, …)`).
 - *Amendement (spec dashboards-sidebar)* : `core/search` connaît le type `search` par la constante `SEARCH_WIDGET_TYPE` (raccourci `Ctrl+K`, qui ouvre le tableau contenant une barre de recherche). C'est un couplage par chaîne, assumé : `core/search` est le service propre à ce widget et n'importe rien de `widgets/`. Renommer le type `search` imposerait de changer cette constante.
+- *Amendement (spec dashboard-theme)* : le thème d'un tableau peut teinter le corps et l'en-tête des cartes. Il redéfinit les tokens sémantiques (`--hb-bg`, `--hb-fg-muted`, `--hb-border`, couleurs de sens) dans la carte : un widget qui n'emploie que les tokens et classes sémantiques (règle de DESIGN.md) le suit sans rien faire. Un widget ne suppose jamais que son fond est blanc ou neutre.
 
 ### 3.7 Interface côté données : référence à l'ADR-002
 Cet ADR **ne définit aucun type de `data/`**. `core/` et `widgets/` utilisent, via `data/index.ts`, les éléments de l'ADR-002 §6.6 :
 - `JsonObject`, `JsonValue`, `parseJsonObject` (`data/json.ts`) ;
 - `DataError` / `DataErrorKind` (`data/data-error.ts`) ;
-- `GridRect { x, y, w, h }`, `WidgetInstanceRecord { id, dashboardId, widgetType, grid, config, configVersion, createdAt, updatedAt }`, `NewWidgetInstance`, `LayoutItem`, `Dashboard`, `NewDashboard` (`data/models.ts`) ;
-- `WidgetInstanceRepository { listByDashboard, get, create, updateConfig (lève DataError('not_found')), updateLayout(dashboardId, items) → number, moveToDashboard(targetDashboardId, items) → number, findFirstOfType(widgetType), remove }` et `DashboardRepository { list, get, create, createIfNone, update, remove }` (`data/repositories.ts`). La suppression d'un dashboard par l'utilisateur passe par la commande Rust `dashboard_delete`, qui prend d'abord une sauvegarde `pre-delete` (spec dashboards-sidebar) ;
+- `GridRect { x, y, w, h }`, `WidgetInstanceRecord { id, dashboardId, widgetType, grid, config, configVersion, createdAt, updatedAt }`, `NewWidgetInstance`, `LayoutItem`, `Dashboard`, `NewDashboard` (`data/models.ts`) ; *Amendement (spec dashboard-theme)* : `Dashboard` gagne `theme` (`JsonObject`) et `themeVersion`, `NewDashboard` gagne `theme?` et `themeVersion?` ;
+- `WidgetInstanceRepository { listByDashboard, get, create, updateConfig (lève DataError('not_found')), updateLayout(dashboardId, items) → number, moveToDashboard(targetDashboardId, items) → number, findFirstOfType(widgetType), remove }` et `DashboardRepository { list, get, create, createIfNone, update, updateTheme, remove }` (`data/repositories.ts`). La suppression d'un dashboard par l'utilisateur passe par la commande Rust `dashboard_delete`, qui prend d'abord une sauvegarde `pre-delete` (spec dashboards-sidebar) ;
 - tokens `WIDGET_INSTANCE_REPOSITORY`, `DASHBOARD_REPOSITORY` et `provideDataLayer()` (`data/data.providers.ts`).
 
 Usage par le contrat :

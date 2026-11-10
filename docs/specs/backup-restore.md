@@ -193,7 +193,7 @@ Détecté avant le plugin SQL : marqueur `db-missing.json`, bandeau d'alerte et 
 ### D9. Export et import JSON de la configuration (décisions de Marius)
 
 - **Périmètre** : dashboards, widgets (format de l'ADR-001 §3.5) et `settings`. Les notes, tâches et raccourcis sont exclus.
-- **Champs obligatoires** : `format`, `formatVersion` (2 ; 1 accepté en lecture), `exportedAt`, `dashboards` et `settings` (objet, éventuellement vide). L'enveloppe est stricte.
+- **Champs obligatoires** : `format`, `formatVersion` (3 ; 1 et 2 acceptés en lecture), `exportedAt`, `dashboards` et `settings` (objet, éventuellement vide). L'enveloppe est stricte.
 - **Import par remplacement par identifiant** :
   - les lignes existantes sont mises à jour en place, y compris une instance qui change de dashboard ;
   - un `widgetType` différent entraîne la suppression puis la recréation de l'instance ;
@@ -547,7 +547,7 @@ Les nombres de suppressions viennent de l'aperçu côté front (§4.12), pas de 
 
 **Analyse** (`parseConfigImport(text, lookup)`, front) :
 - `JSON.parse`, sinon `invalid_json`.
-- Enveloppe en `v.strictObject` : `format` (littéral) ; `formatVersion`, lu avant la validation stricte (supérieur à 2 → `unsupported_version` ; autre valeur que 1 ou 2 → `invalid_value`) ; `exportedAt` obligatoire, au format `InstantIso` ; `dashboards` et `settings` obligatoires. Champ manquant → `missing_field` ; champ inconnu → `unknown_field`. Les dashboards et les widgets sont eux aussi validés en `v.strictObject`.
+- Enveloppe en `v.strictObject` : `format` (littéral) ; `formatVersion`, lu avant la validation stricte (supérieur à 3 → `unsupported_version` ; autre valeur que 1, 2 ou 3 → `invalid_value`) ; `exportedAt` obligatoire, au format `InstantIso` ; `dashboards` et `settings` obligatoires. Champ manquant → `missing_field` ; champ inconnu → `unknown_field`. Les dashboards et les widgets sont eux aussi validés en `v.strictObject`.
 - Contrôles du §4.3 ; UUID en minuscules, uniques ; `name` passé par `hbTrim` avant le contrôle de longueur.
 - Type de widget connu, selon le résultat de `resolveConfig` :
   - `ok` → `serializeConfig` ;
@@ -615,6 +615,8 @@ interface ConfigImportPlan {
 
 **Amendement (spec dashboards-sidebar, 2026-11-06)** : `formatVersion` passe à 2 et se lit avant la validation stricte. `dashboards[].icon` y est obligatoire ; absent en version 1, où le plan reçoit l'icône par défaut. `ConfigImportPlan.dashboards[].icon` est toujours présent ; `validate_plan` contrôle sa forme (`invalid_icon`) ; `UPSERT_DASHBOARD` écrit `icon`. Le réglage `dashboard.last` est exclu de l'export, ignoré à l'analyse et jamais écrit par `config_import_apply`.
 
+**Amendement (spec dashboard-theme, 2026-11-09)** : `formatVersion` passe à 3. `dashboards[].theme = { version, data }` y est obligatoire ; absent en versions 1 et 2, où le plan reçoit le thème par défaut et l'aperçu l'annonce (`resetsThemes`). Analyse : `resolveConfig` avec `DASHBOARD_THEME_SPEC` ; `future-version` → objet brut conservé ; autre invalide → `invalid_value` ; objet sérialisé ≤ 4 096 points de code. `ConfigImportPlan.dashboards[]` porte toujours `theme` (objet JSON sérialisé) et `themeVersion` ; `validate_plan` contrôle objet, taille et version 1 à 10 000 (`invalid_theme`) ; `UPSERT_DASHBOARD` écrit `theme` et `theme_version`.
+
 ### 4.13 Erreurs
 
 ```rust
@@ -637,10 +639,11 @@ pub enum ArchiveProblem { NotZip, Zip64, TooManyEntries, OverlappingEntries, Une
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)] #[serde(rename_all = "snake_case")]
 pub enum ImportProblem { NotConfig, NotUtf8, NoDashboard, TooManyDashboards, TooManyWidgets, TooManySettings,
     InvalidId, DuplicateId, InvalidName, InvalidWidgetType, InvalidGrid, InvalidSortOrder, InvalidConfig,
-    InvalidConfigVersion, InvalidIcon, InvalidSettingKey, SecretSetting, InvalidSettingValue, Constraint }
+    InvalidConfigVersion, InvalidIcon, InvalidTheme, InvalidSettingKey, SecretSetting, InvalidSettingValue, Constraint }
 ```
 
 - `BackupError::LastDashboard` (`last_dashboard`), renvoyé par `dashboard_delete`.
+- `ImportProblem::InvalidTheme` (`invalid_theme`), renvoyé par `validate_plan` pour un thème de tableau qui n'est pas un objet, trop long ou de version hors 1 à 10 000 (spec dashboard-theme).
 - `StorageFull` → `DiskFull` (S6) ; `sqlx::Error` → `Database`.
 - Messages bruts : seulement dans `eprintln!`.
 - TS : `BackupErrorDto` reprend ces variantes, plus `{ kind: 'unavailable' }`.
@@ -867,7 +870,7 @@ configTransfer.issues.<chaque code d'issue>      message court
 - **M6** « Restaurer depuis un fichier… » avec ce fichier : le résumé s'affiche, puis la restauration fonctionne. Avec un `.zip` quelconque : message d'archive invalide.
 - **M7** Après M3, un seul processus Homebase (Gestionnaire des tâches) et une seule icône dans la zone de notification. Refaire M3 après avoir masqué la fenêtre dans la zone de notification puis l'avoir rouverte : le comportement est identique.
 - **M8** Quitter, renommer `homebase.db` en `homebase.db.bak`, relancer : le bandeau « Aucune base… » s'affiche, et le lien mène à la carte. Restaurer la dernière sauvegarde.
-- **M9** Exporter la configuration (le JSON ne contient aucune clé de jeton), déplacer un widget, puis importer : la position d'origine revient et les tâches sont conservées. `"formatVersion": 3` est refusé. Un `.json` quelconque est refusé (`not_config`) et son contenu n'est pas affiché.
+- **M9** Exporter la configuration (le JSON ne contient aucune clé de jeton), déplacer un widget, puis importer : la position d'origine revient et les tâches sont conservées. `"formatVersion": 4` est refusé. Un `.json` quelconque est refusé (`not_config`) et son contenu n'est pas affiché.
 - **M10** À la migration V4 : une sauvegarde « Avant mise à jour » (base seule) est créée au premier lancement. Exécutée avec la spec dashboards-sidebar (M10 de cette spec).
 - **M11** Application quittée : créer `<racine>\restore-rollback\` contenant un fichier `x.txt` (sans `restore-info.json`), puis lancer. Un message natif s'affiche, l'application ne démarre pas, et aucune base n'est créée ni modifiée. Supprimer le dossier et relancer : l'application démarre normalement, et `startup-blocked.json` a disparu (S14).
 
@@ -1189,7 +1192,7 @@ core/backup/index.ts
 **Tests** :
 - Export : ordre, forme, clé secrète écartée.
 - Aller-retour avec les fixtures du registre.
-- Refus : `formatVersion: 3` ; champ inconnu ; `settings` ou `exportedAt` absent (`missing_field`) ; `exportedAt` mal formé ; id en majuscules ; doublon ; 0 ou 101 dashboards ; `w = 0` ; `x = 1.5` ; config invalide (chemin `dashboards[0].widgets[1].config`) ; `maxInstances` dépassé ; clé secrète ; `Bad Key`.
+- Refus : `formatVersion: 4` ; champ inconnu ; `settings` ou `exportedAt` absent (`missing_field`) ; `exportedAt` mal formé ; id en majuscules ; doublon ; 0 ou 101 dashboards ; `w = 0` ; `x = 1.5` ; config invalide (chemin `dashboards[0].widgets[1].config`) ; `maxInstances` dépassé ; clé secrète ; `Bad Key`.
 - Cas acceptés : type inconnu ; `future-version` ; migration v1 → v3.
 - `hbTrim` (U+00A0, U+FEFF, U+0085), y compris la normalisation unique d'un nom stocké avec des espaces de bord.
 - `__proto__` à la racine, dans `data` (type connu et type inconnu) et dans `settings` : `({} as Record<string, unknown>)['polluted'] === undefined`.

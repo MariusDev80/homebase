@@ -145,6 +145,8 @@ Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoq
 
 *Amendement (spec dashboards-sidebar, V4)* : `dashboards.icon TEXT NOT NULL DEFAULT 'th-large'` avec un `CHECK` de forme. Exception justifiée à « pas de `DEFAULT` » (règle des horodatages) : `ADD COLUMN NOT NULL` exige un défaut. Le `CHECK` ne fige pas la liste des icônes.
 
+*Amendement (spec dashboard-theme, V5)* : `dashboards.theme TEXT NOT NULL DEFAULT '{}'` (objet JSON, ≤ 4 096 caractères) et `dashboards.theme_version INTEGER NOT NULL DEFAULT 1` (≥ 1), sur le modèle de `config` / `config_version` : la couche données ne les interprète pas. Même exception justifiée à « pas de `DEFAULT` » que V4. Ajouter une option au thème ne demande ni migration ni nouveau format d'export (nouvelle version du schéma de thème, migrée côté front).
+
 ### 3.5 Couche `data/` (TypeScript)
 - Port `SqlExecutor` avec deux adaptateurs : `TauriSqlExecutor` (production, `Database.get(DB_URL)`) et `NodeSqliteExecutor` (tests, better-sqlite3 `:memory:` + application des fichiers de migration).
 - Repositories SQLite **communs** à la production et aux tests.
@@ -152,6 +154,8 @@ Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoq
 - Concurrence : dernier écrivain gagnant (une seule fenêtre, un seul processus). Pas de verrou optimiste.
 - Bootstrap (`provideAppInitializer`) : `PRAGMA journal_mode = WAL`, puis vérification. Hors Tauri (navigateur seul), erreur claire `DataError('unavailable')`. (amendé après revue phase 0) L'initialiseur ne rejette pas : l'erreur est mémorisée et propagée par les repositories à chaque appel, afin que l'application démarre et affiche un message d'erreur.
 - *Amendement (spec dashboards-sidebar)* : `Dashboard.icon`, `NewDashboard.icon?` ; `DashboardRepository.update(id, { name, icon })` remplace `rename`, sans appelant ; `remove` ne sert plus qu'au nettoyage d'un dashboard vide juste créé ; la suppression par l'utilisateur passe par la commande Rust `dashboard_delete` (contrôle d'existence et du nombre de dashboards sous le verrou de sauvegarde, sauvegarde `pre-delete`, puis une instruction `DELETE` qui épargne le dernier dashboard). `WidgetInstanceRepository.moveToDashboard(targetDashboardId, items)` (une instruction `UPDATE … FROM json_each`) et `findFirstOfType(widgetType)`.
+
+*Amendement (spec dashboard-theme)* : `Dashboard.theme` (`JsonObject`) et `Dashboard.themeVersion` ; `NewDashboard.theme?` / `themeVersion?` (recopiés tels quels dans l'`INSERT` de création, par exemple pour le tableau « (suite) ») ; `DashboardRepository.updateTheme(id, theme, themeVersion)` (une instruction ; `not_found` ; `invalid_input` au-delà de 4 096 points de code ou pour une version non entière ou < 1). `update(id, { name, icon })` ne touche pas au thème.
 
 ### 3.6 Capabilities Tauri
 Strict nécessaire pour le front : **`sql:allow-execute`** et **`sql:allow-select`**. **Pas** de `sql:default` (qui ajouterait `allow-load` et `allow-close`, inutiles avec `preload` + `Database.get`, F14 et F15).

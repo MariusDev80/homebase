@@ -7,7 +7,7 @@ Ce document fait foi pour toute UI (shell, pages, widgets). Une exception se jus
 ## 1. Principes
 1. **La structure vient des bordures, pas des ombres.** Des cadres de 1 px, des fonds légèrement teintés pour les en-têtes et des séparateurs entre les lignes. Les ombres sont réservées aux éléments flottants (menus, dialogues, toasts).
 2. **Dense mais lisible.** Texte de base en 14 px, interligne 1,5, espacements serrés et réguliers. Un tableau de bord montre beaucoup sans paraître chargé.
-3. **Neutre d'abord, couleur pour le sens.** Le fond et le texte sont en gris neutres. La couleur porte une information (accent = interactif ou sélectionné, succès, danger, attention), jamais de la décoration.
+3. **Neutre d'abord, couleur pour le sens.** Le fond et le texte sont en gris neutres. La couleur porte une information (accent = interactif ou sélectionné, succès, danger, attention), jamais de la décoration. *Exception (spec dashboard-theme, décision de Marius)* : chaque tableau peut teinter ses cartes (fond et en-tête) avec une palette pastel fermée, au choix de l'utilisateur. Par défaut aucune teinte : le rendu reste neutre. Les teintes ne portent aucun sens ; dans un corps teinté, les couleurs de sens passent à leurs variantes `--hb-on-tint-*`.
 4. **Hiérarchie par la typographie et l'espacement.** Poids 600 pour les titres, gris « muted » pour le secondaire. Pas de couleurs vives pour hiérarchiser.
 5. **Clair et sombre à parité.** Chaque token a ses deux valeurs, et tout écran est vérifié dans les deux thèmes.
 6. **Accessible par défaut.** Contraste WCAG AA, focus toujours visible, `prefers-reduced-motion` respecté, cibles cliquables d'au moins 24 px.
@@ -36,6 +36,9 @@ Ce sont des variables CSS sémantiques, définies une seule fois dans `apps/web/
 | `--hb-attention` | `#9a6700` | `#d29922` | avertissements, échéance proche |
 | `--hb-focus` | `#0969da` | `#1f6feb` | anneau de focus |
 
+### 2.1 bis Teintes de cartes (thème d'un tableau)
+Douze teintes, chacune avec quatre rôles en clair et en sombre : `--hb-tint-<id>-body` (corps), `-header` (en-tête, un peu plus soutenu), `-muted` (texte secondaire et icônes sur les deux), `-border` (cadre et séparateur de l'en-tête). Ids et valeurs : `docs/specs/dashboard-theme.md` §4.1 (rose, peach, vanilla, anis, mint, lagoon, sky, periwinkle, lavender, orchid, slate, sand ; noms affichés : Rose, Pêche, Vanille, Anis, Menthe, Lagon, Ciel, Pervenche, Lavande, Orchidée, Ardoise, Sable). Clair : pastels (nuances 100 et 200) ; sombre : la teinte assourdie dans le fond, volontairement discrète. Dans un corps teinté, les couleurs de sens deviennent `--hb-on-tint-accent` / `-danger` / `-success` / `-attention` (plus profondes en clair, identiques en sombre). `--hb-fg` reste partagé. L'en-tête « par défaut » suit le fond ; cadre et séparateur prennent la bordure de la teinte présente. Contrastes vérifiés par `check-contrast` : texte et secondaire 4,5:1, icônes et focus 3:1, bordures 1,3:1 (comme le rendu par défaut), cas mixtes compris. Les valeurs s'ajustent dans `tokens.css` sans migration.
+
 ### 2.2 Typographie
 - Police système : `-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif` (Segoe UI sous Windows). Chasse fixe : `ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace`. Aucune police web à charger.
 - Échelle : 12 px (métadonnées, badges), **14 px (base)**, 16 px (titre de carte), 20 px (titre de page), 24–32 px (rare : grandes valeurs dans les widgets).
@@ -49,9 +52,10 @@ Ce sont des variables CSS sémantiques, définies une seule fois dans `apps/web/
 - Transitions : 80 à 150 ms, uniquement sur la couleur, le fond et l'opacité. Rien n'est animé si `prefers-reduced-motion` est actif.
 
 ## 3. Composants (patterns)
-- **Barre de navigation** : verticale à gauche, 56 px, **sans fond ni bordure propres**. Bulles de 40 px (`.sidebar-bubble`) : rondes, cadre `--hb-border`, fond `--hb-bg`, icône `--hb-fg-muted` ; actif (`aria-current="page"`) en `--hb-accent` sur `--hb-accent-subtle`. De haut en bas : tableaux de bord (zone défilante), `+` neutre, espace, `+` vert (widget), Réglages tout en bas. Pas de bouton de thème (réglage dans Réglages).
+- **Barre de navigation** : verticale à gauche, 56 px, **sans fond ni bordure propres**. Bulles de 40 px (`.sidebar-bubble`) : rondes, cadre `--hb-border`, fond `--hb-bg`, icône `--hb-fg-muted` ; actif (`aria-current="page"`) en `--hb-accent` sur `--hb-accent-subtle`. De haut en bas : tableaux de bord (zone défilante), `+` neutre, espace, palette (thème du tableau courant), `+` vert (widget), Réglages tout en bas. Le thème clair/sombre se règle dans Réglages ; la palette ne règle que les couleurs des cartes du tableau courant.
 - **Bulle de texte** (`.sidebar-label`) : au survol et au focus clavier d'une bulle, le nom à côté, sur `--hb-bg-emphasis`, texte `--hb-fg-on-emphasis`, pilule, ombre de flottant.
 - **Ajout de widget** : `+` sur `--hb-success-emphasis` (`.sidebar-bubble-add`), puis V sur `--hb-accent-emphasis` (`.sidebar-bubble-done`). Seule action primaire de la vue tableau de bord.
+- **Thème du tableau** : bulle neutre `pi pi-palette`. Dialogue modal en bas à gauche, voile transparent (`.dialog-mask-clear`) pour garder la grille visible : deux groupes de choix (« Fond des widgets » avec « Par défaut », « En-tête des widgets » avec « Comme le fond »), puis les douze teintes en pastilles de 32 px montrant l'en-tête sur le corps (`.tint-choice` : sélection par bordure d'accent de 2 px et coche, focus par l'anneau, nom dans le libellé, jamais la couleur seule), mini-carte d'aperçu ; l'aperçu s'applique aussi à la grille ; « Enregistrer » écrit, « Annuler » ou Échap rétablissent.
 - **En-tête de page** : titre de 20 px en 600 à gauche, actions à droite, séparateur bas facultatif. Le tableau de bord n'en a pas : son titre est un `<h1 class="sr-only">`.
 - **Carte « Box »**, la brique de base, que l'hôte de widget utilise toujours :
   - cadre `--hb-border`, rayon 6 px, fond `--hb-bg` ;
@@ -75,6 +79,7 @@ Ce sont des variables CSS sémantiques, définies une seule fois dans `apps/web/
 - L'hôte de widget (`core/widgets/widget-host`) dessine **seul** le cadre Box et l'en-tête (icône ou poignée, titre, Supprimer). Le composant du widget ne rend que le corps : un widget ne dessine ni son propre cadre ni sa propre ombre.
 - Les placeholders (type inconnu, config invalide, version future, erreur de chargement) utilisent le même cadre, avec un état vide ou un bandeau d'erreur.
 - La grille compte 12 colonnes et 8 lignes dont la taille suit la fenêtre : un tableau de bord ne défile jamais, seul le contenu d'une carte peut défiler. Le déplacement est toujours actif : la poignée remplace l'icône au survol et au focus de l'en-tête ; le coin bas-droit de redimensionnement apparaît au survol de la carte. Déplacement en cours et aperçu de dépôt en `--hb-accent`.
+- Thème des cartes : la zone de grille porte `.card-theme` (jamais sur une `.box`), dont les créneaux (`--hb-card-body-*`, `--hb-card-header-*`) valent par défaut le rendu Box ; le tableau pose en ligne les créneaux de ses teintes, et la carte redéfinit les tokens à partir d'eux. Rien ne change hors de la grille.
 
 ## 5. Mise en œuvre technique
 - **Tokens** dans `core/theme/tokens.css`, importé par `styles.css`.
@@ -108,11 +113,12 @@ Attention : `default` et `muted` sont les noms Tailwind des bordures ; `text-mut
 
 Autres tokens exposés : `font-sans` / `font-mono` ; tailles `text-xs` (12 px), `text-sm` (14 px, base), `text-base` (16 px, titre de carte), `text-lg` (20 px, titre de page), `text-xl` / `text-2xl` (24 / 32 px) ; poids `font-normal` (400) et `font-semibold` (600) uniquement ; rayons `rounded-box` (6 px), `rounded-dialog` (12 px), `rounded-pill` ; ombre `shadow-floating` (flottants uniquement) ; chiffres tabulaires `tabular-nums`. Les teintes `*-subtle`, `page` et `hover` sont dérivées dans `tokens.css` (`color-mix`) et ne figurent pas dans le tableau de §2.1.
 
-Classes de composants (`core/theme/components.css`, `@layer components`) : `btn` (+ `btn-primary`, `btn-danger`, `btn-invisible`, `btn-icon`, `btn-compact`), `field` / `field-error`, `switch`, `box` / `box-header` / `box-body` / `box-row`, `sidebar`, `sidebar-group`, `sidebar-group-scroll`, `sidebar-spacer`, `sidebar-bubble` (+ `sidebar-bubble-add`, `sidebar-bubble-done`), `sidebar-label`, `icon-choice`, `page-header` / `page-title`, `menu` / `menu-item`, `flash` (+ `flash-danger`, `flash-attention`), `empty-state`.
+Classes de composants (`core/theme/components.css`, `@layer components`) : `btn` (+ `btn-primary`, `btn-danger`, `btn-invisible`, `btn-icon`, `btn-compact`), `field` / `field-error`, `switch`, `box` / `box-header` / `box-body` / `box-row`, `sidebar`, `sidebar-group`, `sidebar-group-scroll`, `sidebar-spacer`, `sidebar-bubble` (+ `sidebar-bubble-add`, `sidebar-bubble-done`), `sidebar-label`, `icon-choice`, `card-theme`, `tint-choice`, `dialog-mask-clear`, `page-header` / `page-title`, `menu` / `menu-item`, `flash` (+ `flash-danger`, `flash-attention`), `empty-state`.
 
-Contrôles automatiques : `apps/web/scripts/check-design-tokens.mjs` (dans `npm run lint`) refuse toute couleur brute (palette Tailwind, hexadécimal, `rgb()`/`oklch()`…) hors `tokens.css` et `homebase-preset.ts` ; `apps/web/scripts/check-contrast.mjs` (dans `npm run test`) vérifie le contraste AA des paires de §6.
+Contrôles automatiques : `apps/web/scripts/check-design-tokens.mjs` (dans `npm run lint`) refuse toute couleur brute (palette Tailwind, hexadécimal, `rgb()`/`oklch()`…) hors `tokens.css` et `homebase-preset.ts` ; `apps/web/scripts/check-contrast.mjs` (dans `npm run test`) vérifie le contraste AA des paires de §6 ; il vérifie aussi chaque teinte de cartes dans les deux thèmes (texte 4,5:1, focus 3:1, bordures 1,3:1, cas mixtes) et sa présence dans `CARD_TINTS` ; `test-check-contrast.mjs` le vérifie sur des fixtures.
 
 ## 6. Vérification
 - Chaque écran est vérifié en clair et en sombre (capture de l'exe release via le port de débogage WebView2, comme en fin de phase 0).
 - Contraste AA vérifié sur les paires de tokens texte/fond (test Vitest sur les valeurs de `tokens.css`, ou vérification documentée).
 - La revue UI vérifie : bordures plutôt qu'ombres, une seule action primaire par vue, classes sémantiques uniquement, focus visible et états vides/erreur conformes au §3.
+- Chaque teinte de cartes est vérifiée en clair et en sombre sur un tableau réel (spec dashboard-theme, MT1).

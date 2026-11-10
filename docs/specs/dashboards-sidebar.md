@@ -95,6 +95,8 @@ Références de lignes : `node_modules/angular-gridster2/fesm2022/angular-gridst
 ### D0. Développement isolé de la vraie base et du vrai démarrage automatique (bloquant)
 `npm run dev` fusionne `tauri.dev.conf.json` : identifiant `fr.mariusdev.homebase.dev` (dossier de données, base, sauvegardes et `homebase.lock` distincts, V35, V36, mutex distinct, V38) et `productName` « Homebase Dev » (entrée `Run` distincte, V39). `tauri.conf.json` reste inchangé : l'exe installé garde l'identifiant et le nom réels. La base de dev se remplit en y restaurant une archive réelle (M3 rejouable). La vraie base ne voit la V4 qu'au lancement de l'exe release, pour les vérifications finales, juste avant la fusion. **Le texte de V4 est figé à la revue du lot C1** : toute modification ultérieure devient une V5. Procédure de retour arrière au §9.
 
+*Amendement (spec dashboard-theme)* : V4 est figée depuis le commit 8982993. La spec dashboard-theme ajoute V5 sur cette même branche, figée à la revue de son lot T2 ; aucun `npm run dev` du début de T2 jusqu'à cette revue. La vraie base passe de V3 à V5 au premier lancement de l'exe release.
+
 Interdits : `npm run tauri dev` et `cargo tauri dev` (configuration réelle, V35) ; enregistrer un export ou une archive de l'app de dev dans `%APPDATA%\fr.mariusdev.homebase\backups\` (une archive de dev y serait listée, restaurable et soumise à la rotation réelle).
 
 ### D1. Grille : `gridType: 'fit'`, 12 × 8 fixes
@@ -147,7 +149,7 @@ La coquille fait `100dvh` ; `main` est une colonne flex en `overflow-y: auto` ; 
 Un `ResizeObserver` sur la zone de grille appelle `Gridster.api.resize()` (V8). Les bandeaux restent au-dessus ; les lignes rétrécissent.
 
 ### D7. Barre : un lien par bulle, ordre, rôles ; **bouton de thème retiré**
-De haut en bas : bulles des tableaux (zone défilante), `+` neutre (« Nouveau tableau de bord »), espace, `+` vert (widget), Réglages tout en bas (ordre choisi par Marius sur aperçu).
+De haut en bas : bulles des tableaux (zone défilante), `+` neutre (« Nouveau tableau de bord »), espace, `+` vert (widget), Réglages tout en bas (ordre choisi par Marius sur aperçu). *Amendement (spec dashboard-theme)* : une bulle palette (thème du tableau courant) s'insère entre l'espace et le `+` vert.
 
 `<nav>` avec des listes de liens et de boutons ; **ni `menubar` ni flèches** : `Tab` parcourt les bulles. `aria-current="page"` sur l'active.
 
@@ -438,6 +440,8 @@ ALTER TABLE dashboards ADD COLUMN icon TEXT NOT NULL DEFAULT 'th-large'
 ```
 `db.rs` : `version: 4, description: "dashboard_icon"`. `checksums.json` : SHA-256 du fichier.
 
+*Note (spec dashboard-theme)* : le thème des cartes arrive par V5 (`dashboards.theme`, `theme_version`).
+
 `data/models.ts` :
 ```ts
 export const DEFAULT_DASHBOARD_ICON = 'th-large';
@@ -604,6 +608,8 @@ Bandeau de débordement, au-dessus de la grille :
 }
 ```
 Action (lot C3a) : `list.create({ name: dashboard.overflowName, icon: icône du tableau courant })` (nom coupé par points de code pour tenir en 100), puis `store.moveUnplacedTo(id)`, sans naviguer. La création et le déplacement ne sont pas atomiques : en cas d'échec du déplacement, **suppression best-effort du tableau vide créé** (`DashboardRepository.remove`, sans sauvegarde : il ne contient rien ; échec seulement journalisé), puis `dashboard.moveUnplacedError`. `DashboardLimitError` → `dashboards.limit`.
+
+*Amendement (spec dashboard-theme)* : le tableau « (suite) » reçoit aussi le thème du tableau courant (`theme`, `themeVersion`), dans le même `INSERT`.
 
 ### 4.8 Dialogues et suppression
 
@@ -779,7 +785,7 @@ Une requête d'une session dépassée n'est jamais consommée : changer de table
 - `core/backup/config-transfer.ts` : `EXCLUDED_SETTING_KEYS = ['dashboard.last']`. `buildConfigExport` les écarte ; `parseConfigImport` les ignore sans erreur (un fichier exporté entre C2a et C2b peut en contenir) ;
 - `src/backup/config_transfer.rs` : `run_statements` n'écrit pas une clé `dashboard.last` (défense si le front l'envoyait) ; test dédié.
 
-**Lot F** :
+**Lot F** (*Note* : `formatVersion` 3 depuis la spec dashboard-theme) :
 - `CONFIG_FORMAT_VERSION = 2`, `SUPPORTED_FORMAT_VERSIONS = [1, 2]`, `ConfigExportDashboard.icon: string`, `ConfigExportInput` idem.
 - **Avant** le `safeParse` strict : si la racine est un objet dont `formatVersion` est un nombre `> 2` → `unsupported_version@formatVersion`, seul problème rapporté (D16, V33).
 - `envelopeSchema` : `icon: v.optional(v.string())` dans le dashboard. Après le parse : `formatVersion` différent de 1 et 2 → `invalid_value` (0, 1,5). Version 1 avec `icon` → `unknown_field` sur `${dPath}.icon` ; version 2 sans `icon` → `missing_field` ; `icon` hors `DASHBOARD_ICON_PATTERN` → `invalid_value`. Icône valide hors liste : acceptée (D11).
@@ -1268,7 +1274,7 @@ Acceptation :
 3. Aucune couleur brute, aucun `any`, aucun `Date` ajouté, `OnPush` partout, textes via Transloco.
 4. Bundle initial < 500 kB ; budget inchangé.
 5. `tauri.conf.json` et la CSP inchangés ; capabilities et `build.rs` modifiés uniquement pour `dashboard_delete` ; `tauri.dev.conf.json` réduit à `identifier` et `productName`.
-6. M1 à M17 passées par Marius sur l'exe release et la vraie base, **juste avant la fusion**.
+6. M1 à M17 (et MT1 à MT9 de la spec dashboard-theme) passées par Marius sur l'exe release et la vraie base, **juste avant la fusion**.
 
 ---
 
@@ -1293,14 +1299,14 @@ Acceptation :
 - **M7 Tableaux.** Créer « Pro » (`briefcase`), « Jeu vidéo » (`trophy`), « Perso » (`home`), « Streaming » (`video`). Widgets propres à chacun ; une recherche par tableau permise. F5 rouvre le même. Relancer : retour au dernier ouvert.
 - **M8 Suppression.** Tableau avec une note et des tâches : texte explicite, case obligatoire. Pendant la suppression : voile « Suppression du tableau en cours… », `Ctrl+K` et clics sur la barre sans effet. Après : une sauvegarde « Avant suppression d'un tableau » (base seule) apparaît dans Réglages ; note et tâches disparues de la recherche ; raccourcis conservés. Dernier tableau non supprimable, et aucune sauvegarde créée en essayant.
 - **M9 Clavier.** Sur une bulle : `Maj+F10`, puis la touche Menu si disponible : menu, flèches, Échap (focus rendu). `Tab` parcourt la barre. Narrateur : nom, « page en cours », raccourci annoncé.
-- **M10 Migration V4** (première action sur la vraie base, une seule fois) : une sauvegarde « Avant mise à jour », base seule, schéma 3 ; tous les widgets présents ; tableau existant à l'icône grille.
-- **M11 Restauration V3.** Restaurer cette sauvegarde : acceptée, redémarrage, nouvelle migration V4, nouvelle sauvegarde « Avant mise à jour ». Données retrouvées.
-- **M12 Restauration V4.** Créer une sauvegarde manuelle (schéma 4), modifier quelque chose, la restaurer : acceptée, redémarrage, état d'avant la modification, icônes comprises.
+- **M10 Migrations V4 et V5** (première action sur la vraie base, une seule fois ; vaut aussi MT6 de la spec dashboard-theme) : une seule sauvegarde « Avant mise à jour », base seule, schéma 3, prise avant que V4 et V5 soient appliquées ensemble ; tous les widgets présents ; tableau existant à l'icône grille et au thème par défaut.
+- **M11 Restauration V3.** Restaurer cette sauvegarde : acceptée, redémarrage, V4 et V5 appliquées ensemble, nouvelle sauvegarde « Avant mise à jour » (schéma 3). Données retrouvées.
+- **M12 Restauration au schéma courant.** Créer une sauvegarde manuelle (schéma 5), modifier quelque chose (icône et thème compris), la restaurer : acceptée, redémarrage, état d'avant la modification, icônes et thèmes compris.
 - **M13 `+` vert et V.** Clic : pop-up ; choix : fermeture, widget mis en évidence, V sur fond bleu ; clic : `+` vert sans autre changement ; Échap sur le V : pareil. Pendant le V : changer de tableau, aller dans Réglages puis **revenir au même tableau** : `+` vert. Pop-up ouverte puis `Alt+←` : la pop-up se ferme et ne revient pas. Depuis Réglages, le `+` est grisé et sa bulle le dit. Échap dans la pop-up : fermeture ; clic sur le voile : rien.
 - **M14 Poignées.** Survol de l'en-tête : l'icône devient la poignée, sans décalage ; glisser déplace. Survol de la carte : coin bas-droit visible ; tirer redimensionne, jusqu'à la dernière ligne et la dernière colonne, même à 800 × 600 avec un bandeau. Le bouton supprimer et l'ascenseur du corps réagissent normalement ; seuls les 14 × 14 px du coin bas-droit appartiennent à la poignée. Tab sur la poignée : flèches et `Maj+flèches`.
 - **M15 Recherche.** Depuis un tableau, chercher une note d'un autre tableau, Entrée : le tableau s'ouvre, la carte est focalisée et mise en évidence.
 - **M16 `Ctrl+K` et `/`.** Sur un tableau sans barre de recherche, puis depuis Réglages : `Ctrl+K` ouvre le tableau qui en a une et place le curseur dans le champ ; `/` ne fait rien. Sans aucune barre nulle part : rien.
-- **M17 Export et import.** Le fichier exporté a `"formatVersion": 2`, les icônes, et pas de `dashboard.last`. Modifier une icône, importer : elle revient, rechargement. Un ancien fichier v1 : accepté, icônes par défaut. `"formatVersion": 3` : refusé. Pendant un import, barre et page figées sous le voile.
+- **M17 Export et import.** Le fichier exporté a `"formatVersion": 3`, les icônes, les thèmes, et pas de `dashboard.last`. Modifier une icône et un thème, importer : ils reviennent, rechargement. Un ancien fichier v1 ou v2 : accepté ; l'aperçu annonce que les thèmes seront remis par défaut (et les icônes, pour v1). `"formatVersion": 4` : refusé. Pendant un import, barre et page figées sous le voile.
 
 ---
 
@@ -1430,7 +1436,7 @@ Section « Commandes », ligne Dev : remplacer « Dev (fenêtre Tauri + `ng serv
 |---|---|---|---|
 | R1 | Cartes de `h = 2` serrées sur petite fenêtre | Contenu à faire défiler | Assumé (« défile dans sa carte ») |
 | R2 | Widget à hauteur interne fixe à 68 px de ligne | Affichage serré | `.box-body` défile ; M1, M5 |
-| R3 | V4 lancée sur la vraie base puis modifiée | `VersionMismatch`, démarrage impossible | Lot 0 ; V4 figée à la revue de C1 ; vraie base seulement à M10 ; installateur V3 conservé ; retour arrière (§9) |
+| R3 | V4 lancée sur la vraie base puis modifiée | `VersionMismatch`, démarrage impossible | Lot 0 ; V4 figée à la revue de C1 ; vraie base seulement à M10 ; installateur V3 conservé ; retour arrière (§9) ; V5 (spec dashboard-theme) figée à la revue de son lot T2, même procédure |
 | R4 | Widget stocké très grand réduit à l'écran | Perte apparente de taille | Taille stockée conservée jusqu'à la première modification (D3) |
 | R5 | Le coin `se` capte 14 × 14 px en bas à droite de la carte | Petit masquage au survol | Assumé ; M14 |
 | R6 | Gridster 21.0.1 en `fit` avec push, en zoneless | Comportement souris inattendu | M4, M14 ; repli gridstack (PLAN §2) non activé |

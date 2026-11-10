@@ -59,7 +59,7 @@ repo/
 ```
 Front : `core/` (thème, grille, notifications), `data/` (repositories), `widgets/<nom>/` (un dossier par widget).
 
-Navigation : barre verticale à gauche, plusieurs tableaux de bord (`/dashboards/:id`) d'une grille de 12 × 8 cellules qui ne défile jamais (`docs/specs/dashboards-sidebar.md`). `npm run dev` utilise l'identifiant `fr.mariusdev.homebase.dev` et le nom « Homebase Dev » (base, sauvegardes et démarrage automatique séparés) ; `npm run tauri dev` et `cargo tauri dev` sont proscrits.
+Navigation : barre verticale à gauche, plusieurs tableaux de bord (`/dashboards/:id`) d'une grille de 12 × 8 cellules qui ne défile jamais (`docs/specs/dashboards-sidebar.md`). `npm run dev` utilise l'identifiant `fr.mariusdev.homebase.dev` et le nom « Homebase Dev » (base, sauvegardes et démarrage automatique séparés) ; `npm run tauri dev` et `cargo tauri dev` sont proscrits. Chaque tableau a un thème de cartes (fond et en-tête, palette pastel fermée de douze teintes), stocké en JSON versionné dans `dashboards.theme` (V5) et exporté (`formatVersion` 3) (`docs/specs/dashboard-theme.md`).
 
 ### Contrat Widget
 Chaque widget déclare : `id`, `title`, `icon`, composant principal, tailles min/défaut, schéma de configuration (typé), éventuelle entrée calendrier (`CalendarSource`), ses permissions (réseau, notifications, lancement d'apps). Chargement en lazy-loading. Aucun widget n'en importe un autre ; ils communiquent via des services du `core/`.
