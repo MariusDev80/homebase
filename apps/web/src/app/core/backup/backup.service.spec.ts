@@ -60,6 +60,8 @@ const plan: ConfigImportPlan = {
       name: 'Accueil',
       sortOrder: 0,
       icon: 'th-large',
+      theme: '{}',
+      themeVersion: 1,
       widgets: [
         {
           id: '00000000-0000-4000-8000-000000000002',

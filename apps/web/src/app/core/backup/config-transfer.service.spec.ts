@@ -71,6 +71,8 @@ describe('ConfigTransferService', () => {
       id: uuid(2),
       name: 'Second',
       icon: 'briefcase',
+      theme: { cardBody: 'lavender', cardHeader: 'sky' },
+      themeVersion: 1,
     });
     widgets.seed({
       id: uuid(11),
@@ -129,6 +131,7 @@ describe('ConfigTransferService', () => {
           name: 'Accueil',
           sortOrder: 0,
           icon: 'th-large',
+          theme: { version: 1, data: {} },
           widgets: [
             {
               id: uuid(11),
@@ -143,6 +146,7 @@ describe('ConfigTransferService', () => {
           name: 'Second',
           sortOrder: 1,
           icon: 'briefcase',
+          theme: { version: 1, data: { cardBody: 'lavender', cardHeader: 'sky' } },
           widgets: [
             {
               id: uuid(12),
@@ -180,6 +184,11 @@ describe('ConfigTransferService', () => {
           [uuid(1), 'Accueil', 0, 'th-large'],
           [uuid(2), 'Second', 1, 'briefcase'],
         ]);
+        expect(analysis.plan.dashboards.map((d) => [d.theme, d.themeVersion])).toEqual([
+          ['{"cardBody":"default","cardHeader":"default"}', 1],
+          ['{"cardBody":"lavender","cardHeader":"sky"}', 1],
+        ]);
+        expect(analysis.preview.resetsThemes).toBe(false);
         expect(analysis.plan.dashboards[0].widgets[0].grid).toEqual({ x: 0, y: 0, w: 2, h: 2 });
       }
     });

@@ -14,6 +14,7 @@ const preview = (over: Partial<ImportPreview> = {}): ImportPreview => ({
   settings: 1,
   unknownTypes: [],
   futureVersions: 0,
+  resetsThemes: false,
   removedDashboards: 1,
   removedWidgets: 3,
   replacedWidgets: 2,
@@ -100,6 +101,23 @@ describe('ConfigTransferSettingsComponent', () => {
     expect(text('warn-removed-widgets')).toContain('notes, tâches');
     expect(text('warn-replaced-widgets')).toContain('2 widget(s) changent de type');
     expect(text('config-preview')).toContain('sauvegarde de sécurité');
+  });
+
+  it('shows the themes-reset line only when the file predates themes', async () => {
+    const { q, settle, el } = await setup();
+    q('config-import')?.click();
+    await settle();
+    expect(el.querySelector('[data-testid="info-themes-reset"]')).toBeNull();
+    q('config-cancel')?.click();
+    await settle();
+  });
+
+  it('announces that themes will be reset for a format 1 or 2 file', async () => {
+    const { q, text, transfer, settle } = await setup();
+    transfer.pickAndAnalyze.mockResolvedValue(ok({ resetsThemes: true }));
+    q('config-import')?.click();
+    await settle();
+    expect(text('info-themes-reset')).toContain('les thèmes des tableaux seront remis par défaut');
   });
 
   it('lists the validation problems, signals truncation, and offers no confirmation', async () => {

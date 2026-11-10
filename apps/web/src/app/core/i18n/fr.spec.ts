@@ -131,6 +131,7 @@ const BACKUP_KEYS = [
   'backup.errors.token_mismatch',
   'configTransfer.title',
   'configTransfer.removedWidgets',
+  'configTransfer.themesReset',
   'configTransfer.confirm',
 ];
 const KINDS = ['manual', 'daily', 'pre-migration', 'pre-restore', 'pre-import', 'pre-delete'];
