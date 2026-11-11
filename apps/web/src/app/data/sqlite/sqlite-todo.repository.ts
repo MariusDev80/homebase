@@ -4,6 +4,9 @@ import {
   NewTodo,
   NewTodoList,
   TODO_DESCRIPTION_MAX,
+  TODO_RRULE_MAX,
+  TODO_RRULE_MIN,
+  TODO_TITLE_MAX,
   Todo,
   TodoChanges,
   TodoList,
@@ -23,7 +26,6 @@ import {
 } from './row-mappers';
 
 export const TODO_LIST_NAME_MAX = 80;
-export const TODO_TITLE_MAX = 500;
 export const TODO_REORDER_MAX = 1000;
 
 /** Exported for tests only (not re-exported by data/index.ts). */
@@ -65,13 +67,19 @@ function validDueOn(dueOn: string | null): string | null {
 
 function validDescription(description: string): string {
   if (description.length > TODO_DESCRIPTION_MAX) {
-    throw new DataError('invalid_input', 'Todo description must be at most 10000 characters');
+    throw new DataError(
+      'invalid_input',
+      `Todo description must be at most ${TODO_DESCRIPTION_MAX} characters`,
+    );
   }
   return description;
 }
 
 function validRrule(rrule: string | null): string | null {
-  if (rrule !== null && (rrule.length < 10 || rrule.length > 256 || !rrule.startsWith('FREQ='))) {
+  if (
+    rrule !== null &&
+    (rrule.length < TODO_RRULE_MIN || rrule.length > TODO_RRULE_MAX || !rrule.startsWith('FREQ='))
+  ) {
     throw new DataError(
       'invalid_input',
       'Todo rule must be 10 to 256 characters starting with FREQ=',

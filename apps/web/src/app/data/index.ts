@@ -27,6 +27,9 @@ export {
   DEFAULT_DASHBOARD_THEME_VERSION,
   MAX_DASHBOARD_THEME_CHARS,
   TODO_DESCRIPTION_MAX,
+  TODO_RRULE_MAX,
+  TODO_RRULE_MIN,
+  TODO_TITLE_MAX,
 } from './models';
 export { validTheme } from './dashboard-theme-input';
 export { DataError } from './data-error';

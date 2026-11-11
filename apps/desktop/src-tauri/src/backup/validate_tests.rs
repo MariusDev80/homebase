@@ -1161,6 +1161,11 @@ fn v3_database_with_a_todo_migrated_for_real_gets_the_v6_defaults() {
     assert_eq!(todo_value(&path, "description").as_deref(), Some(""));
     assert_eq!(todo_value(&path, "rrule"), None);
     assert_eq!(todo_value(&path, "important").as_deref(), Some("0"));
+    assert_eq!(todo_value(&path, "due_on").as_deref(), Some("2026-11-02"));
+    assert_eq!(
+        todo_value(&path, "completed_at").as_deref(),
+        Some("2026-10-30T10:00:00.000Z")
+    );
     assert_eq!(todo_value(&path, "updated_at").as_deref(), Some(TODO_AT));
     assert_eq!(
         schema_of(&path),

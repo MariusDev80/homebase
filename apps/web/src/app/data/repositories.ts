@@ -164,7 +164,8 @@ export interface TodoRepository {
   /**
    * Compare-and-set of the due date of a repeating, active todo: writes `toDueOn` only if the row
    * still has due_on = `fromDueOn`, a rule, and no completed_at (one statement). Otherwise conflict,
-   * or not_found when absent. Both dates must have the YYYY-MM-DD shape (invalid_input). Used to
+   * or not_found when absent. Both dates must have the YYYY-MM-DD shape (invalid_input); a well-formed but impossible date
+   * (e.g. 2026-02-30) is DataError('constraint'). Used to
    * advance a repeating todo when it is checked, and to undo that. Keeps sort_order.
    */
   shiftRepeatDue(id: string, fromDueOn: string, toDueOn: string): Promise<Todo>;

@@ -244,10 +244,21 @@ describe('SqliteTodoRepository', () => {
       const { list } = await newList();
       const dated = await repo.create({ listId: list.id, title: 'A', dueOn: '2026-03-04' });
       const undated = await repo.create({ listId: list.id, title: 'B' });
-      for (const bad of ['DAILY', 'FREQ=', 'FREQ=DAI', 'FREQ=' + 'A'.repeat(252)]) {
+      const execute = vi.spyOn(db, 'execute');
+      const bads = [
+        'DAILY',
+        'FREQ=',
+        'FREQ=DAI',
+        'FREQ=' + 'A'.repeat(252),
+        'freq=daily',
+        'RRULE:FREQ=DAILY',
+        'XFREQ=DAILY',
+      ];
+      for (const bad of bads) {
         expect(await kindOf(repo.update(dated.id, { rrule: bad })), bad).toBe('invalid_input');
       }
-      const execute = vi.spyOn(db, 'execute');
+      expect(execute).not.toHaveBeenCalled();
+      execute.mockClear();
       expect(await kindOf(repo.update(dated.id, { rrule: 'FREQ=DAILY', dueOn: null }))).toBe(
         'invalid_input',
       );
@@ -307,6 +318,16 @@ describe('SqliteTodoRepository', () => {
         await repo.setCompleted(t.id, true);
         expect(await kindOf(repo.shiftRepeatDue(t.id, '2026-03-04', '2026-03-11'))).toBe(
           'conflict',
+        );
+        expect((await repo.listTodos(list.id))[0].dueOn).toBe('2026-03-04');
+      });
+
+      it('reports constraint for a well-formed but impossible target date', async () => {
+        const { list } = await newList();
+        const t = await repo.create({ listId: list.id, title: 'A', dueOn: '2026-03-04' });
+        await repo.update(t.id, { rrule: 'FREQ=WEEKLY' });
+        expect(await kindOf(repo.shiftRepeatDue(t.id, '2026-03-04', '2026-02-30'))).toBe(
+          'constraint',
         );
         expect((await repo.listTodos(list.id))[0].dueOn).toBe('2026-03-04');
       });

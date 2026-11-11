@@ -1,4 +1,12 @@
-import { DataError, TODO_DESCRIPTION_MAX, hasLocalDateShape } from '../../data';
+import {
+  DataError,
+  TODO_DESCRIPTION_MAX,
+  TODO_RRULE_MAX,
+  TODO_RRULE_MIN,
+  TODO_TITLE_MAX,
+  hasLocalDateShape,
+} from '../../data';
+import { isValidLocalDate } from '../time';
 import type {
   Clock,
   NewTodo,
@@ -74,7 +82,7 @@ export class FakeTodoRepository implements TodoRepository {
   async create(input: NewTodo): Promise<Todo> {
     this.record('create');
     const title = input.title.trim();
-    if (title.length < 1 || title.length > 500) {
+    if (title.length < 1 || title.length > TODO_TITLE_MAX) {
       throw new DataError('invalid_input', 'Todo title must be 1 to 500 characters');
     }
     const todo = this.build(input.listId, title, input.dueOn ?? null);
@@ -86,7 +94,7 @@ export class FakeTodoRepository implements TodoRepository {
     this.record(`update:${id}`);
     if (changes.title !== undefined) {
       const title = changes.title.trim();
-      if (title.length < 1 || title.length > 500) {
+      if (title.length < 1 || title.length > TODO_TITLE_MAX) {
         throw new DataError('invalid_input', 'Todo title must be 1 to 500 characters');
       }
     }
@@ -102,7 +110,11 @@ export class FakeTodoRepository implements TodoRepository {
     }
     const rule = changes.rrule;
     if (rule !== undefined && rule !== null) {
-      if (rule.length < 10 || rule.length > 256 || !rule.startsWith('FREQ=')) {
+      if (
+        rule.length < TODO_RRULE_MIN ||
+        rule.length > TODO_RRULE_MAX ||
+        !rule.startsWith('FREQ=')
+      ) {
         throw new DataError('invalid_input', 'Todo rule is invalid');
       }
       if (changes.dueOn === null) {
@@ -115,8 +127,12 @@ export class FakeTodoRepository implements TodoRepository {
       if (rrule !== null && dueOn === null) {
         throw new DataError('constraint', 'A repetition rule needs a due date');
       }
+      if (dueOn !== null && !isValidLocalDate(dueOn)) {
+        throw new DataError('constraint', 'Todo due date is not a calendar date');
+      }
       return {
         ...t,
+        updatedAt: this.clock.nowIso(),
         title: changes.title === undefined ? t.title : changes.title.trim(),
         dueOn,
         description: changes.description === undefined ? t.description : changes.description,
@@ -135,7 +151,10 @@ export class FakeTodoRepository implements TodoRepository {
       if (t.dueOn !== fromDueOn || t.rrule === null || t.completedAt !== null) {
         throw new DataError('conflict', 'Todo changed since it was read');
       }
-      return { ...t, dueOn: toDueOn };
+      if (!isValidLocalDate(toDueOn)) {
+        throw new DataError('constraint', 'Todo due date is not a calendar date');
+      }
+      return { ...t, dueOn: toDueOn, updatedAt: this.clock.nowIso() };
     });
   }
 

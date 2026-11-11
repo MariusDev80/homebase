@@ -122,6 +122,11 @@ export interface NewTodoList {
 
 /** Same bound as the CHECK of V6 (the repository counts UTF-16 units, which is stricter). */
 export const TODO_DESCRIPTION_MAX = 10_000;
+/** Title length bounds, after trim (CHECK of V3). */
+export const TODO_TITLE_MAX = 500;
+/** Repetition rule length bounds (CHECK of V6). */
+export const TODO_RRULE_MIN = 10;
+export const TODO_RRULE_MAX = 256;
 
 export interface Todo {
   id: string;

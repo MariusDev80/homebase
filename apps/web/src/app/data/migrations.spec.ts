@@ -278,12 +278,14 @@ describe('migrations', () => {
         await set('description = $1', 'a'.repeat(10000));
         await refused(set('description = $1', 'a'.repeat(10001)), '10001 characters');
         await set('description = $1', 'é'.repeat(10000)); // 20 000 bytes
-        await refused(
-          set("description = 'a' || char(0) || replace(hex(zeroblob(40000)), '00', 'b')"),
-          'NUL then 40 000 bytes',
-        );
+        const nulThen = (chars: number) =>
+          `description = 'a' || char(0) || replace(hex(zeroblob(${chars})), '00', 'b')`;
+        await set(nulThen(39_998)); // exactly 40 000 bytes
+        await refused(set(nulThen(39_999)), 'NUL then 40 001 bytes');
 
         await set('rrule = $1', 'FREQ=DAILY');
+        await set('rrule = $1', `FREQ=${'A'.repeat(251)}`); // 256 characters
+        await refused(set('rrule = $1', 'freq=daily'), 'lowercase prefix');
         await refused(set('rrule = $1', 'DAILY'), 'DAILY');
         await refused(set('rrule = $1', 'FREQ='), 'FREQ=');
         await refused(set('rrule = $1', `FREQ=${'A'.repeat(252)}`), '257 characters');
