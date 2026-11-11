@@ -1,3 +1,4 @@
+import { nextOccurrenceAfter, parseDateRule } from './date-rule';
 import vectors from './testing/time-vectors.json';
 import {
   classifyLocal,
@@ -27,5 +28,11 @@ describe('shared time vectors (ADR-003 section 8.6)', () => {
 
   it.each(vectors.startOfDay)('startOfDay $id', (v) => {
     expect(startOfDay(v.date, v.timeZone), v.id).toBe(v.expected);
+  });
+
+  it.each(vectors.dateNext)('dateNext $id', (v) => {
+    const rule = parseDateRule(v.rrule);
+    if (rule === null) throw new Error(`${v.id}: rule not recognised`);
+    expect(nextOccurrenceAfter(v.anchor, rule, v.after), v.id).toBe(v.expected);
   });
 });

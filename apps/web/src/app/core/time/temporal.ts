@@ -15,6 +15,7 @@ export declare namespace Temporal {
   type Instant = Poly.Temporal.Instant;
   type PlainDate = Poly.Temporal.PlainDate;
   type PlainDateTime = Poly.Temporal.PlainDateTime;
+  type PlainYearMonth = Poly.Temporal.PlainYearMonth;
   type ZonedDateTime = Poly.Temporal.ZonedDateTime;
 }
 

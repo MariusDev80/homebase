@@ -158,5 +158,224 @@
       "date": "2026-09-06",
       "expected": "2026-09-06T04:00:00.000Z"
     }
+  ],
+  "dateNext": [
+    {
+      "id": "N1-DAILY-TODAY",
+      "anchor": "2026-11-10",
+      "rrule": "FREQ=DAILY",
+      "after": "2026-11-10",
+      "expected": "2026-11-11"
+    },
+    {
+      "id": "N2-DAILY-LATE-5D",
+      "anchor": "2026-11-05",
+      "rrule": "FREQ=DAILY",
+      "after": "2026-11-10",
+      "expected": "2026-11-11"
+    },
+    {
+      "id": "N3-DAILY-INTERVAL-3",
+      "anchor": "2026-11-01",
+      "rrule": "FREQ=DAILY;INTERVAL=3",
+      "after": "2026-11-10",
+      "expected": "2026-11-13"
+    },
+    {
+      "id": "N4-WEEKLY-LATE",
+      "anchor": "2026-11-09",
+      "rrule": "FREQ=WEEKLY",
+      "after": "2026-11-10",
+      "expected": "2026-11-16"
+    },
+    {
+      "id": "N5-WEEKLY-EARLY",
+      "anchor": "2026-11-16",
+      "rrule": "FREQ=WEEKLY",
+      "after": "2026-11-16",
+      "expected": "2026-11-23"
+    },
+    {
+      "id": "N6-WEEKLY-INTERVAL-2",
+      "anchor": "2026-10-26",
+      "rrule": "FREQ=WEEKLY;INTERVAL=2",
+      "after": "2026-11-10",
+      "expected": "2026-11-23"
+    },
+    {
+      "id": "N7-MONTHLY-31-SKIPS-FEB",
+      "anchor": "2026-01-31",
+      "rrule": "FREQ=MONTHLY",
+      "after": "2026-01-31",
+      "expected": "2026-03-31"
+    },
+    {
+      "id": "N8-MONTHLY-31-SKIPS-APR",
+      "anchor": "2026-03-31",
+      "rrule": "FREQ=MONTHLY",
+      "after": "2026-03-31",
+      "expected": "2026-05-31"
+    },
+    {
+      "id": "N9-MONTHLY-LAST-DAY",
+      "anchor": "2026-01-31",
+      "rrule": "FREQ=MONTHLY;BYMONTHDAY=-1",
+      "after": "2026-01-31",
+      "expected": "2026-02-28"
+    },
+    {
+      "id": "N10-MONTHLY-LAST-DAY-LEAP",
+      "anchor": "2028-01-31",
+      "rrule": "FREQ=MONTHLY;BYMONTHDAY=-1",
+      "after": "2028-01-31",
+      "expected": "2028-02-29"
+    },
+    {
+      "id": "N11-MONTHLY-LAST-DAY-FROM-LEAP",
+      "anchor": "2028-02-29",
+      "rrule": "FREQ=MONTHLY;BYMONTHDAY=-1",
+      "after": "2028-02-29",
+      "expected": "2028-03-31"
+    },
+    {
+      "id": "N12-MONTHLY-30-SKIPS-FEB",
+      "anchor": "2026-01-30",
+      "rrule": "FREQ=MONTHLY",
+      "after": "2026-01-30",
+      "expected": "2026-03-30"
+    },
+    {
+      "id": "N13-MONTHLY-29-LEAP-FEB",
+      "anchor": "2028-01-29",
+      "rrule": "FREQ=MONTHLY",
+      "after": "2028-01-29",
+      "expected": "2028-02-29"
+    },
+    {
+      "id": "N14-MONTHLY-LATE-3-MONTHS",
+      "anchor": "2026-01-15",
+      "rrule": "FREQ=MONTHLY",
+      "after": "2026-04-20",
+      "expected": "2026-05-15"
+    },
+    {
+      "id": "N15-MONTHLY-INTERVAL-3-31",
+      "anchor": "2026-01-31",
+      "rrule": "FREQ=MONTHLY;INTERVAL=3",
+      "after": "2026-01-31",
+      "expected": "2026-07-31"
+    },
+    {
+      "id": "N16-MONTHLY-EARLY",
+      "anchor": "2026-12-15",
+      "rrule": "FREQ=MONTHLY",
+      "after": "2026-12-15",
+      "expected": "2027-01-15"
+    },
+    {
+      "id": "N17-YEARLY-FEB-29",
+      "anchor": "2028-02-29",
+      "rrule": "FREQ=YEARLY",
+      "after": "2028-02-29",
+      "expected": "2032-02-29"
+    },
+    {
+      "id": "N18-YEARLY-FEB-29-2100",
+      "anchor": "2096-02-29",
+      "rrule": "FREQ=YEARLY",
+      "after": "2096-02-29",
+      "expected": "2104-02-29"
+    },
+    {
+      "id": "N19-YEARLY-TODAY",
+      "anchor": "2026-11-10",
+      "rrule": "FREQ=YEARLY",
+      "after": "2026-11-10",
+      "expected": "2027-11-10"
+    },
+    {
+      "id": "N20-YEARLY-OUT-OF-BOUNDS",
+      "anchor": "2190-06-01",
+      "rrule": "FREQ=YEARLY;INTERVAL=10",
+      "after": "2190-06-01",
+      "expected": null
+    },
+    {
+      "id": "N21-DAILY-AT-MAX",
+      "anchor": "2199-12-31",
+      "rrule": "FREQ=DAILY",
+      "after": "2199-12-31",
+      "expected": null
+    },
+    {
+      "id": "N22-WEEKLY-YEAR-CHANGE",
+      "anchor": "2026-12-28",
+      "rrule": "FREQ=WEEKLY",
+      "after": "2026-12-28",
+      "expected": "2027-01-04"
+    },
+    {
+      "id": "N23-DAILY-LONG-LATE",
+      "anchor": "2026-01-01",
+      "rrule": "FREQ=DAILY",
+      "after": "2026-11-10",
+      "expected": "2026-11-11"
+    },
+    {
+      "id": "N24-YEARLY-LATE",
+      "anchor": "2024-03-15",
+      "rrule": "FREQ=YEARLY",
+      "after": "2026-11-10",
+      "expected": "2027-03-15"
+    },
+    {
+      "id": "N25-YEARLY-INTERVAL-2-LATE",
+      "anchor": "2020-12-25",
+      "rrule": "FREQ=YEARLY;INTERVAL=2",
+      "after": "2026-11-10",
+      "expected": "2026-12-25"
+    },
+    {
+      "id": "N26-YEARLY-FEB-29-LATE",
+      "anchor": "2024-02-29",
+      "rrule": "FREQ=YEARLY",
+      "after": "2026-11-10",
+      "expected": "2028-02-29"
+    },
+    {
+      "id": "N27-MONTHLY-INTERVAL-2-LATE",
+      "anchor": "2026-01-31",
+      "rrule": "FREQ=MONTHLY;INTERVAL=2",
+      "after": "2026-06-15",
+      "expected": "2026-07-31"
+    },
+    {
+      "id": "N28-MONTHLY-LATE",
+      "anchor": "2026-01-15",
+      "rrule": "FREQ=MONTHLY",
+      "after": "2026-11-20",
+      "expected": "2026-12-15"
+    },
+    {
+      "id": "N29-DAILY-INTERVAL-366-OVER-MAX",
+      "anchor": "2199-01-01",
+      "rrule": "FREQ=DAILY;INTERVAL=366",
+      "after": "2199-01-01",
+      "expected": null
+    },
+    {
+      "id": "X1-MONTHLY-LAST-DAY-BEFORE-ANCHOR",
+      "anchor": "2026-01-15",
+      "rrule": "FREQ=MONTHLY;BYMONTHDAY=-1",
+      "after": "2026-01-10",
+      "expected": "2026-01-31"
+    },
+    {
+      "id": "X2-WEEKLY-BEFORE-ANCHOR",
+      "anchor": "2026-11-16",
+      "rrule": "FREQ=WEEKLY",
+      "after": "2026-11-10",
+      "expected": "2026-11-16"
+    }
   ]
 }
