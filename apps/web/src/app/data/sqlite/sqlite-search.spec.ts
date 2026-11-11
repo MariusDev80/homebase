@@ -179,6 +179,44 @@ describe('repositories search', () => {
       expect(hits[1].completedAt).toBe(STAMP);
     });
 
+    it('finds a word present only in the description, with an excerpt', async () => {
+      const { listId } = await listFor();
+      const t = await todos.create({ listId, title: 'Ranger' });
+      await todos.update(t.id, { description: 'penser au zinzolin\nsous le lit' });
+      await todos.create({ listId, title: 'autre' });
+      const hits = await todos.search('ZINZOLIN', 10);
+      expect(hits.map((h) => h.title)).toEqual(['Ranger']);
+      expect(hits[0].excerpt).toBe('penser au zinzolin sous le lit');
+      expect((await todos.search('Ranger', 10))[0].excerpt).toBe('penser au zinzolin sous le lit');
+    });
+
+    it('orders active first, then title matches, then most recent', async () => {
+      const { listId } = await listFor();
+      const done = await todos.create({ listId, title: 'mot fini' });
+      await todos.setCompleted(done.id, true);
+      clock.set('2026-03-01T00:00:00.000Z');
+      const inDesc = await todos.create({ listId, title: 'z' });
+      await todos.update(inDesc.id, { description: 'mot' });
+      clock.set('2026-02-01T00:00:00.000Z');
+      await todos.create({ listId, title: 'mot ancien' });
+      clock.set('2026-02-15T00:00:00.000Z');
+      await todos.create({ listId, title: 'mot récent' });
+      const hits = await todos.search('mot', 10);
+      expect(hits.map((h) => h.title)).toEqual(['mot récent', 'mot ancien', 'z', 'mot fini']);
+    });
+
+    it('matches % and _ literally in descriptions', async () => {
+      const { listId } = await listFor();
+      const a = await todos.create({ listId, title: 'a' });
+      await todos.update(a.id, { description: 'remise 5% ici' });
+      const b = await todos.create({ listId, title: 'b' });
+      await todos.update(b.id, { description: 'x_y' });
+      await todos.create({ listId, title: 'c' });
+      expect((await todos.search('5%', 10)).map((h) => h.title)).toEqual(['a']);
+      expect((await todos.search('x_y', 10)).map((h) => h.title)).toEqual(['b']);
+      expect(await todos.search('xzy', 10)).toEqual([]);
+    });
+
     it('finds %, _ and \\ literally and honours the limit', async () => {
       const { listId } = await listFor();
       await todos.create({ listId, title: 'solde 20%' });

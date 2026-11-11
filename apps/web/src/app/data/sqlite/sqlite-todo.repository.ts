@@ -13,7 +13,7 @@ import {
   TodoSearchHit,
 } from '../models';
 import { TodoRepository } from '../repositories';
-import { likeContains, validSearch } from '../search';
+import { excerptAround, likeContains, validSearch } from '../search';
 import { SqlExecutor } from '../sql-executor';
 import { hasLocalDateShape } from '../time-formats';
 import {
@@ -39,15 +39,16 @@ type TodoSearchRow = {
   id: string;
   title: string;
   list_id: string;
+  description: string;
   widget_instance_id: string | null;
   completed_at: string | null;
 };
 /* eslint-enable @typescript-eslint/consistent-type-definitions */
 
-const SEARCH_TODOS_SQL = `SELECT t.id, t.title, t.list_id, l.widget_instance_id, t.completed_at
+const SEARCH_TODOS_SQL = `SELECT t.id, t.title, t.description, t.list_id, l.widget_instance_id, t.completed_at
 FROM todos AS t JOIN todo_lists AS l ON l.id = t.list_id
-WHERE t.title LIKE $1 ESCAPE '\\'
-ORDER BY (t.completed_at IS NOT NULL), t.updated_at DESC, t.id
+WHERE t.title LIKE $1 ESCAPE '\\' OR t.description LIKE $1 ESCAPE '\\'
+ORDER BY (t.completed_at IS NOT NULL), (t.title LIKE $1 ESCAPE '\\') DESC, t.updated_at DESC, t.id
 LIMIT $2`;
 
 function validTitle(title: string): string {
@@ -269,6 +270,7 @@ export class SqliteTodoRepository implements TodoRepository {
       listId: row.list_id,
       widgetInstanceId: row.widget_instance_id,
       completedAt: row.completed_at,
+      excerpt: excerptAround(row.description, term),
     }));
   }
 

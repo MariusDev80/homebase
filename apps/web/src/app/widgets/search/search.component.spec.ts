@@ -164,6 +164,21 @@ describe('SearchComponent', () => {
     expect(option.textContent).toContain('<img src=x onerror=alert(1)>');
   });
 
+  it('shows a todo description excerpt highlighted, as text only', async () => {
+    const t = await render();
+    const list = t.todos.seedList('w1');
+    t.todos.seed(list.id, 'Ranger', { description: 'foo <img src=x onerror=alert(1)>' });
+    t.todos.seed(list.id, 'foo sans description');
+    await t.type('foo');
+    await t.settle(SEARCH_DEBOUNCE_MS);
+    const withExcerpt = t.q('search-option-0') as HTMLElement;
+    expect(withExcerpt.querySelector('img')).toBeNull();
+    expect(withExcerpt.querySelector('.text-xs mark')?.textContent).toBe('foo');
+    expect(withExcerpt.textContent).toContain('foo <img src=x onerror=alert(1)>');
+    const without = t.q('search-option-1') as HTMLElement;
+    expect(without.querySelector('.text-xs')).toBeNull();
+  });
+
   it('navigates with arrows (wrapping), tracks aria-activedescendant, Enter activates', async () => {
     const t = await render();
     t.shortcuts.seed('Angular', 'https://angular.dev');

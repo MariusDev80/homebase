@@ -52,7 +52,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot TD2a : fiche de tâche (titre, « Important », description, échéance, suppression), non branchée
 - [x] (S) Lot TD2b : ligne de tâche sur une ligne (bouton [i], échéance sur la ligne, requêtes de conteneur) et branchement de la fiche (vérification manuelle MD1 à faire par Marius)
 - [x] (S) Lot TD3 : répétition des tâches (cocher avance l'échéance, « Annuler ») (vérification manuelle MD5 à faire par Marius)
-- [ ] (S) Lot TD4 : recherche dans les descriptions de tâches
+- [x] (S) Lot TD4 : recherche dans les descriptions de tâches (vérification manuelle MD7 à faire par Marius)
 - [ ] (O) Revue de fin de phase (thème et détail des tâches compris) ; vérifications manuelles M1 à M17, MT1 à MT9 et MD1 à MD9 à faire par Marius, juste avant la fusion (M10 en premier : V4, V5 et V6 appliquées ensemble)
 - [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius)
 

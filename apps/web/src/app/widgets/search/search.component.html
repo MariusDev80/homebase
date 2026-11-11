@@ -93,7 +93,7 @@
               @if (result.kind === 'todo' && result.completed) {
                 <span class="sr-only">{{ 'widgets.search.completed' | transloco }}</span>
               }
-              @if (result.kind !== 'todo' && result.subtitle) {
+              @if (result.subtitle) {
                 <span class="min-w-0 flex-1 truncate text-xs text-fg-muted">
                   @for (part of segments(result.subtitle); track $index) {
                     @if (part.match) {

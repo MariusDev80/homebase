@@ -170,6 +170,8 @@ export interface TodoSearchHit {
   listId: string;
   widgetInstanceId: string | null;
   completedAt: InstantIso | null;
+  /** Short plain-text extract of the description (may be empty). */
+  excerpt: string;
 }
 
 export interface TodoChanges {

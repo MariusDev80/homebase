@@ -6,6 +6,7 @@ import {
   TODO_TITLE_MAX,
   hasLocalDateShape,
 } from '../../data';
+import { excerptAround } from '../../data/search';
 import { isValidLocalDate } from '../time';
 import type {
   Clock,
@@ -197,7 +198,7 @@ export class FakeTodoRepository implements TodoRepository {
     this.record(`search:${query}`);
     const q = query.trim().toLowerCase();
     return this.items
-      .filter((t) => t.title.toLowerCase().includes(q))
+      .filter((t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q))
       .slice(0, limit)
       .map((t) => ({
         id: t.id,
@@ -205,6 +206,7 @@ export class FakeTodoRepository implements TodoRepository {
         listId: t.listId,
         widgetInstanceId: this.lists.get(t.listId)?.widgetInstanceId ?? null,
         completedAt: t.completedAt,
+        excerpt: excerptAround(t.description, query.trim()),
       }));
   }
 
