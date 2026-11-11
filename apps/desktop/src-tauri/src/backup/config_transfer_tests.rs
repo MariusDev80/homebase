@@ -81,7 +81,7 @@ fn seeded() -> (TempDir, DataRoot) {
         "INSERT INTO todo_lists VALUES ('a0000000-0000-4000-8000-000000000002', ?1, 'L', ?2, ?2)",
         &[W2, AT],
     );
-    exec(&mut c, "INSERT INTO todos VALUES ('a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000002', 'x', NULL, NULL, 0, ?1, ?1)", &[AT]);
+    exec(&mut c, "INSERT INTO todos (id, list_id, title, due_on, completed_at, sort_order, created_at, updated_at) VALUES ('a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000002', 'x', NULL, NULL, 0, ?1, ?1)", &[AT]);
     run(c.close()).expect("close");
     (dir, root)
 }

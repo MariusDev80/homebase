@@ -26,6 +26,7 @@ export {
   DEFAULT_DASHBOARD_ICON,
   DEFAULT_DASHBOARD_THEME_VERSION,
   MAX_DASHBOARD_THEME_CHARS,
+  TODO_DESCRIPTION_MAX,
 } from './models';
 export { validTheme } from './dashboard-theme-input';
 export { DataError } from './data-error';

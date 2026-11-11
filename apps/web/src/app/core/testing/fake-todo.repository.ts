@@ -1,4 +1,4 @@
-import { DataError } from '../../data';
+import { DataError, TODO_DESCRIPTION_MAX, hasLocalDateShape } from '../../data';
 import type {
   Clock,
   NewTodo,
@@ -84,11 +84,59 @@ export class FakeTodoRepository implements TodoRepository {
 
   async update(id: string, changes: TodoChanges): Promise<Todo> {
     this.record(`update:${id}`);
-    return this.replace(id, (t) => ({
-      ...t,
-      title: changes.title === undefined ? t.title : changes.title.trim(),
-      dueOn: changes.dueOn === undefined ? t.dueOn : changes.dueOn,
-    }));
+    if (changes.title !== undefined) {
+      const title = changes.title.trim();
+      if (title.length < 1 || title.length > 500) {
+        throw new DataError('invalid_input', 'Todo title must be 1 to 500 characters');
+      }
+    }
+    if (changes.description !== undefined && changes.description.length > TODO_DESCRIPTION_MAX) {
+      throw new DataError('invalid_input', 'Todo description is too long');
+    }
+    if (
+      changes.dueOn !== undefined &&
+      changes.dueOn !== null &&
+      !hasLocalDateShape(changes.dueOn)
+    ) {
+      throw new DataError('invalid_input', 'Todo due date must be a YYYY-MM-DD date');
+    }
+    const rule = changes.rrule;
+    if (rule !== undefined && rule !== null) {
+      if (rule.length < 10 || rule.length > 256 || !rule.startsWith('FREQ=')) {
+        throw new DataError('invalid_input', 'Todo rule is invalid');
+      }
+      if (changes.dueOn === null) {
+        throw new DataError('invalid_input', 'A repetition rule needs a due date');
+      }
+    }
+    return this.replace(id, (t) => {
+      const dueOn = changes.dueOn === undefined ? t.dueOn : changes.dueOn;
+      const rrule = rule !== undefined ? rule : changes.dueOn === null ? null : t.rrule;
+      if (rrule !== null && dueOn === null) {
+        throw new DataError('constraint', 'A repetition rule needs a due date');
+      }
+      return {
+        ...t,
+        title: changes.title === undefined ? t.title : changes.title.trim(),
+        dueOn,
+        description: changes.description === undefined ? t.description : changes.description,
+        rrule,
+        important: changes.important === undefined ? t.important : changes.important,
+      };
+    });
+  }
+
+  async shiftRepeatDue(id: string, fromDueOn: string, toDueOn: string): Promise<Todo> {
+    this.record(`shiftRepeatDue:${id}:${fromDueOn}:${toDueOn}`);
+    if (!hasLocalDateShape(fromDueOn) || !hasLocalDateShape(toDueOn)) {
+      throw new DataError('invalid_input', 'Todo due date must be a YYYY-MM-DD date');
+    }
+    return this.replace(id, (t) => {
+      if (t.dueOn !== fromDueOn || t.rrule === null || t.completedAt !== null) {
+        throw new DataError('conflict', 'Todo changed since it was read');
+      }
+      return { ...t, dueOn: toDueOn };
+    });
   }
 
   async setCompleted(id: string, completed: boolean): Promise<Todo> {
@@ -157,7 +205,10 @@ export class FakeTodoRepository implements TodoRepository {
       id: `todo-${this.counter}`,
       listId,
       title,
+      description: '',
       dueOn,
+      rrule: null,
+      important: false,
       completedAt: null,
       sortOrder: this.counter,
       createdAt: '2026-01-01T00:00:00.000Z',

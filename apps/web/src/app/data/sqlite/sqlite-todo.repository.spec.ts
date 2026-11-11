@@ -208,6 +208,139 @@ describe('SqliteTodoRepository', () => {
       expect(await kindOf(repo.update(MISSING, { title: 'x' }))).toBe('not_found');
     });
 
+    it('creates with the defaults of the V6 fields', async () => {
+      const { list } = await newList();
+      const t = await repo.create({ listId: list.id, title: 'A' });
+      expect(t).toMatchObject({ description: '', rrule: null, important: false });
+      expect((await repo.listTodos(list.id))[0]).toEqual(t);
+    });
+
+    it('updates the description, kept by a title-only update', async () => {
+      const { list } = await newList();
+      const t = await repo.create({ listId: list.id, title: 'A' });
+      expect((await repo.update(t.id, { description: '  texte\nlong  ' })).description).toBe(
+        '  texte\nlong  ',
+      );
+      expect((await repo.update(t.id, { title: 'B' })).description).toBe('  texte\nlong  ');
+      expect((await repo.update(t.id, { description: '' })).description).toBe('');
+      const max = 'a'.repeat(10_000);
+      expect((await repo.update(t.id, { description: max })).description).toBe(max);
+      expect(await kindOf(repo.update(t.id, { description: max + 'a' }))).toBe('invalid_input');
+    });
+
+    it('binds important as 1/0 and keeps it when omitted', async () => {
+      const { list } = await newList();
+      const t = await repo.create({ listId: list.id, title: 'A' });
+      const execute = vi.spyOn(db, 'execute');
+      expect((await repo.update(t.id, { important: true })).important).toBe(true);
+      expect(execute.mock.calls[0][1]?.[7]).toBe(1);
+      expect((await repo.update(t.id, { title: 'B' })).important).toBe(true);
+      expect(execute.mock.calls[1][1]?.[7]).toBeNull();
+      expect((await repo.update(t.id, { important: false })).important).toBe(false);
+      expect(execute.mock.calls[2][1]?.[7]).toBe(0);
+    });
+
+    it('validates the rule and its link with the due date', async () => {
+      const { list } = await newList();
+      const dated = await repo.create({ listId: list.id, title: 'A', dueOn: '2026-03-04' });
+      const undated = await repo.create({ listId: list.id, title: 'B' });
+      for (const bad of ['DAILY', 'FREQ=', 'FREQ=DAI', 'FREQ=' + 'A'.repeat(252)]) {
+        expect(await kindOf(repo.update(dated.id, { rrule: bad })), bad).toBe('invalid_input');
+      }
+      const execute = vi.spyOn(db, 'execute');
+      expect(await kindOf(repo.update(dated.id, { rrule: 'FREQ=DAILY', dueOn: null }))).toBe(
+        'invalid_input',
+      );
+      expect(execute).not.toHaveBeenCalled();
+      expect(await kindOf(repo.update(undated.id, { rrule: 'FREQ=DAILY' }))).toBe('constraint');
+      expect(
+        (await repo.update(undated.id, { rrule: 'FREQ=DAILY', dueOn: '2026-05-06' })).rrule,
+      ).toBe('FREQ=DAILY');
+    });
+
+    it('clears the rule with the due date, keeps it when the date changes, removes it with null', async () => {
+      const { list } = await newList();
+      const t = await repo.create({ listId: list.id, title: 'A', dueOn: '2026-03-04' });
+      expect(await repo.update(t.id, { rrule: 'FREQ=WEEKLY' })).toMatchObject({
+        rrule: 'FREQ=WEEKLY',
+        dueOn: '2026-03-04',
+      });
+      expect(await repo.update(t.id, { dueOn: '2026-04-05' })).toMatchObject({
+        rrule: 'FREQ=WEEKLY',
+        dueOn: '2026-04-05',
+      });
+      expect(await repo.update(t.id, { rrule: null })).toMatchObject({
+        rrule: null,
+        dueOn: '2026-04-05',
+      });
+      await repo.update(t.id, { rrule: 'FREQ=WEEKLY' });
+      expect(await repo.update(t.id, { dueOn: null })).toMatchObject({ rrule: null, dueOn: null });
+    });
+
+    describe('shiftRepeatDue', () => {
+      it('writes the new date only, keeping sort_order and completed_at', async () => {
+        const { list } = await newList();
+        await repo.create({ listId: list.id, title: 'First' });
+        const t = await repo.create({ listId: list.id, title: 'A', dueOn: '2026-03-04' });
+        await repo.update(t.id, { rrule: 'FREQ=WEEKLY' });
+        clock.set('2026-02-02T00:00:00.000Z');
+        const next = await repo.shiftRepeatDue(t.id, '2026-03-04', '2026-03-11');
+        expect(next).toMatchObject({
+          dueOn: '2026-03-11',
+          rrule: 'FREQ=WEEKLY',
+          sortOrder: t.sortOrder,
+          completedAt: null,
+          updatedAt: '2026-02-02T00:00:00.000Z',
+        });
+      });
+
+      it('refuses a changed date, a missing rule and a completed todo (conflict)', async () => {
+        const { list } = await newList();
+        const t = await repo.create({ listId: list.id, title: 'A', dueOn: '2026-03-04' });
+        expect(await kindOf(repo.shiftRepeatDue(t.id, '2026-03-04', '2026-03-11'))).toBe(
+          'conflict',
+        );
+        await repo.update(t.id, { rrule: 'FREQ=WEEKLY' });
+        expect(await kindOf(repo.shiftRepeatDue(t.id, '2026-03-05', '2026-03-11'))).toBe(
+          'conflict',
+        );
+        await repo.setCompleted(t.id, true);
+        expect(await kindOf(repo.shiftRepeatDue(t.id, '2026-03-04', '2026-03-11'))).toBe(
+          'conflict',
+        );
+        expect((await repo.listTodos(list.id))[0].dueOn).toBe('2026-03-04');
+      });
+
+      it('reports not_found and invalid_input', async () => {
+        expect(await kindOf(repo.shiftRepeatDue(MISSING, '2026-03-04', '2026-03-11'))).toBe(
+          'not_found',
+        );
+        const execute = vi.spyOn(db, 'execute');
+        expect(await kindOf(repo.shiftRepeatDue(MISSING, '03/04/2026', '2026-03-11'))).toBe(
+          'invalid_input',
+        );
+        expect(await kindOf(repo.shiftRepeatDue(MISSING, '2026-03-04', 'demain'))).toBe(
+          'invalid_input',
+        );
+        expect(execute).not.toHaveBeenCalled();
+      });
+    });
+
+    it('setCompleted ignores the rule: completes, keeps it, and unchecking keeps it', async () => {
+      const { list } = await newList();
+      const t = await repo.create({ listId: list.id, title: 'A', dueOn: '2026-03-04' });
+      await repo.update(t.id, { rrule: 'FREQ=DAILY' });
+      expect(await repo.setCompleted(t.id, true)).toMatchObject({
+        rrule: 'FREQ=DAILY',
+        dueOn: '2026-03-04',
+      });
+      expect(await repo.setCompleted(t.id, false)).toMatchObject({
+        completedAt: null,
+        rrule: 'FREQ=DAILY',
+        dueOn: '2026-03-04',
+      });
+    });
+
     it('setCompleted uses the clock and can be undone', async () => {
       const { list } = await newList();
       const t = await repo.create({ listId: list.id, title: 'A' });

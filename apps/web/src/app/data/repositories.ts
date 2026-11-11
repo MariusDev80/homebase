@@ -152,8 +152,22 @@ export interface TodoRepository {
    * sort_order = max + 1 (or 0) within the list. A missing list is DataError('constraint').
    */
   create(input: NewTodo): Promise<Todo>;
-  /** Same validation as create. Omitted fields are kept; dueOn null clears it. not_found when absent. */
+  /**
+   * Omitted fields are kept. Title trimmed, 1 to 500 characters; dueOn a YYYY-MM-DD shape or null;
+   * description at most TODO_DESCRIPTION_MAX UTF-16 units (kept as typed, not trimmed); rrule null or
+   * 10 to 256 characters starting with 'FREQ=' (invalid_input otherwise). rrule non-null together
+   * with dueOn null: invalid_input before any query. dueOn null without rrule also clears the rule.
+   * A rule written on a todo without due date (dueOn omitted): DataError('constraint').
+   * not_found when absent. One statement.
+   */
   update(id: string, changes: TodoChanges): Promise<Todo>;
+  /**
+   * Compare-and-set of the due date of a repeating, active todo: writes `toDueOn` only if the row
+   * still has due_on = `fromDueOn`, a rule, and no completed_at (one statement). Otherwise conflict,
+   * or not_found when absent. Both dates must have the YYYY-MM-DD shape (invalid_input). Used to
+   * advance a repeating todo when it is checked, and to undo that. Keeps sort_order.
+   */
+  shiftRepeatDue(id: string, fromDueOn: string, toDueOn: string): Promise<Todo>;
   /** completed = true sets completed_at to the Clock's now (kept if already set); false sets NULL
    * and moves a previously completed todo to the end of the active ones (sort_order = max + 1).
    * not_found when absent. */

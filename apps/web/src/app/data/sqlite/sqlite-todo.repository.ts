@@ -1,6 +1,14 @@
 import { Clock, IdGenerator } from '../clock';
 import { DataError } from '../data-error';
-import { NewTodo, NewTodoList, Todo, TodoChanges, TodoList, TodoSearchHit } from '../models';
+import {
+  NewTodo,
+  NewTodoList,
+  TODO_DESCRIPTION_MAX,
+  Todo,
+  TodoChanges,
+  TodoList,
+  TodoSearchHit,
+} from '../models';
 import { TodoRepository } from '../repositories';
 import { likeContains, validSearch } from '../search';
 import { SqlExecutor } from '../sql-executor';
@@ -53,6 +61,23 @@ function validDueOn(dueOn: string | null): string | null {
     throw new DataError('invalid_input', 'Todo due date must be a YYYY-MM-DD date');
   }
   return dueOn;
+}
+
+function validDescription(description: string): string {
+  if (description.length > TODO_DESCRIPTION_MAX) {
+    throw new DataError('invalid_input', 'Todo description must be at most 10000 characters');
+  }
+  return description;
+}
+
+function validRrule(rrule: string | null): string | null {
+  if (rrule !== null && (rrule.length < 10 || rrule.length > 256 || !rrule.startsWith('FREQ='))) {
+    throw new DataError(
+      'invalid_input',
+      'Todo rule must be 10 to 256 characters starting with FREQ=',
+    );
+  }
+  return rrule;
 }
 
 export class SqliteTodoRepository implements TodoRepository {
@@ -118,16 +143,59 @@ export class SqliteTodoRepository implements TodoRepository {
     const title = changes.title === undefined ? null : validTitle(changes.title);
     const setDue = changes.dueOn !== undefined;
     const dueOn = changes.dueOn === undefined ? null : validDueOn(changes.dueOn);
+    const description =
+      changes.description === undefined ? null : validDescription(changes.description);
+    const setRrule = changes.rrule !== undefined;
+    const rrule = changes.rrule === undefined ? null : validRrule(changes.rrule);
+    if (rrule !== null && setDue && dueOn === null) {
+      throw new DataError('invalid_input', 'A repetition rule needs a due date');
+    }
+    const important = changes.important === undefined ? null : changes.important ? 1 : 0;
     const result = await this.executor.execute(
       `UPDATE todos
        SET title = COALESCE($2, title),
            due_on = CASE WHEN $3 = 1 THEN $4 ELSE due_on END,
-           updated_at = $5
+           description = COALESCE($5, description),
+           rrule = CASE WHEN $6 = 1 THEN $7
+                        WHEN $3 = 1 AND $4 IS NULL THEN NULL
+                        ELSE rrule END,
+           important = COALESCE($8, important),
+           updated_at = $9
        WHERE id = $1`,
-      [id, title, setDue ? 1 : 0, dueOn, this.clock.nowIso()],
+      [
+        id,
+        title,
+        setDue ? 1 : 0,
+        dueOn,
+        description,
+        setRrule ? 1 : 0,
+        rrule,
+        important,
+        this.clock.nowIso(),
+      ],
     );
     if (result.rowsAffected === 0) {
       throw new DataError('not_found', 'Todo not found');
+    }
+    return this.mustGet(id);
+  }
+
+  async shiftRepeatDue(id: string, fromDueOn: string, toDueOn: string): Promise<Todo> {
+    validDueOn(fromDueOn);
+    validDueOn(toDueOn);
+    const result = await this.executor.execute(
+      `UPDATE todos SET due_on = $3, updated_at = $4
+       WHERE id = $1 AND due_on = $2 AND rrule IS NOT NULL AND completed_at IS NULL`,
+      [id, fromDueOn, toDueOn, this.clock.nowIso()],
+    );
+    if (result.rowsAffected === 0) {
+      const rows = await this.executor.select<{ one: number }>(
+        'SELECT 1 AS one FROM todos WHERE id = $1',
+        [id],
+      );
+      throw rows.length === 0
+        ? new DataError('not_found', 'Todo not found')
+        : new DataError('conflict', 'Todo changed since it was read');
     }
     return this.mustGet(id);
   }

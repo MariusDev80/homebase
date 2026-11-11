@@ -120,12 +120,22 @@ export interface NewTodoList {
   name: string;
 }
 
+/** Same bound as the CHECK of V6 (the repository counts UTF-16 units, which is stricter). */
+export const TODO_DESCRIPTION_MAX = 10_000;
+
 export interface Todo {
   id: string;
   listId: string;
   title: string;
+  /** Plain text, '' when none (V6). Rendered by interpolation only. */
+  description: string;
   /** Wall-clock due date `YYYY-MM-DD` (ADR-003), or null. */
   dueOn: LocalDateIso | null;
+  /** Repetition rule (canonical subset of core/time/date-rule.ts, no DTSTART), anchored on dueOn;
+   *  null = no repetition. Never set without dueOn (CHECK of V6). Not interpreted here. */
+  rrule: string | null;
+  /** Flag shown on the row (V6, stored 0/1). */
+  important: boolean;
   /** Instant `YYYY-MM-DDTHH:MM:SS.sssZ` of completion, or null when not completed. */
   completedAt: InstantIso | null;
   sortOrder: number;
@@ -159,6 +169,12 @@ export interface TodoSearchHit {
 
 export interface TodoChanges {
   title?: string;
-  /** undefined keeps the current value; null clears it. */
+  /** undefined keeps the current value; null clears it, and the rule with it (same statement). */
   dueOn?: string | null;
+  /** undefined keeps the current value; '' clears it. */
+  description?: string;
+  /** undefined keeps the current value; null removes the repetition. A rule needs a due date. */
+  rrule?: string | null;
+  /** undefined keeps the current value. Bound as 1/0, never as a JS boolean (ADR-002 F13). */
+  important?: boolean;
 }

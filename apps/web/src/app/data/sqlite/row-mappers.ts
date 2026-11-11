@@ -140,7 +140,10 @@ export type TodoRow = {
   id: string;
   list_id: string;
   title: string;
+  description: string;
   due_on: string | null;
+  rrule: string | null;
+  important: number;
   completed_at: string | null;
   sort_order: number;
   created_at: string;
@@ -150,7 +153,7 @@ export type TodoRow = {
 
 export const TODO_LIST_COLUMNS = 'id, widget_instance_id, name, created_at, updated_at';
 export const TODO_COLUMNS =
-  'id, list_id, title, due_on, completed_at, sort_order, created_at, updated_at';
+  'id, list_id, title, description, due_on, rrule, important, completed_at, sort_order, created_at, updated_at';
 
 export function toTodoList(row: TodoListRow): TodoList {
   return {
@@ -163,12 +166,23 @@ export function toTodoList(row: TodoListRow): TodoList {
   };
 }
 
+function toFlag(value: unknown, column: string): boolean {
+  const n = int(value, column);
+  if (n !== 0 && n !== 1) {
+    throw new DataError('corrupt_data', `Column ${column} is not 0 or 1`);
+  }
+  return n === 1;
+}
+
 export function toTodo(row: TodoRow): Todo {
   return {
     id: str(row.id, 'id'),
     listId: str(row.list_id, 'list_id'),
     title: str(row.title, 'title'),
+    description: str(row.description, 'description'),
     dueOn: row.due_on === null ? null : str(row.due_on, 'due_on'),
+    rrule: row.rrule === null ? null : str(row.rrule, 'rrule'),
+    important: toFlag(row.important, 'important'),
     completedAt: row.completed_at === null ? null : str(row.completed_at, 'completed_at'),
     sortOrder: int(row.sort_order, 'sort_order'),
     createdAt: str(row.created_at, 'created_at'),
