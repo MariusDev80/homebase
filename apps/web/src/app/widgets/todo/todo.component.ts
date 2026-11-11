@@ -11,39 +11,29 @@ import {
   viewChild,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { TimeDisplay, Today, daysBetween, isValidLocalDate } from '../../core/time';
+import { TimeDisplay, Today } from '../../core/time';
 import { injectWidgetContext } from '../../core/widgets';
 import { DataError, TODO_REPOSITORY } from '../../data';
 import type { Todo, TodoList } from '../../data';
+import { TodoDetailComponent } from './todo-detail.component';
+import { dueLabel } from './todo-due';
+import type { DueLabel } from './todo-due';
 import type { TodoConfig } from './todo.config';
 
-const TITLE_MAX = 500;
-
 type Status = 'loading' | 'ready' | 'missing' | 'error';
-
-interface EditState {
-  readonly id: string;
-  readonly title: string;
-}
 
 interface Row {
   readonly todo: Todo;
   readonly done: boolean;
   readonly first: boolean;
   readonly last: boolean;
-}
-
-export interface DueInfo {
-  readonly kind: 'overdue' | 'today' | 'tomorrow' | 'date';
-  /** Days late, for the 'overdue' kind (>= 1). */
-  readonly daysLate: number;
-  /** Short French date, for the 'date' kind and for completed tasks. */
-  readonly date: string;
+  readonly due: DueLabel | null;
+  readonly hasDescription: boolean;
 }
 
 @Component({
   selector: 'app-todo-widget',
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, TodoDetailComponent],
   templateUrl: './todo.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full min-h-0 flex-col gap-2' },
@@ -61,8 +51,10 @@ export class TodoComponent {
   protected readonly status = signal<Status>('loading');
   protected readonly todos = signal<readonly Todo[]>([]);
   protected readonly newTitle = signal('');
-  protected readonly editing = signal<EditState | null>(null);
-  protected readonly editError = signal(false);
+  /** Todo whose detail sheet is open (snapshot taken at opening), else null. */
+  protected readonly detail = signal<Todo | null>(null);
+  /** The todo opened in the sheet was deleted elsewhere. */
+  protected readonly gone = signal(false);
   protected readonly confirmingId = signal<string | null>(null);
   protected readonly confirmingClear = signal(false);
   protected readonly actionError = signal(false);
@@ -78,11 +70,15 @@ export class TodoComponent {
     const all = this.todos();
     const active = all.filter((t) => t.completedAt === null);
     const shown = this.showCompleted() ? all : active;
+    // Reads the date signal: labels follow local midnight.
+    const today = this.today.date();
     return shown.map((todo) => ({
       todo,
       done: todo.completedAt !== null,
       first: todo.id === active[0]?.id,
       last: todo.id === active[active.length - 1]?.id,
+      due: dueLabel(todo, today, (date, style) => this.display.formatLocalDate(date, style)),
+      hasDescription: todo.description.trim() !== '',
     }));
   });
 
@@ -138,18 +134,6 @@ export class TodoComponent {
     }
   }
 
-  /** Due date as shown: relative to today's date, which moves at local midnight. */
-  protected dueInfo(todo: Todo): DueInfo | null {
-    if (todo.dueOn === null) return null;
-    const date = this.display.formatLocalDate(todo.dueOn, 'short');
-    if (todo.completedAt !== null) return { kind: 'date', date, daysLate: 0 };
-    const days = daysBetween(this.today.date(), todo.dueOn);
-    if (days < 0) return { kind: 'overdue', date, daysLate: -days };
-    if (days === 0) return { kind: 'today', date, daysLate: 0 };
-    if (days === 1) return { kind: 'tomorrow', date, daysLate: 0 };
-    return { kind: 'date', date, daysLate: 0 };
-  }
-
   protected onNewInput(event: Event): void {
     this.newTitle.set((event.target as HTMLInputElement).value);
   }
@@ -160,6 +144,7 @@ export class TodoComponent {
     const submitted = this.newTitle();
     const title = submitted.trim();
     if (listId === null || title.length === 0 || this.busy()) return;
+    this.gone.set(false);
     this.busy.set(true);
     try {
       await this.repository.create({ listId, title });
@@ -202,90 +187,47 @@ export class TodoComponent {
     }
   }
 
-  protected startEdit(todo: Todo): void {
-    if (todo.completedAt !== null) return;
+  protected openDetail(todo: Todo): void {
+    if (this.busy()) return;
     this.confirmingId.set(null);
-    this.editError.set(false);
-    this.editing.set({ id: todo.id, title: todo.title });
-    this.focus('[data-testid="todo-edit-input"]');
+    this.confirmingClear.set(false);
+    this.gone.set(false);
+    this.detail.set(todo);
   }
 
-  protected onEditInput(event: Event): void {
-    const title = (event.target as HTMLInputElement).value;
-    this.editing.update((state) => (state ? { ...state, title } : state));
+  /** Sheet closed ("Retour"): reload the list and give the focus back to the [i] of the row. */
+  protected async onDetailClosed(): Promise<void> {
+    await this.leaveDetail('keep');
   }
 
-  protected cancelEdit(): void {
-    const id = this.editing()?.id;
-    this.editing.set(null);
-    this.editError.set(false);
-    if (id) this.focus(this.inRow(id, 'todo-edit'));
+  /** Todo deleted from the sheet: focus the row that took its place, else the previous, else the field. */
+  protected async onDetailRemoved(): Promise<void> {
+    await this.leaveDetail('neighbour');
   }
 
-  protected async commitEdit(event?: Event): Promise<void> {
-    if ((event as KeyboardEvent | undefined)?.isComposing) return;
-    const state = this.editing();
-    if (!state || this.busy()) return;
-    const title = state.title.trim();
-    if (title.length < 1 || title.length > TITLE_MAX) {
-      this.editError.set(true);
-      return;
-    }
-    const current = this.todos().find((t) => t.id === state.id);
-    if (current && current.title === title) {
-      this.cancelEdit();
-      return;
-    }
-    this.busy.set(true);
+  protected async onDetailVanished(): Promise<void> {
+    this.gone.set(true);
+    await this.leaveDetail('field');
+  }
+
+  private async leaveDetail(focus: 'keep' | 'neighbour' | 'field'): Promise<void> {
+    const id = this.detail()?.id;
+    const index = this.rows().findIndex((r) => r.todo.id === id);
+    this.detail.set(null);
     try {
-      await this.repository.update(state.id, { title });
-      this.editing.set(null);
-      this.editError.set(false);
-      this.actionError.set(false);
       await this.refresh();
-      this.focus(this.inRow(state.id, 'todo-edit'));
+      this.actionError.set(false);
     } catch {
       this.actionError.set(true);
-    } finally {
-      this.busy.set(false);
     }
-  }
-
-  protected async onDueChange(todo: Todo, event: Event): Promise<void> {
-    // A date input fires `change` for every complete intermediate date while the year is typed
-    // (0002-..., 0020-..., 0202-...). Only a valid in-range date or a real clearing is committed;
-    // anything else is left in the field untouched and the stored value is restored on blur.
-    const input = event.target as HTMLInputElement;
-    const value = input.value;
-    if (value === '' && input.validity.badInput) return;
-    if (value !== '' && !(this.inDueRange(value) && isValidLocalDate(value))) return;
-    if (this.busy()) {
-      // Not saved: say so and put the stored value back rather than dropping it silently.
-      input.value = todo.dueOn ?? '';
-      this.actionError.set(true);
-      return;
-    }
-    await this.setDue(todo, value === '' ? null : value);
-  }
-
-  protected onDueBlur(todo: Todo, event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.value !== (todo.dueOn ?? '') || input.validity.badInput) {
-      input.value = todo.dueOn ?? '';
-    }
-  }
-
-  private inDueRange(value: string): boolean {
-    return value >= '1900-01-01' && value <= '2199-12-31';
-  }
-
-  protected async clearDue(todo: Todo): Promise<void> {
-    await this.setDue(todo, null);
-    this.focus(this.inRow(todo.id, 'todo-due-input'));
+    if (this.destroyed) return;
+    const rows = this.rows();
+    const kept = focus === 'keep' ? rows.find((r) => r.todo.id === id) : undefined;
+    const target = focus === 'field' ? undefined : (kept ?? rows[Math.min(index, rows.length - 1)]);
+    this.focus(target ? this.inRow(target.todo.id, 'todo-info') : '[data-testid="todo-new"]');
   }
 
   protected askRemove(todo: Todo): void {
-    this.editing.set(null);
     this.confirmingClear.set(false);
     this.confirmingId.set(todo.id);
     this.focus(this.inRow(todo.id, 'todo-confirm-no'));
@@ -376,20 +318,6 @@ export class TodoComponent {
       this.actionError.set(false);
       await this.refresh();
       this.focus('[data-testid="todo-new"]');
-    } catch {
-      this.actionError.set(true);
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  private async setDue(todo: Todo, dueOn: string | null): Promise<void> {
-    if (this.busy()) return;
-    this.busy.set(true);
-    try {
-      await this.repository.update(todo.id, { dueOn });
-      this.actionError.set(false);
-      await this.refresh();
     } catch {
       this.actionError.set(true);
     } finally {

@@ -379,50 +379,224 @@ describe('TodoComponent', () => {
     });
   });
 
-  describe('editing', () => {
-    it('edits through the button: Enter saves and gives the focus back', async () => {
-      const s = seeded();
-      const { all, q, click, fill, press, titles, focusedId } = await render(s);
-      await click(all('todo-edit')[1]);
-      const input = q<HTMLInputElement>('todo-edit-input');
-      expect(document.activeElement).toBe(input);
-      fill(input, '  Bravo bis ');
-      await press(input, 'Enter');
-      expect(titles()).toEqual(['Alpha', 'Bravo bis', 'Charlie']);
+  describe('row layout', () => {
+    it('has no date input and no inline edit any more', async () => {
+      const { el, q } = await render(seeded());
+      expect(el.querySelector('input[type="date"]')).toBeNull();
+      expect(q('todo-edit')).toBeNull();
       expect(q('todo-edit-input')).toBeNull();
-      expect(focusedId()).toBe('todo-edit');
-      expect(document.activeElement).toBe(all('todo-edit')[1]);
     });
 
-    it('opens on double click', async () => {
+    it('lays a row out on one flex block, inside a container-query list', async () => {
       const s = seeded();
-      const { all, q, settle } = await render(s);
-      all('todo-title')[0].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      s.repo.items[0] = { ...s.repo.items[0], dueOn: '2026-12-25' };
+      const { all, q } = await render(s);
+      expect(q('todo-list')?.classList).toContain('@container');
+      const block = all('todo-row')[0].firstElementChild as HTMLElement;
+      expect(block.classList).toContain('flex');
+      expect(block.classList).toContain('@max-[11rem]:flex-wrap');
+      for (const id of ['todo-check', 'todo-title', 'todo-due', 'todo-info']) {
+        expect(block.querySelector(`[data-testid="${id}"]`)).not.toBeNull();
+      }
+      expect(all('todo-row')).toHaveLength(3);
+    });
+
+    it('hides the arrows and the bin on narrow containers, and shortens the label', async () => {
+      const s = seeded();
+      s.repo.items[0] = { ...s.repo.items[0], dueOn: '2026-10-20', description: 'Détail' };
+      const { all } = await render(s);
+      for (const id of ['todo-up', 'todo-down', 'todo-remove', 'todo-description-marker']) {
+        expect(all(id)[0].classList).toContain('@max-[20rem]:hidden');
+      }
+      expect(all('todo-info')[0].classList).not.toContain('@max-[20rem]:hidden');
+      const due = all('todo-due')[0];
+      expect(due.classList).toContain('@max-[11rem]:order-last');
+      expect(due.classList).toContain('@max-[11rem]:basis-full');
+      expect(due.classList).toContain('@max-[11rem]:pl-6');
+      expect(all('todo-due-long')[0].classList).toContain('@max-[28rem]:hidden');
+      expect(all('todo-due-short')[0].classList).toContain('@max-[28rem]:inline');
+    });
+
+    it('keeps the overdue icon and the full text for assistive technology in the short form', async () => {
+      const s = seeded();
+      s.repo.items[0] = { ...s.repo.items[0], dueOn: '2026-10-18' };
+      const { all } = await render(s);
+      const short = all('todo-due-short')[0];
+      expect(short.querySelector('.pi-exclamation-circle')).not.toBeNull();
+      expect(short.textContent).toContain('3 j');
+      expect(short.querySelector('.sr-only')?.textContent).toBe('En retard de 3 jours');
+      expect(all('todo-due-long')[0].querySelector('.pi-exclamation-circle')).not.toBeNull();
+    });
+
+    it('marks an important task with a star and a hidden text', async () => {
+      const s = seeded();
+      s.repo.items[1] = { ...s.repo.items[1], important: true };
+      const { all } = await render(s);
+      const markers = all('todo-important-marker');
+      expect(markers).toHaveLength(1);
+      expect(markers[0].querySelector('.pi-star-fill')?.getAttribute('aria-hidden')).toBe('true');
+      expect(markers[0].querySelector('.sr-only')?.textContent).toBe('Important');
+      expect(all('todo-row')[1].contains(markers[0])).toBe(true);
+    });
+
+    it('shows the description indicator only for a non-blank description', async () => {
+      const s = seeded();
+      s.repo.items[0] = { ...s.repo.items[0], description: 'Un détail' };
+      s.repo.items[1] = { ...s.repo.items[1], description: '  \n ' };
+      const { all } = await render(s);
+      const markers = all('todo-description-marker');
+      expect(markers).toHaveLength(1);
+      expect(markers[0].querySelector('.sr-only')?.textContent).toBe('Avec description');
+      expect(all('todo-row')[0].contains(markers[0])).toBe(true);
+    });
+
+    it('gives every row, completed ones included, a [i] button named after the title', async () => {
+      const s = seeded();
+      s.repo.items[0] = { ...s.repo.items[0], completedAt: '2026-10-20T08:00:00.000Z' };
+      const { all } = await render(s);
+      expect(all('todo-info').map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Détails de Bravo',
+        'Détails de Charlie',
+        'Détails de Alpha',
+      ]);
+    });
+  });
+
+  describe('detail sheet', () => {
+    it('opens from the [i] button and from a double click on the title', async () => {
+      const { all, q, click, settle } = await render(seeded());
+      await click(all('todo-info')[1]);
+      expect(q('todo-detail')).not.toBeNull();
+      expect(q<HTMLTextAreaElement>('todo-detail-title')?.value).toBe('Bravo');
+      expect(q('todo-list')).toBeNull();
+      expect(q('todo-new')).toBeNull();
+      expect(document.activeElement).toBe(q('todo-detail-title'));
+      await click(q('todo-detail-back'));
+      expect(q('todo-detail')).toBeNull();
+      all('todo-title')[2].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
       await settle();
-      expect(q<HTMLInputElement>('todo-edit-input')?.value).toBe('Alpha');
+      expect(q<HTMLTextAreaElement>('todo-detail-title')?.value).toBe('Charlie');
     });
 
-    it('Escape cancels without saving and restores the focus', async () => {
-      const s = seeded();
-      const { all, q, click, fill, press, titles, repo } = await render(s);
-      await click(all('todo-edit')[0]);
-      const input = q<HTMLInputElement>('todo-edit-input');
-      fill(input, 'Modifié');
-      await press(input, 'Escape');
-      expect(titles()).toEqual(['Alpha', 'Bravo', 'Charlie']);
-      expect(repo.calls.some((c) => c.startsWith('update:'))).toBe(false);
-      expect(document.activeElement).toBe(all('todo-edit')[0]);
+    it('ignores the [i] button and the double click while a write is in flight', async () => {
+      const { all, q, click, settle, repo } = await render(seeded());
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const original = repo.setCompleted.bind(repo);
+      repo.setCompleted = async (id, completed) => {
+        await gate;
+        return original(id, completed);
+      };
+      void click(all('todo-check')[0]);
+      await settle();
+      await click(all('todo-info')[1]);
+      all('todo-title')[1].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await settle();
+      expect(q('todo-detail')).toBeNull();
+      release();
+      await vi.waitFor(() => expect(repo.items[0].completedAt).not.toBeNull());
     });
 
-    it('refuses an empty title and stays in edit mode', async () => {
+    it('edits title, importance, description and due date, then gives the focus back to [i]', async () => {
       const s = seeded();
-      const { all, q, click, fill, press, repo } = await render(s);
-      await click(all('todo-edit')[0]);
-      fill(q<HTMLInputElement>('todo-edit-input'), '   ');
-      await press(q('todo-edit-input'), 'Enter');
-      expect(q('todo-edit-error')).not.toBeNull();
-      expect(q('todo-edit-input')).not.toBeNull();
-      expect(repo.calls.some((c) => c.startsWith('update:'))).toBe(false);
+      const { all, q, click, settle, titles, focusedId } = await render(s);
+      await click(all('todo-info')[1]);
+
+      const title = q<HTMLTextAreaElement>('todo-detail-title');
+      if (!title) throw new Error('title field not rendered');
+      title.value = 'Bravo bis';
+      title.dispatchEvent(new Event('input'));
+      await click(q('todo-detail-important'));
+      const description = q<HTMLTextAreaElement>('todo-detail-description');
+      if (!description) throw new Error('description field not rendered');
+      description.value = 'Mon détail';
+      description.dispatchEvent(new Event('input'));
+      const due = q<HTMLInputElement>('todo-detail-due');
+      if (!due) throw new Error('due field not rendered');
+      due.value = '2026-11-05';
+      due.dispatchEvent(new Event('change'));
+      await settle();
+
+      await click(q('todo-detail-back'));
+      await vi.waitFor(() => expect(q('todo-detail')).toBeNull());
+      await settle();
+      expect(titles()).toEqual(['Alpha', 'Bravo bis', 'Charlie']);
+      const row = all('todo-row')[1];
+      expect(row.querySelector('[data-testid="todo-important-marker"]')).not.toBeNull();
+      expect(row.querySelector('[data-testid="todo-description-marker"]')).not.toBeNull();
+      expect(row.querySelector('[data-testid="todo-due-long"]')?.textContent?.trim()).toMatch(
+        /^5 nov\.?$/,
+      );
+      expect(s.repo.items[1]).toMatchObject({
+        title: 'Bravo bis',
+        important: true,
+        description: 'Mon détail',
+        dueOn: '2026-11-05',
+      });
+      expect(focusedId()).toBe('todo-info');
+      expect(document.activeElement).toBe(all('todo-info')[1]);
+    });
+
+    it('keeps the text typed in the new-task field across an opening of the sheet', async () => {
+      const { all, q, click, fill } = await render(seeded());
+      fill(q<HTMLInputElement>('todo-new'), 'À moitié');
+      await click(all('todo-info')[0]);
+      await click(q('todo-detail-back'));
+      expect(q<HTMLInputElement>('todo-new')?.value).toBe('À moitié');
+    });
+
+    it('removes the task from the sheet and focuses the [i] of the row that took its place', async () => {
+      const s = seeded();
+      const { all, q, click, titles } = await render(s);
+      await click(all('todo-info')[1]);
+      await click(q('todo-detail-remove'));
+      await click(q('todo-detail-confirm-yes'));
+      await vi.waitFor(() => expect(q('todo-detail')).toBeNull());
+      expect(titles()).toEqual(['Alpha', 'Charlie']);
+      expect(document.activeElement).toBe(all('todo-info')[1]);
+    });
+
+    it('focuses the [i] of the previous row after removing the last task', async () => {
+      const { all, q, click, titles } = await render(seeded());
+      await click(all('todo-info')[2]);
+      await click(q('todo-detail-remove'));
+      await click(q('todo-detail-confirm-yes'));
+      await vi.waitFor(() => expect(q('todo-detail')).toBeNull());
+      expect(titles()).toEqual(['Alpha', 'Bravo']);
+      expect(document.activeElement).toBe(all('todo-info')[1]);
+    });
+
+    it('focuses the field after removing the only task', async () => {
+      const clock = new ManualClock(NOON);
+      const repo = new FakeTodoRepository(clock);
+      const list = repo.seedList(INSTANCE);
+      repo.seed(list.id, 'Seule');
+      const { all, q, click, focusedId } = await render({
+        repo,
+        clock,
+        config: { listId: list.id, showCompleted: true },
+      });
+      await click(all('todo-info')[0]);
+      await click(q('todo-detail-remove'));
+      await click(q('todo-detail-confirm-yes'));
+      await vi.waitFor(() => expect(q('todo-detail')).toBeNull());
+      expect(q('todo-empty')).not.toBeNull();
+      expect(focusedId()).toBe('todo-new');
+    });
+
+    it('says the task is gone when it vanished, and focuses the field', async () => {
+      const s = seeded();
+      const { all, q, click, settle, titles, focusedId } = await render(s);
+      await click(all('todo-info')[1]);
+      s.repo.items.splice(1, 1);
+      // The first write (the flag is written at once) meets `not_found`.
+      await click(q('todo-detail-important'));
+      await vi.waitFor(() => expect(q('todo-detail')).toBeNull());
+      await settle();
+      expect(q('todo-gone')?.textContent).toContain("Cette tâche n'existe plus.");
+      expect(q('todo-gone')?.getAttribute('role')).toBe('alert');
+      expect(titles()).toEqual(['Alpha', 'Charlie']);
+      expect(focusedId()).toBe('todo-new');
     });
   });
 
@@ -442,13 +616,14 @@ describe('TodoComponent', () => {
       const { all } = await render(withDates());
       const labels = all('todo-row').map((row) => {
         const due = row.querySelector('[data-testid="todo-due"]');
-        return [due?.getAttribute('data-due'), due?.textContent?.replace(/\s+/g, ' ').trim()];
+        const long = due?.querySelector('[data-testid="todo-due-long"]');
+        return [due?.getAttribute('data-due'), long?.textContent?.replace(/\s+/g, ' ').trim()];
       });
       expect(labels[0]).toEqual(['overdue', "En retard d'1 jour"]);
       expect(labels[1]).toEqual(['today', "Aujourd'hui"]);
       expect(labels[2]).toEqual(['tomorrow', 'Demain']);
       expect(labels[3][0]).toBe('date');
-      expect(labels[3][1]).toMatch(/^25 déc\.? 2026$/);
+      expect(labels[3][1]).toMatch(/^25 déc\.?$/);
       expect(labels[4]).toEqual([undefined, undefined]);
     });
 
@@ -463,7 +638,7 @@ describe('TodoComponent', () => {
         clock,
         config: { listId: list.id, showCompleted: true },
       });
-      const text = () => all('todo-due')[0].textContent?.replace(/\s+/g, ' ').trim();
+      const text = () => all('todo-due-long')[0].textContent?.replace(/\s+/g, ' ').trim();
       expect(text()).toBe('En retard de 3 jours');
       clock.set('2026-10-21T22:00:05.000Z');
       await vi.advanceTimersByTimeAsync(15_000);
@@ -500,100 +675,11 @@ describe('TodoComponent', () => {
       expect(dueOf(2)).toBe('today');
     });
 
-    it('sets a due date from the date input (YYYY-MM-DD)', async () => {
-      const s = seeded();
-      const { all, fill, settle, repo } = await render(s);
-      const input = all('todo-due-input')[0] as HTMLInputElement;
-      fill(input, '2026-11-05');
-      input.dispatchEvent(new Event('change'));
-      await settle();
-      expect(repo.items.find((t) => t.title === 'Alpha')?.dueOn).toBe('2026-11-05');
-      expect(all('todo-due')[0].getAttribute('data-due')).toBe('date');
-    });
-
-    it('does not reset the field while the year is being typed', async () => {
-      const s = seeded();
-      s.repo.items[0] = { ...s.repo.items[0], dueOn: '2026-11-03' };
-      const { all, fill, settle, repo, q } = await render(s);
-      const input = all('todo-due-input')[0] as HTMLInputElement;
-      input.focus();
-      for (const partial of ['0002-11-03', '0020-11-03', '0202-11-03', '2200-01-01']) {
-        fill(input, partial);
-        input.dispatchEvent(new Event('change'));
-        await settle();
-        expect(input.value).toBe(partial);
-      }
-      expect(repo.calls.some((c) => c.startsWith('update:'))).toBe(false);
-      expect(q('todo-action-error')).toBeNull();
-      fill(input, '2027-11-03');
-      input.dispatchEvent(new Event('change'));
-      await settle();
-      expect(repo.items[0].dueOn).toBe('2027-11-03');
-    });
-
-    it('restores the stored value on blur when the typed date was never committed', async () => {
-      const s = seeded();
-      s.repo.items[0] = { ...s.repo.items[0], dueOn: '2026-11-03' };
-      const { all, fill, settle } = await render(s);
-      const input = all('todo-due-input')[0] as HTMLInputElement;
-      fill(input, '0002-11-03');
-      input.dispatchEvent(new Event('change'));
-      input.dispatchEvent(new Event('blur'));
-      await settle();
-      expect(input.value).toBe('2026-11-03');
-    });
-
-    it('ignores an empty value caused by partial input (badInput)', async () => {
-      const s = seeded();
-      s.repo.items[0] = { ...s.repo.items[0], dueOn: '2026-11-03' };
-      const { all, fill, settle, repo } = await render(s);
-      const input = all('todo-due-input')[0] as HTMLInputElement;
-      Object.defineProperty(input, 'validity', { value: { badInput: true } });
-      fill(input, '');
-      input.dispatchEvent(new Event('change'));
-      await settle();
-      expect(repo.calls.some((c) => c.startsWith('update:'))).toBe(false);
-      expect(repo.items[0].dueOn).toBe('2026-11-03');
-    });
-
-    it('clears the due date when the field is emptied without badInput', async () => {
-      const s = seeded();
-      s.repo.items[0] = { ...s.repo.items[0], dueOn: '2026-11-03' };
-      const { all, fill, settle, repo } = await render(s);
-      const input = all('todo-due-input')[0] as HTMLInputElement;
-      fill(input, '');
-      input.dispatchEvent(new Event('change'));
-      await settle();
-      expect(repo.items[0].dueOn).toBeNull();
-    });
-
-    it('says so instead of dropping a date chosen while a write is in flight', async () => {
-      const s = seeded();
-      const { all, fill, settle, repo, q, click } = await render(s);
-      let release!: () => void;
-      const gate = new Promise<void>((resolve) => (release = resolve));
-      const original = repo.setCompleted.bind(repo);
-      repo.setCompleted = async (id, completed) => {
-        await gate;
-        return original(id, completed);
-      };
-      void click(all('todo-check')[1]);
-      await settle();
-      const input = all('todo-due-input')[0] as HTMLInputElement;
-      fill(input, '2026-11-05');
-      input.dispatchEvent(new Event('change'));
-      await settle();
-      expect(q('todo-action-error')).not.toBeNull();
-      expect(repo.calls.some((c) => c.startsWith('update:'))).toBe(false);
-      release();
-      await vi.waitFor(() => expect(repo.items[1].completedAt).not.toBeNull());
-    });
-
-    it('clears the due date with its button', async () => {
-      const { all, click, repo } = await render(withDates());
-      await click(all('todo-due-clear')[0]);
-      expect(repo.items.find((t) => t.title === 'Hier')?.dueOn).toBeNull();
-      expect(all('todo-due')).toHaveLength(3);
+    it('has no inline date editing', async () => {
+      const { all, el } = await render(withDates());
+      expect(el.querySelector('input[type="date"]')).toBeNull();
+      expect(all('todo-due-input')).toHaveLength(0);
+      expect(all('todo-due-clear')).toHaveLength(0);
     });
   });
 

@@ -84,6 +84,9 @@ const WIDGET_KEYS = [
   'widgets.todo.title',
   'widgets.todo.removeConfirm',
   'widgets.todo.empty',
+  ...['details', 'important', 'dueShortOverdue', 'hasDescription', 'gone'].map(
+    (k) => `widgets.todo.${k}`,
+  ),
   ...[
     'group',
     'back',
@@ -191,6 +194,13 @@ describe('fr.json', () => {
     expect(typeof value).toBe('string');
     expect((value as string).length).toBeGreaterThan(0);
   });
+
+  it.each(['edit', 'editLabel', 'save', 'cancel', 'dueLabel', 'clearDue'])(
+    'no longer defines widgets.todo.%s',
+    (key) => {
+      expect(lookup(`widgets.todo.${key}`)).toBeUndefined();
+    },
+  );
 
   it.each([...DASHBOARD_ICONS])('has a label for the dashboard icon %s', (icon) => {
     expect(typeof lookup(`dashboards.icons.${icon}`)).toBe('string');
