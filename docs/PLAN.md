@@ -28,7 +28,7 @@ Ce que Tauri complique :
 | Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR) |
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
-| Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003 |
+| Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003. Exception : la prochaine échéance d'une TODO répétée (date sans heure, sans notification) est calculée par `core/time/date-rule.ts` (ADR-003 §3.9, spec todo-details). |
 | Timers | Web Worker (UI) + horloge Rust (rappels) | Fiable même fenêtre réduite |
 | Notifications | `tauri-plugin-notification`, tray, `autostart` | Natif Windows |
 | HTTP sortant | `reqwest` 0.13.5 (`default-features = false`, feature `native-tls` : TLS de Windows), module Rust `net`, appelé uniquement par des commandes dédiées | Pas de `tauri-plugin-http` ni de réseau depuis le front (CSP inchangée) ; rustls par défaut écarté (aws-lc exige NASM sous Windows). Voir `docs/specs/weather-widget.md` (décidé le 21/10/2026) |
@@ -68,6 +68,7 @@ Chaque widget déclare : `id`, `title`, `icon`, composant principal, tailles min
 UTC + fuseau IANA ; récurrence en RRULE ; planificateur Rust qui recalcule la prochaine échéance au démarrage (rattrapage des rappels manqués pendant que le PC était éteint) ; tests obligatoires sur changements d'heure.
 
 ## 5. Widgets : notes de conception
+- **TODO** : ligne compacte (case, marqueur « Important », titre, échéance relative, indicateurs, bouton de détail) qui s'adapte à la largeur de la carte ; fiche dans le widget (titre, « Important », description, échéance, répétition) enregistrée au fil de l'eau ; cocher une tâche répétée avance son échéance, sans historique (`docs/specs/todo-details.md`).
 - **Calendrier** : agrège les `CalendarSource` (rappels, TODO datées, habits, objectifs).
 - **Timers/pomodoro** : session « en cours depuis X » cliquable (détail + historique) ; historique en base ; reprise correcte après fermeture.
 - **Habits** : distinct de la TODO ; inclut des rappels de mise à jour périodique (ex. solde des comptes).

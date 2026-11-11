@@ -97,6 +97,8 @@ Références de lignes : `node_modules/angular-gridster2/fesm2022/angular-gridst
 
 *Amendement (spec dashboard-theme)* : V4 est figée depuis le commit 8982993. La spec dashboard-theme ajoute V5 sur cette même branche, figée à la revue de son lot T2 ; aucun `npm run dev` du début de T2 jusqu'à cette revue. La vraie base passe de V3 à V5 au premier lancement de l'exe release.
 
+*Amendement (spec todo-details)* : V6 s'ajoute sur cette branche, figée à la revue du lot TD1a ; aucun `npm run dev` du début de TD1a jusqu'à cette revue. La vraie base passe de V3 à V6 au premier lancement de l'exe release.
+
 Interdits : `npm run tauri dev` et `cargo tauri dev` (configuration réelle, V35) ; enregistrer un export ou une archive de l'app de dev dans `%APPDATA%\fr.mariusdev.homebase\backups\` (une archive de dev y serait listée, restaurable et soumise à la rotation réelle).
 
 ### D1. Grille : `gridType: 'fit'`, 12 × 8 fixes
@@ -1274,7 +1276,7 @@ Acceptation :
 3. Aucune couleur brute, aucun `any`, aucun `Date` ajouté, `OnPush` partout, textes via Transloco.
 4. Bundle initial < 500 kB ; budget inchangé.
 5. `tauri.conf.json` et la CSP inchangés ; capabilities et `build.rs` modifiés uniquement pour `dashboard_delete` ; `tauri.dev.conf.json` réduit à `identifier` et `productName`.
-6. M1 à M17 (et MT1 à MT9 de la spec dashboard-theme) passées par Marius sur l'exe release et la vraie base, **juste avant la fusion**.
+6. M1 à M17 (et MT1 à MT9 de la spec dashboard-theme, MD1 à MD9 de la spec todo-details) passées par Marius sur l'exe release et la vraie base, juste avant la fusion.
 
 ---
 
@@ -1299,9 +1301,9 @@ Acceptation :
 - **M7 Tableaux.** Créer « Pro » (`briefcase`), « Jeu vidéo » (`trophy`), « Perso » (`home`), « Streaming » (`video`). Widgets propres à chacun ; une recherche par tableau permise. F5 rouvre le même. Relancer : retour au dernier ouvert.
 - **M8 Suppression.** Tableau avec une note et des tâches : texte explicite, case obligatoire. Pendant la suppression : voile « Suppression du tableau en cours… », `Ctrl+K` et clics sur la barre sans effet. Après : une sauvegarde « Avant suppression d'un tableau » (base seule) apparaît dans Réglages ; note et tâches disparues de la recherche ; raccourcis conservés. Dernier tableau non supprimable, et aucune sauvegarde créée en essayant.
 - **M9 Clavier.** Sur une bulle : `Maj+F10`, puis la touche Menu si disponible : menu, flèches, Échap (focus rendu). `Tab` parcourt la barre. Narrateur : nom, « page en cours », raccourci annoncé.
-- **M10 Migrations V4 et V5** (première action sur la vraie base, une seule fois ; vaut aussi MT6 de la spec dashboard-theme) : une seule sauvegarde « Avant mise à jour », base seule, schéma 3, prise avant que V4 et V5 soient appliquées ensemble ; tous les widgets présents ; tableau existant à l'icône grille et au thème par défaut.
-- **M11 Restauration V3.** Restaurer cette sauvegarde : acceptée, redémarrage, V4 et V5 appliquées ensemble, nouvelle sauvegarde « Avant mise à jour » (schéma 3). Données retrouvées.
-- **M12 Restauration au schéma courant.** Créer une sauvegarde manuelle (schéma 5), modifier quelque chose (icône et thème compris), la restaurer : acceptée, redémarrage, état d'avant la modification, icônes et thèmes compris.
+- **M10 Migrations V4, V5 et V6** (première action sur la vraie base, une seule fois ; vaut aussi MT6 de la spec dashboard-theme et MD8 de la spec todo-details) : une seule sauvegarde « Avant mise à jour », base seule, schéma 3, prise avant que V4, V5 et V6 soient appliquées ensemble ; tous les widgets présents ; tableau existant à l'icône grille et au thème par défaut ; tâches présentes, sans description, répétition ni « Important ».
+- **M11 Restauration V3.** Restaurer cette sauvegarde : acceptée, redémarrage, V4, V5 et V6 appliquées ensemble, nouvelle sauvegarde « Avant mise à jour » (schéma 3). Données retrouvées.
+- **M12 Restauration au schéma courant.** Créer une sauvegarde manuelle (schéma 6), modifier quelque chose (icône, thème, description, répétition et « Important » d'une tâche compris), la restaurer : acceptée, redémarrage, état d'avant la modification.
 - **M13 `+` vert et V.** Clic : pop-up ; choix : fermeture, widget mis en évidence, V sur fond bleu ; clic : `+` vert sans autre changement ; Échap sur le V : pareil. Pendant le V : changer de tableau, aller dans Réglages puis **revenir au même tableau** : `+` vert. Pop-up ouverte puis `Alt+←` : la pop-up se ferme et ne revient pas. Depuis Réglages, le `+` est grisé et sa bulle le dit. Échap dans la pop-up : fermeture ; clic sur le voile : rien.
 - **M14 Poignées.** Survol de l'en-tête : l'icône devient la poignée, sans décalage ; glisser déplace. Survol de la carte : coin bas-droit visible ; tirer redimensionne, jusqu'à la dernière ligne et la dernière colonne, même à 800 × 600 avec un bandeau. Le bouton supprimer et l'ascenseur du corps réagissent normalement ; seuls les 14 × 14 px du coin bas-droit appartiennent à la poignée. Tab sur la poignée : flèches et `Maj+flèches`.
 - **M15 Recherche.** Depuis un tableau, chercher une note d'un autre tableau, Entrée : le tableau s'ouvre, la carte est focalisée et mise en évidence.
@@ -1436,7 +1438,7 @@ Section « Commandes », ligne Dev : remplacer « Dev (fenêtre Tauri + `ng serv
 |---|---|---|---|
 | R1 | Cartes de `h = 2` serrées sur petite fenêtre | Contenu à faire défiler | Assumé (« défile dans sa carte ») |
 | R2 | Widget à hauteur interne fixe à 68 px de ligne | Affichage serré | `.box-body` défile ; M1, M5 |
-| R3 | V4 lancée sur la vraie base puis modifiée | `VersionMismatch`, démarrage impossible | Lot 0 ; V4 figée à la revue de C1 ; vraie base seulement à M10 ; installateur V3 conservé ; retour arrière (§9) ; V5 (spec dashboard-theme) figée à la revue de son lot T2, même procédure |
+| R3 | V4 lancée sur la vraie base puis modifiée | `VersionMismatch`, démarrage impossible | Lot 0 ; V4 figée à la revue de C1 ; vraie base seulement à M10 ; installateur V3 conservé ; retour arrière (§9) ; V5 (spec dashboard-theme) figée à la revue de son lot T2, même procédure ; V6 (spec todo-details) figée à la revue de son lot TD1a, même procédure |
 | R4 | Widget stocké très grand réduit à l'écran | Perte apparente de taille | Taille stockée conservée jusqu'à la première modification (D3) |
 | R5 | Le coin `se` capte 14 × 14 px en bas à droite de la carte | Petit masquage au survol | Assumé ; M14 |
 | R6 | Gridster 21.0.1 en `fit` avec push, en zoneless | Comportement souris inattendu | M4, M14 ; repli gridstack (PLAN §2) non activé |

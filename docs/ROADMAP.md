@@ -30,7 +30,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
 
 ## Phase 1 bis : navigation et grille
-Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (et MT1 à MT9 de `docs/specs/dashboard-theme.md`) à faire par Marius (sur l'exe release, juste avant la fusion).
+Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (et MT1 à MT9 de `docs/specs/dashboard-theme.md`, MD1 à MD9 de `docs/specs/todo-details.md`) à faire par Marius (sur l'exe release, juste avant la fusion).
 - [x] (S) Lot 0 : base et démarrage automatique de développement séparés (`tauri.dev.conf.json`, « Homebase Dev »)
 - [x] (S) Lot A : grille de 12 × 8 qui s'adapte à la fenêtre, repositionnement à l'affichage
 - [x] (S) Lot B : barre verticale à bulles, retrait du H1, du nom de l'app et du bouton de thème
@@ -47,11 +47,17 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot T3 : application du thème aux cartes (`.card-theme`), flux d'édition, thème hérité par le tableau « (suite) »
 - [x] (S) Lot T4 : bouton palette et panneau avec aperçu en direct
 - [x] (S) Lot T5 : export et import (`formatVersion` 3) ; vérifications manuelles MT1 à MT5 à faire par Marius
-- [ ] (O) Revue de fin de phase (thème compris) ; vérifications manuelles M1 à M17 et MT1 à MT9 à faire par Marius, juste avant la fusion (M10 en premier : V4 et V5 appliquées ensemble)
+- [x] (S) Lot TD1a (spec `todo-details.md`) : migration V6 `todos.description` / `rrule` / `important`, couche de données (texte de V6 figé à la revue ; pas de `npm run dev` avant)
+- [x] (S) Lot TD1b : prochaine échéance d'une tâche répétée (`core/time/date-rule.ts`, vecteurs `dateNext`)
+- [x] (S) Lot TD2a : fiche de tâche (titre, « Important », description, échéance, suppression), non branchée
+- [x] (S) Lot TD2b : ligne de tâche sur une ligne (bouton [i], échéance sur la ligne, requêtes de conteneur) et branchement de la fiche (vérification manuelle MD1 à faire par Marius)
+- [x] (S) Lot TD3 : répétition des tâches (cocher avance l'échéance, « Annuler ») (vérification manuelle MD5 à faire par Marius)
+- [ ] (S) Lot TD4 : recherche dans les descriptions de tâches
+- [ ] (O) Revue de fin de phase (thème et détail des tâches compris) ; vérifications manuelles M1 à M17, MT1 à MT9 et MD1 à MD9 à faire par Marius, juste avant la fusion (M10 en premier : V4, V5 et V6 appliquées ensemble)
 - [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius)
 
 ## Phase 2 : Temps
-- [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource`
+- [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec
 - [ ] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage)
 - [ ] (S) Timers/alarmes, pomodoro, session « en cours depuis X » + historique
 - [ ] (S) Rappels datés/récurrents (rrule) + notifications natives + zone de notification + démarrage automatique

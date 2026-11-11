@@ -147,6 +147,8 @@ Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoq
 
 *Amendement (spec dashboard-theme, V5)* : `dashboards.theme TEXT NOT NULL DEFAULT '{}'` (objet JSON, ≤ 4 096 caractères) et `dashboards.theme_version INTEGER NOT NULL DEFAULT 1` (≥ 1), sur le modèle de `config` / `config_version` : la couche données ne les interprète pas. Même exception justifiée à « pas de `DEFAULT` » que V4. Ajouter une option au thème ne demande ni migration ni nouveau format d'export (nouvelle version du schéma de thème, migrée côté front).
 
+> *Amendement (spec todo-details, V6)* : `todos.description TEXT NOT NULL DEFAULT ''` (texte brut, ≤ 10 000 caractères et ≤ 40 000 octets, borne qui résiste à un NUL), `todos.rrule TEXT NULL` (règle RRULE de l'ADR-003, ancrée sur `due_on`, qu'elle exige par `CHECK`) et `todos.important INTEGER NOT NULL DEFAULT 0 CHECK (important IN (0, 1))`. Même exception justifiée à « pas de `DEFAULT` » que V4. Un futur champ de tâche suit le même modèle (une colonne typée par `ADD COLUMN`, défaut constant, `CHECK`).
+
 ### 3.5 Couche `data/` (TypeScript)
 - Port `SqlExecutor` avec deux adaptateurs : `TauriSqlExecutor` (production, `Database.get(DB_URL)`) et `NodeSqliteExecutor` (tests, better-sqlite3 `:memory:` + application des fichiers de migration).
 - Repositories SQLite **communs** à la production et aux tests.
@@ -156,6 +158,8 @@ Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoq
 - *Amendement (spec dashboards-sidebar)* : `Dashboard.icon`, `NewDashboard.icon?` ; `DashboardRepository.update(id, { name, icon })` remplace `rename`, sans appelant ; `remove` ne sert plus qu'au nettoyage d'un dashboard vide juste créé ; la suppression par l'utilisateur passe par la commande Rust `dashboard_delete` (contrôle d'existence et du nombre de dashboards sous le verrou de sauvegarde, sauvegarde `pre-delete`, puis une instruction `DELETE` qui épargne le dernier dashboard). `WidgetInstanceRepository.moveToDashboard(targetDashboardId, items)` (une instruction `UPDATE … FROM json_each`) et `findFirstOfType(widgetType)`.
 
 *Amendement (spec dashboard-theme)* : `Dashboard.theme` (`JsonObject`) et `Dashboard.themeVersion` ; `NewDashboard.theme?` / `themeVersion?` (recopiés tels quels dans l'`INSERT` de création, par exemple pour le tableau « (suite) ») ; `DashboardRepository.updateTheme(id, theme, themeVersion)` (une instruction ; `not_found` ; `invalid_input` au-delà de 4 096 points de code ou pour une version non entière ou < 1). `update(id, { name, icon })` ne touche pas au thème.
+
+> *Amendement (spec todo-details)* : `Todo.description`, `Todo.rrule`, `Todo.important` ; `TodoChanges.description?`, `rrule?`, `important?` (lié en 1/0 ; une règle exige une échéance : `invalid_input` dans la même modification, `constraint` sinon ; effacer l'échéance efface la règle dans la même instruction) ; `TodoRepository.shiftRepeatDue(id, fromDueOn, toDueOn)` (comparer-et-écrire en une instruction : `conflict` si l'échéance, la règle ou l'état ont changé ; `not_found`). Le dépôt ne calcule aucune date : la prochaine échéance vient de `core/time` (que `data/` ne peut pas importer). `setCompleted` ignore la règle. `search` porte aussi sur la description et renvoie un `excerpt`.
 
 ### 3.6 Capabilities Tauri
 Strict nécessaire pour le front : **`sql:allow-execute`** et **`sql:allow-select`**. **Pas** de `sql:default` (qui ajouterait `allow-load` et `allow-close`, inutiles avec `preload` + `Database.get`, F14 et F15).

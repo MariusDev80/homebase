@@ -150,6 +150,8 @@ La zone de grille du tableau courant porte la classe `.card-theme`, qui déclare
 - **Aucun `npm run dev` du début du lot T2 jusqu'à sa revue** : l'app de dev appliquerait V5 à la base de dev avant le gel. Après la revue, la base de dev (déjà en V4) passe en V5 au premier lancement.
 - La **vraie base** passe de V3 à V5 en un seul démarrage de l'exe release : **une** sauvegarde « Avant mise à jour » (schéma 3), puis V4 et V5 appliquées ensemble. M10 de dashboards-sidebar et la vérification de migration de cette spec ne font qu'une (§9, §10.7). Point de retour unique : cette sauvegarde et l'installateur V3 conservé (dashboards-sidebar §9).
 
+*Amendement (spec todo-details)* : V6 s'ajoute ; la vraie base passe de V3 à V6 au même démarrage, avec une seule sauvegarde « Avant mise à jour » (schéma 3) ; M10 amendé en conséquence.
+
 ### D11. Le tableau « (suite) » hérite du thème (décision de Marius)
 `moveUnplaced` (V29) passe aussi `theme` et `themeVersion` du tableau courant (lus dans `list.dashboards()`, valeurs brutes : un thème futur ou une teinte inconnue sont recopiés tels quels). L'héritage se fait **dans l'`INSERT` de création** (`NewDashboard.theme?`, `themeVersion?`) : une seule instruction, pas de seconde écriture non atomique.
 
@@ -971,7 +973,7 @@ Acceptation :
 - **MT4 Clavier et Narrateur.** Tab jusqu'à la palette (bulle de texte), Entrée : focus **visible** sur le choix coché ; flèches : la grille change ; Narrateur annonce le nom de la teinte et le groupe ; Échap : focus rendu à la palette. Pendant le V bleu, clic sur la palette : le `+` vert revient, le panneau s'ouvre.
 - **MT5 Session.** Panneau ouvert, `Alt+←` puis (après retour) `Alt+→` : le panneau se ferme, rien n'est enregistré ; revenir : thème enregistré. `Ctrl+K` dans le panneau : rien.
 - **MT6 Migration** (vraie base) : couverte par M10 amendé de dashboards-sidebar (une seule sauvegarde « Avant mise à jour », schéma 3, avant V4 et V5) ; vérifier en plus que tous les tableaux sont au rendu par défaut.
-- **MT7 Restaurations** (vraie base) : couvertes par M11 et M12 amendés ; vérifier en plus qu'un thème modifié revient après la restauration de la sauvegarde manuelle (schéma 5).
+- **MT7 Restaurations** (vraie base) : couvertes par M11 et M12 amendés ; vérifier en plus qu'un thème modifié revient après la restauration de la sauvegarde manuelle (schéma 6 après la spec todo-details).
 - **MT8 Export et import** (vraie base) : couvert par M17 amendé ; vérifier en plus qu'un fichier v2 montre, dans l'aperçu, la remise par défaut des thèmes.
 - **MT9 Bascule système.** Panneau ouvert, passer Windows en sombre : grille, mini-carte et pastilles suivent.
 
