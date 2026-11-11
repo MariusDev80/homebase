@@ -6,7 +6,7 @@ import {
   TODO_TITLE_MAX,
   hasLocalDateShape,
 } from '../../data';
-import { excerptAround } from '../../data/search';
+import { excerptAround, validSearch } from '../../data/search';
 import { isValidLocalDate } from '../time';
 import type {
   Clock,
@@ -196,9 +196,19 @@ export class FakeTodoRepository implements TodoRepository {
 
   async search(query: string, limit: number): Promise<TodoSearchHit[]> {
     this.record(`search:${query}`);
-    const q = query.trim().toLowerCase();
+    const term = validSearch(query, limit);
+    const q = term.toLowerCase();
+    const titleMatch = (t: Todo) => t.title.toLowerCase().includes(q);
+    // Same order as the SQL: active first, title matches, most recently updated, then id.
     return this.items
-      .filter((t) => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q))
+      .filter((t) => titleMatch(t) || t.description.toLowerCase().includes(q))
+      .sort(
+        (x, y) =>
+          Number(x.completedAt !== null) - Number(y.completedAt !== null) ||
+          Number(titleMatch(y)) - Number(titleMatch(x)) ||
+          (x.updatedAt < y.updatedAt ? 1 : x.updatedAt > y.updatedAt ? -1 : 0) ||
+          (x.id < y.id ? -1 : x.id > y.id ? 1 : 0),
+      )
       .slice(0, limit)
       .map((t) => ({
         id: t.id,
@@ -206,7 +216,7 @@ export class FakeTodoRepository implements TodoRepository {
         listId: t.listId,
         widgetInstanceId: this.lists.get(t.listId)?.widgetInstanceId ?? null,
         completedAt: t.completedAt,
-        excerpt: excerptAround(t.description, query.trim()),
+        excerpt: excerptAround(t.description, term),
       }));
   }
 

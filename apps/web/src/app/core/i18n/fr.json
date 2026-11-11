@@ -121,6 +121,7 @@
         "lastDay": "Le dernier jour du mois",
         "skipMonths": "Les mois qui n'ont pas de {{ day }} sont sautés.",
         "skipYears": "Les années non bissextiles sont sautées.",
+        "summarySentence": "{{ summary }}.",
         "hint": "Cocher la tâche avance son échéance à la prochaine date ; elle reste dans la liste.",
         "summary": {
           "DAILY_one": "Chaque jour",
@@ -159,6 +160,7 @@
         "completed": "Terminée le {{ date }}",
         "saving": "Enregistrement…",
         "saved": "Enregistré",
+        "saveErrorChoice": "La modification n'a pas pu être enregistrée.",
         "saveError": "Les modifications n'ont pas pu être enregistrées. Réessayez, ou appuyez de nouveau sur Retour pour les abandonner.",
         "remove": "Supprimer la tâche",
         "confirmRemove": "Supprimer cette tâche ?"

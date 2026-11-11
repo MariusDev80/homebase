@@ -54,7 +54,8 @@ export class TodoDetailComponent {
   /** Snapshot taken when the sheet opens. */
   readonly todo = input.required<Todo>();
   readonly instanceId = input.required<string>();
-  readonly closed = output<void>();
+  /** Emits the last saved todo, so the list can show it even if reloading fails. */
+  readonly closed = output<Todo>();
   readonly removed = output<void>();
   readonly vanished = output<void>();
 
@@ -78,6 +79,13 @@ export class TodoDetailComponent {
   protected readonly saveState = signal<SaveState>('idle');
   protected readonly closeFailed = signal(false);
   protected readonly removeFailed = signal(false);
+  /** True when texts are still waiting after a failed write (else only a discrete choice failed). */
+  private readonly textFailed = signal(false);
+  protected readonly errorText = computed(() =>
+    this.textFailed() || this.closeFailed()
+      ? 'widgets.todo.detail.saveError'
+      : 'widgets.todo.detail.saveErrorChoice',
+  );
   protected readonly confirmingRemove = signal(false);
 
   protected readonly titleValue = computed(() => this.titleDraft() ?? this.stored().title);
@@ -169,6 +177,8 @@ export class TodoDetailComponent {
   private attemptFailed = false;
   /** The sheet is over (closed, removed, vanished): nothing may be written any more. */
   private finished = false;
+  /** A deletion is in progress: no other exit and no write may happen. */
+  private removing = false;
   private destroyed = false;
 
   constructor() {
@@ -227,6 +237,7 @@ export class TodoDetailComponent {
 
   private onTextChanged(): void {
     this.closeFailed.set(false);
+    this.removeFailed.set(false);
     if (this.finished) return;
     this.textDirty = true;
     clearTimeout(this.timer);
@@ -315,6 +326,7 @@ export class TodoDetailComponent {
   }
 
   private choose(change: TodoChanges): void {
+    this.removeFailed.set(false);
     // Clearing the due date of a repeating todo also removes its rule: say so.
     this.repeatCleared.set(change.dueOn === null && this.wantedRrule() !== null);
     this.intervalInvalid.set(false);
@@ -329,12 +341,12 @@ export class TodoDetailComponent {
   // ---- Closing and deletion ----
 
   protected async back(): Promise<void> {
-    if (this.finished) return;
+    if (this.finished || this.removing) return;
     if (this.closeFailed()) {
       // Second press after a failure: give up on what could not be written.
       this.abandon();
       this.finished = true;
-      this.closed.emit();
+      this.closed.emit(this.stored());
       return;
     }
     await this.flush();
@@ -345,7 +357,7 @@ export class TodoDetailComponent {
     }
     this.abandon();
     this.finished = true;
-    this.closed.emit();
+    this.closed.emit(this.stored());
   }
 
   protected onEscape(event: Event): void {
@@ -370,14 +382,19 @@ export class TodoDetailComponent {
   }
 
   protected async confirmRemove(): Promise<void> {
-    if (this.finished) return;
+    if (this.finished || this.removing) return;
+    this.removing = true;
     this.removeFailed.set(false);
     if (this.running) await this.running;
-    if (this.finished) return;
+    if (this.finished) {
+      this.removing = false;
+      return;
+    }
     this.abandon();
     try {
       await this.repository.remove(this.stored().id);
     } catch {
+      this.removing = false;
       this.removeFailed.set(true);
       this.confirmingRemove.set(false);
       return;
@@ -396,7 +413,7 @@ export class TodoDetailComponent {
 
   /** One write loop at a time: edits made while it runs are picked up by the same loop. */
   private save(): Promise<void> {
-    if (this.finished) return Promise.resolve();
+    if (this.finished || this.removing) return Promise.resolve();
     this.running ??= this.drain().finally(() => (this.running = null));
     return this.running;
   }
@@ -445,6 +462,7 @@ export class TodoDetailComponent {
         this.pending.set({});
         if (withText) this.textDirty = true;
         this.attemptFailed = true;
+        this.textFailed.set(this.textDirty);
         this.saveState.set('error');
         this.realignControls();
         return;

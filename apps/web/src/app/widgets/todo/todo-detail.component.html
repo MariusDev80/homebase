@@ -42,6 +42,7 @@
         {{ 'widgets.todo.detail.back' | transloco }}
       </button>
       <span
+        role="status"
         class="min-w-0 flex-1 text-xs text-fg-muted"
         data-testid="todo-detail-status"
         [class.truncate]="saveState() !== 'error' && !removeFailed()"
@@ -55,14 +56,14 @@
             role="alert"
             class="text-danger"
             data-testid="todo-detail-error"
-            [attr.title]="'widgets.todo.detail.saveError' | transloco"
+            [attr.title]="errorText() | transloco"
           >
-            {{ 'widgets.todo.detail.saveError' | transloco }}
+            {{ errorText() | transloco }}
           </span>
         } @else if (saveState() === 'saving') {
-          <span role="status">{{ 'widgets.todo.detail.saving' | transloco }}</span>
+          <span>{{ 'widgets.todo.detail.saving' | transloco }}</span>
         } @else if (saveState() === 'saved') {
-          <span role="status">{{ 'widgets.todo.detail.saved' | transloco }}</span>
+          <span>{{ 'widgets.todo.detail.saved' | transloco }}</span>
         }
       </span>
       <button
@@ -309,7 +310,10 @@
 
     @if (ruleForm().kind !== 'none') {
       <p class="m-0 text-xs text-fg-muted" data-testid="todo-detail-repeat-summary">
-        {{ summary().key | transloco: summary().params }}.
+        {{
+          'widgets.todo.repeat.summarySentence'
+            | transloco: { summary: (summary().key | transloco: summary().params) }
+        }}
         @if (rule()) {
           {{ 'widgets.todo.repeat.hint' | transloco }}
         }

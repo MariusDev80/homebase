@@ -479,6 +479,21 @@ describe('TodoComponent', () => {
       expect(q<HTMLTextAreaElement>('todo-detail-title')?.value).toBe('Charlie');
     });
 
+    it('shows what the sheet saved even when reloading the list fails on close', async () => {
+      const { all, q, click, repo } = await render(seeded());
+      await click(all('todo-info')[1]);
+      await click(q('todo-detail-important'));
+      vi.spyOn(repo, 'listTodos').mockRejectedValue(new Error('reload failed'));
+      await click(q('todo-detail-back'));
+      expect(q('todo-detail')).toBeNull();
+      expect(q('todo-action-error')).not.toBeNull();
+      const marked = all('todo-row').filter((r) =>
+        r.querySelector('[data-testid="todo-important-marker"]'),
+      );
+      expect(marked).toHaveLength(1);
+      expect(marked[0].textContent).toContain('Bravo');
+    });
+
     it('ignores the [i] button and the double click while a write is in flight', async () => {
       const { all, q, click, settle, repo } = await render(seeded());
       let release!: () => void;

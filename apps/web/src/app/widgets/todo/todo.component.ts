@@ -269,24 +269,31 @@ export class TodoComponent {
   }
 
   /** Sheet closed ("Retour"): reload the list and give the focus back to the [i] of the row. */
-  protected async onDetailClosed(): Promise<void> {
-    await this.leaveDetail('keep');
+  protected async onDetailClosed(saved: Todo): Promise<void> {
+    // The sheet's last saved todo goes into the list first: it stays right if the reload fails.
+    await this.leaveDetail('keep', (list) => list.map((t) => (t.id === saved.id ? saved : t)));
   }
 
   /** Todo deleted from the sheet: focus the row that took its place, else the previous, else the field. */
   protected async onDetailRemoved(): Promise<void> {
-    await this.leaveDetail('neighbour');
+    const id = this.detail()?.id;
+    await this.leaveDetail('neighbour', (list) => list.filter((t) => t.id !== id));
   }
 
   protected async onDetailVanished(): Promise<void> {
     this.gone.set(true);
-    await this.leaveDetail('field');
+    const id = this.detail()?.id;
+    await this.leaveDetail('field', (list) => list.filter((t) => t.id !== id));
   }
 
-  private async leaveDetail(focus: 'keep' | 'neighbour' | 'field'): Promise<void> {
+  private async leaveDetail(
+    focus: 'keep' | 'neighbour' | 'field',
+    patch: (list: readonly Todo[]) => readonly Todo[],
+  ): Promise<void> {
     const id = this.detail()?.id;
     const index = this.rows().findIndex((r) => r.todo.id === id);
     this.detail.set(null);
+    this.todos.update(patch);
     try {
       await this.refresh();
       this.actionError.set(false);

@@ -439,6 +439,89 @@ describe('TodoDetailComponent', () => {
     });
   });
 
+  describe('removal safeguards and status', () => {
+    const gatedRemove = (repo: FakeTodoRepository) => {
+      const original = repo.remove.bind(repo);
+      let release: () => void = () => undefined;
+      const waiting = new Promise<void>((resolve) => (release = resolve));
+      const spy = vi.spyOn(repo, 'remove').mockImplementationOnce(async (id) => {
+        await waiting;
+        return original(id);
+      });
+      return { release, spy };
+    };
+
+    it('calls remove once and emits removed once on a double click on Delete', async () => {
+      const { click, repo, removed, settle } = await render();
+      const { release, spy } = gatedRemove(repo);
+      await click('todo-detail-remove');
+      await click('todo-detail-confirm-yes');
+      await click('todo-detail-confirm-yes');
+      release();
+      await settle();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(removed).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores typing, Back and Escape during the removal: no write, no second exit', async () => {
+      const { fixture, click, type, field, key, repo, removed, vanished, closed, settle, updates } =
+        await render();
+      const { release } = gatedRemove(repo);
+      await click('todo-detail-remove');
+      await click('todo-detail-confirm-yes');
+      type('todo-detail-title', 'Beta');
+      await fixture.componentInstance['back']();
+      key(field('todo-detail'), 'Escape');
+      await settle(TODO_DETAIL_SAVE_DEBOUNCE_MS * 2);
+      release();
+      await settle();
+      expect(updates()).toHaveLength(0);
+      expect(removed).toHaveBeenCalledTimes(1);
+      expect(vanished).not.toHaveBeenCalled();
+      expect(closed).not.toHaveBeenCalled();
+    });
+
+    it('keeps the status container permanent, as a status region', async () => {
+      const { q, type, blur } = await render();
+      expect(q('todo-detail-status')?.getAttribute('role')).toBe('status');
+      type('todo-detail-title', 'Beta');
+      await blur('todo-detail-title');
+      expect(q('todo-detail-status')?.getAttribute('role')).toBe('status');
+      expect(q('todo-detail-status')?.textContent).toContain('Enregistré');
+    });
+
+    it('clears a removal error as soon as the user types or chooses', async () => {
+      const { click, repo, q, type, settle } = await render();
+      await click('todo-detail-remove');
+      repo.failNext(new DataError('busy', 'boom'));
+      await click('todo-detail-confirm-yes');
+      expect(q('todo-detail-error')).not.toBeNull();
+      type('todo-detail-title', 'Beta');
+      await settle();
+      expect(q('todo-detail-error')).toBeNull();
+      await click('todo-detail-remove');
+      repo.failNext(new DataError('busy', 'boom'));
+      await click('todo-detail-confirm-yes');
+      expect(q('todo-detail-error')).not.toBeNull();
+      await click('todo-detail-important');
+      expect(q('todo-detail-error')).toBeNull();
+    });
+
+    it('says "the change" when only a discrete choice failed, and keeps the old message for texts', async () => {
+      const { click, repo, q, type, blur } = await render();
+      repo.failNext(new DataError('busy', 'boom'));
+      await click('todo-detail-important');
+      expect(q('todo-detail-error')?.textContent).toContain(
+        "La modification n'a pas pu être enregistrée.",
+      );
+      expect(q('todo-detail-error')?.textContent).not.toContain('Retour');
+      repo.failNext(new DataError('busy', 'boom'));
+      type('todo-detail-title', 'Beta');
+      await blur('todo-detail-title');
+      expect(q('todo-detail-error')?.textContent).toContain('appuyez de nouveau sur Retour');
+    });
+  });
+
   describe('vanished todo', () => {
     it('emits vanished on not_found; the destruction then writes nothing', async () => {
       const { type, blur, repo, vanished, closed, fixture, settle, updates } = await render();
