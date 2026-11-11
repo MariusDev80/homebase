@@ -53,6 +53,28 @@
         </p>
       }
 
+      <div class="flex items-center gap-2">
+        <p
+          role="status"
+          class="m-0 min-w-0 flex-1 truncate text-xs text-fg-muted"
+          data-testid="todo-advanced-status"
+        >
+          @if (advanced(); as adv) {
+            {{ 'widgets.todo.advanced' | transloco: { title: adv.title, date: adv.date } }}
+          }
+        </p>
+        @if (advanced()) {
+          <button
+            type="button"
+            class="btn btn-invisible btn-compact"
+            data-testid="todo-advanced-undo"
+            (click)="undoAdvance()"
+          >
+            {{ 'widgets.todo.undoAdvance' | transloco }}
+          </button>
+        }
+      </div>
+
       @if (rows().length === 0) {
         <div class="empty-state min-h-0 flex-1" data-testid="todo-empty">
           <i class="pi pi-check-square" aria-hidden="true"></i>
@@ -127,6 +149,15 @@
                     >
                       <i class="pi pi-align-left" aria-hidden="true"></i>
                       <span class="sr-only">{{ 'widgets.todo.hasDescription' | transloco }}</span>
+                    </span>
+                  }
+                  @if (row.repeat; as repeat) {
+                    <span class="flex-none text-xs text-fg-muted" data-testid="todo-repeat-marker">
+                      <i class="pi pi-sync" aria-hidden="true"></i>
+                      <span class="sr-only">{{
+                        'widgets.todo.repeating'
+                          | transloco: { summary: (repeat.key | transloco: repeat.params) }
+                      }}</span>
                     </span>
                   }
                   @if (due) {

@@ -14,10 +14,11 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { TimeDisplay, Today } from '../../core/time';
 import { injectWidgetContext } from '../../core/widgets';
 import { DataError, TODO_REPOSITORY } from '../../data';
-import type { Todo, TodoList } from '../../data';
+import type { LocalDateIso, Todo, TodoList } from '../../data';
 import { TodoDetailComponent } from './todo-detail.component';
 import { dueLabel } from './todo-due';
 import type { DueLabel } from './todo-due';
+import { checkAction, ruleFormOf, ruleSummary } from './todo-repeat';
 import type { TodoConfig } from './todo.config';
 
 type Status = 'loading' | 'ready' | 'missing' | 'error';
@@ -29,6 +30,18 @@ interface Row {
   readonly last: boolean;
   readonly due: DueLabel | null;
   readonly hasDescription: boolean;
+  /** Summary of the repetition rule (key and params), null when the todo does not repeat. */
+  readonly repeat: { readonly key: string; readonly params: Record<string, number> } | null;
+}
+
+/** Last advance of a repeating todo, shown with an undo button until the next action. */
+interface Advanced {
+  readonly id: string;
+  readonly title: string;
+  readonly from: LocalDateIso;
+  readonly to: LocalDateIso;
+  /** Formatted new due date. */
+  readonly date: string;
 }
 
 @Component({
@@ -55,6 +68,8 @@ export class TodoComponent {
   protected readonly detail = signal<Todo | null>(null);
   /** The todo opened in the sheet was deleted elsewhere. */
   protected readonly gone = signal(false);
+  /** Message of the last check of a repeating todo (null = none); the live region is permanent. */
+  protected readonly advanced = signal<Advanced | null>(null);
   protected readonly confirmingId = signal<string | null>(null);
   protected readonly confirmingClear = signal(false);
   protected readonly actionError = signal(false);
@@ -79,6 +94,7 @@ export class TodoComponent {
       last: todo.id === active[active.length - 1]?.id,
       due: dueLabel(todo, today, (date, style) => this.display.formatLocalDate(date, style)),
       hasDescription: todo.description.trim() !== '',
+      repeat: todo.rrule === null ? null : ruleSummary(ruleFormOf(todo.rrule)),
     }));
   });
 
@@ -91,6 +107,7 @@ export class TodoComponent {
   }
 
   protected async load(showLoading = true): Promise<void> {
+    this.advanced.set(null);
     if (showLoading) this.status.set('loading');
     try {
       const list = await this.repository.getListForInstance(this.ctx.instanceId);
@@ -145,6 +162,7 @@ export class TodoComponent {
     const title = submitted.trim();
     if (listId === null || title.length === 0 || this.busy()) return;
     this.gone.set(false);
+    this.advanced.set(null);
     this.busy.set(true);
     try {
       await this.repository.create({ listId, title });
@@ -172,23 +190,73 @@ export class TodoComponent {
       box.checked = !completed;
       return;
     }
+    this.advanced.set(null);
     this.busy.set(true);
     try {
+      const action = completed ? checkAction(todo, this.today.date()) : null;
+      if (action?.kind === 'advance') {
+        // A repeating todo stays active: its due date moves to the next occurrence.
+        await this.repository.shiftRepeatDue(todo.id, action.from, action.to);
+        box.checked = false;
+        this.advanced.set({
+          id: todo.id,
+          title: todo.title,
+          from: action.from,
+          to: action.to,
+          date: this.display.formatLocalDate(action.to, 'weekday-long'),
+        });
+        this.actionError.set(false);
+        await this.refresh();
+        this.focus(this.inRow(todo.id, 'todo-check'));
+        return;
+      }
       await this.repository.setCompleted(todo.id, completed);
       this.actionError.set(false);
       await this.refresh();
       const stillShown = this.rows().some((r) => r.todo.id === todo.id);
       this.focus(stillShown ? this.inRow(todo.id, 'todo-check') : '[data-testid="todo-new"]');
-    } catch {
+    } catch (error) {
       box.checked = !completed;
       this.actionError.set(true);
+      // The displayed list was out of date (conflict): reload it.
+      if (error instanceof DataError && error.kind === 'conflict') await this.reloadQuietly();
     } finally {
       this.busy.set(false);
     }
   }
 
+  /** Undoes the last advance of a repeating todo (compare-and-set in the other direction). */
+  protected async undoAdvance(): Promise<void> {
+    const advanced = this.advanced();
+    if (advanced === null || this.busy()) return;
+    this.advanced.set(null);
+    this.busy.set(true);
+    try {
+      await this.repository.shiftRepeatDue(advanced.id, advanced.to, advanced.from);
+      this.actionError.set(false);
+      await this.refresh();
+      this.focus(this.inRow(advanced.id, 'todo-check'));
+    } catch (error) {
+      this.actionError.set(true);
+      if (error instanceof DataError && (error.kind === 'conflict' || error.kind === 'not_found')) {
+        await this.reloadQuietly();
+      }
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private async reloadQuietly(): Promise<void> {
+    try {
+      await this.refresh();
+    } catch {
+      // The error flash is already shown.
+    }
+  }
+
   protected openDetail(todo: Todo): void {
     if (this.busy()) return;
+    this.advanced.set(null);
     this.confirmingId.set(null);
     this.confirmingClear.set(false);
     this.gone.set(false);
@@ -241,6 +309,7 @@ export class TodoComponent {
   protected async confirmRemove(todo: Todo): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);
+    this.advanced.set(null);
     const index = this.rows().findIndex((r) => r.todo.id === todo.id);
     this.confirmingId.set(null);
     try {
@@ -269,6 +338,7 @@ export class TodoComponent {
     if (from < 0 || to < 0 || to >= ids.length) return;
     [ids[from], ids[to]] = [ids[to], ids[from]];
     this.busy.set(true);
+    this.advanced.set(null);
     try {
       await this.repository.reorder(listId, ids);
       this.actionError.set(false);
@@ -288,6 +358,7 @@ export class TodoComponent {
   protected async toggleShowCompleted(event: Event): Promise<void> {
     const box = event.target as HTMLInputElement;
     const showCompleted = box.checked;
+    this.advanced.set(null);
     try {
       await this.ctx.updateConfig({ ...this.ctx.config(), showCompleted });
       this.actionError.set(false);
@@ -312,6 +383,7 @@ export class TodoComponent {
     const listId = this.listId;
     if (listId === null || this.busy()) return;
     this.busy.set(true);
+    this.advanced.set(null);
     this.confirmingClear.set(false);
     try {
       await this.repository.clearCompleted(listId);

@@ -482,4 +482,145 @@ describe('TodoDetailComponent', () => {
       expect(TestBed.inject(PendingWrites).count).toBe(0);
     });
   });
+
+  describe('repetition', () => {
+    const choose = async (
+      f: <T extends HTMLElement>(id: string) => T,
+      settle: () => Promise<void>,
+      value: string,
+    ) => {
+      const select = f<HTMLSelectElement>('todo-detail-repeat');
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+      await settle();
+    };
+    const setInterval = async (
+      f: <T extends HTMLElement>(id: string) => T,
+      settle: () => Promise<void>,
+      value: string,
+    ) => {
+      const input = f<HTMLInputElement>('todo-detail-interval');
+      input.value = value;
+      input.dispatchEvent(new Event('change'));
+      await settle();
+    };
+
+    it('disables the selector without a due date and explains why', async () => {
+      const { field, q } = await render();
+      expect(field<HTMLSelectElement>('todo-detail-repeat').disabled).toBe(true);
+      expect(q('todo-detail-repeat-help')?.textContent).toContain(
+        "Choisissez d'abord une échéance.",
+      );
+    });
+
+    it('writes a weekly rule, then an interval of 2', async () => {
+      const { field, settle, repo, q } = await render({ dueOn: '2026-11-03' });
+      const spy = vi.spyOn(repo, 'update');
+      expect(field<HTMLSelectElement>('todo-detail-repeat').disabled).toBe(false);
+      expect(q('todo-detail-interval')).toBeNull();
+      await choose(field, settle, 'WEEKLY');
+      expect(spy).toHaveBeenLastCalledWith(repo.items[0].id, { rrule: 'FREQ=WEEKLY' });
+      await setInterval(field, settle, '2');
+      expect(spy).toHaveBeenLastCalledWith(repo.items[0].id, { rrule: 'FREQ=WEEKLY;INTERVAL=2' });
+      expect(q('todo-detail-repeat-summary')?.textContent).toContain('Toutes les 2 semaines.');
+      expect(q('todo-detail-repeat-summary')?.textContent).toContain('elle reste dans la liste');
+    });
+
+    it('refuses 0 and 53 weeks, writes nothing and restores the value on blur', async () => {
+      const { field, settle, updates, q } = await render({
+        dueOn: '2026-11-03',
+        rrule: 'FREQ=WEEKLY',
+      });
+      await setInterval(field, settle, '0');
+      expect(q('todo-detail-interval-error')?.textContent).toContain('de 1 à 52');
+      expect(field('todo-detail-interval').getAttribute('aria-invalid')).toBe('true');
+      await setInterval(field, settle, '53');
+      expect(updates()).toHaveLength(0);
+      field('todo-detail-interval').dispatchEvent(new Event('blur'));
+      await settle();
+      expect(field<HTMLInputElement>('todo-detail-interval').value).toBe('1');
+      expect(q('todo-detail-interval-error')).toBeNull();
+    });
+
+    it('offers the day-of-month choice only on a last day, and writes the last-day rule', async () => {
+      const first = await render({ dueOn: '2026-11-15', rrule: 'FREQ=MONTHLY' });
+      expect(first.q('todo-detail-monthday')).toBeNull();
+      TestBed.resetTestingModule();
+      const { field, q, settle, repo } = await render({
+        dueOn: '2026-11-30',
+        rrule: 'FREQ=MONTHLY',
+      });
+      expect(q('todo-detail-monthday')).not.toBeNull();
+      expect(field<HTMLInputElement>('todo-detail-monthday-day').checked).toBe(true);
+      expect(q('todo-detail-monthday')?.textContent).toContain('Le 30 de chaque mois');
+      const spy = vi.spyOn(repo, 'update');
+      field('todo-detail-monthday-last').click();
+      await settle();
+      expect(spy).toHaveBeenCalledExactlyOnceWith(repo.items[0].id, {
+        rrule: 'FREQ=MONTHLY;BYMONTHDAY=-1',
+      });
+    });
+
+    it('rewrites a last-day rule in the same write when the due date moves to another day', async () => {
+      const { chooseDate, repo } = await render({
+        dueOn: '2026-01-31',
+        rrule: 'FREQ=MONTHLY;BYMONTHDAY=-1',
+      });
+      const spy = vi.spyOn(repo, 'update');
+      await chooseDate('2026-01-15');
+      expect(spy).toHaveBeenCalledExactlyOnceWith(repo.items[0].id, {
+        dueOn: '2026-01-15',
+        rrule: 'FREQ=MONTHLY',
+      });
+    });
+
+    it('notes skipped months (day 30) and skipped years (29 February)', async () => {
+      const month = await render({ dueOn: '2026-01-30', rrule: 'FREQ=MONTHLY' });
+      expect(month.q('todo-detail-repeat-note')?.textContent).toContain(
+        "Les mois qui n'ont pas de 30 sont sautés.",
+      );
+      TestBed.resetTestingModule();
+      const year = await render({ dueOn: '2028-02-29', rrule: 'FREQ=YEARLY' });
+      expect(year.q('todo-detail-repeat-note')?.textContent).toContain(
+        'Les années non bissextiles sont sautées.',
+      );
+      TestBed.resetTestingModule();
+      const none = await render({ dueOn: '2026-01-15', rrule: 'FREQ=MONTHLY' });
+      expect(none.q('todo-detail-repeat-note')).toBeNull();
+    });
+
+    it('clears the rule with the due date in one write and says so', async () => {
+      const { field, click, repo, q } = await render({ dueOn: '2026-11-03', rrule: 'FREQ=DAILY' });
+      const spy = vi.spyOn(repo, 'update');
+      await click('todo-detail-due-clear');
+      expect(spy).toHaveBeenCalledExactlyOnceWith(repo.items[0].id, { dueOn: null, rrule: null });
+      expect(field<HTMLSelectElement>('todo-detail-repeat').value).toBe('none');
+      expect(q('todo-detail-repeat-cleared')?.textContent).toContain(
+        'Échéance effacée : la répétition est retirée.',
+      );
+    });
+
+    it('selects the disabled "unrecognised" option for an unknown rule and keeps it', async () => {
+      const { field, updates } = await render({ dueOn: '2026-11-03', rrule: 'FREQ=HOURLY' });
+      const select = field<HTMLSelectElement>('todo-detail-repeat');
+      expect(select.value).toBe('other');
+      expect(select.selectedOptions[0].disabled).toBe(true);
+      expect(updates()).toHaveLength(0);
+    });
+
+    it('removes the repetition with "Ne se répète pas"', async () => {
+      const { field, settle, repo } = await render({ dueOn: '2026-11-03', rrule: 'FREQ=DAILY' });
+      const spy = vi.spyOn(repo, 'update');
+      await choose(field, settle, 'none');
+      expect(spy).toHaveBeenCalledExactlyOnceWith(repo.items[0].id, { rrule: null });
+    });
+
+    it('realigns the form on the saved rule when the write fails', async () => {
+      const { field, settle, repo } = await render({ dueOn: '2026-11-03' });
+      repo.failNext(new DataError('busy', 'boom'));
+      await choose(field, settle, 'WEEKLY');
+      expect(field<HTMLSelectElement>('todo-detail-repeat').value).toBe('none');
+      expect(repo.items[0].rrule).toBeNull();
+    });
+  });
 });

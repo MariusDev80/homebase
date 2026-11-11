@@ -183,6 +183,133 @@
     </div>
   </div>
 
+  <div class="flex flex-col gap-1">
+    <label for="todo-detail-repeat-{{ id }}" class="text-xs font-semibold">
+      {{ 'widgets.todo.repeat.label' | transloco }}
+    </label>
+    <select
+      id="todo-detail-repeat-{{ id }}"
+      class="field"
+      data-testid="todo-detail-repeat"
+      [disabled]="wantedDue() === null"
+      [attr.aria-describedby]="wantedDue() === null ? 'todo-detail-repeat-help-' + id : null"
+      (change)="onRepeatChange($event)"
+    >
+      <option value="none" [selected]="repeatSelect() === 'none'">
+        {{ 'widgets.todo.repeat.none' | transloco }}
+      </option>
+      <option value="DAILY" [selected]="repeatSelect() === 'DAILY'">
+        {{ 'widgets.todo.repeat.daily' | transloco }}
+      </option>
+      <option value="WEEKLY" [selected]="repeatSelect() === 'WEEKLY'">
+        {{ 'widgets.todo.repeat.weekly' | transloco }}
+      </option>
+      <option value="MONTHLY" [selected]="repeatSelect() === 'MONTHLY'">
+        {{ 'widgets.todo.repeat.monthly' | transloco }}
+      </option>
+      <option value="YEARLY" [selected]="repeatSelect() === 'YEARLY'">
+        {{ 'widgets.todo.repeat.yearly' | transloco }}
+      </option>
+      <option value="other" disabled [selected]="repeatSelect() === 'other'">
+        {{ 'widgets.todo.repeat.other' | transloco }}
+      </option>
+    </select>
+    @if (wantedDue() === null) {
+      <p
+        class="m-0 text-xs text-fg-muted"
+        id="todo-detail-repeat-help-{{ id }}"
+        data-testid="todo-detail-repeat-help"
+      >
+        {{ 'widgets.todo.repeat.needsDue' | transloco }}
+      </p>
+    }
+    <p class="m-0 text-xs text-fg-muted" role="status" data-testid="todo-detail-repeat-cleared">
+      @if (repeatCleared()) {
+        {{ 'widgets.todo.detail.dueAndRepeatCleared' | transloco }}
+      }
+    </p>
+
+    @if (rule(); as r) {
+      <div class="flex flex-wrap items-center gap-2">
+        <label for="todo-detail-interval-{{ id }}" class="text-xs">
+          {{ 'widgets.todo.repeat.intervalLabel' | transloco }}
+        </label>
+        <input
+          id="todo-detail-interval-{{ id }}"
+          type="number"
+          class="field w-16"
+          min="1"
+          step="1"
+          data-testid="todo-detail-interval"
+          [attr.max]="intervalMax()"
+          [value]="r.interval"
+          [attr.aria-invalid]="intervalInvalid()"
+          [attr.aria-describedby]="intervalInvalid() ? 'todo-detail-interval-error-' + id : null"
+          (change)="onIntervalChange($event)"
+          (blur)="onIntervalBlur($event)"
+        />
+        <span class="text-xs">{{ 'widgets.todo.repeat.unit.' + r.freq | transloco }}</span>
+      </div>
+      @if (intervalInvalid()) {
+        <p
+          class="field-error"
+          id="todo-detail-interval-error-{{ id }}"
+          data-testid="todo-detail-interval-error"
+        >
+          {{ 'widgets.todo.repeat.intervalError' | transloco: { max: intervalMax() } }}
+        </p>
+      }
+
+      @if (showMonthDay()) {
+        <fieldset class="m-0 flex flex-col gap-1 border-0 p-0" data-testid="todo-detail-monthday">
+          <legend class="p-0 text-xs font-semibold">
+            {{ 'widgets.todo.repeat.monthDayGroup' | transloco }}
+          </legend>
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              name="todo-detail-monthday-{{ id }}"
+              class="accent-accent"
+              data-testid="todo-detail-monthday-day"
+              [checked]="!r.lastDayOfMonth"
+              (change)="onMonthDayChange(false)"
+            />
+            {{ 'widgets.todo.repeat.monthDay' | transloco: { day: dueDay() } }}
+          </label>
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              name="todo-detail-monthday-{{ id }}"
+              class="accent-accent"
+              data-testid="todo-detail-monthday-last"
+              [checked]="r.lastDayOfMonth"
+              (change)="onMonthDayChange(true)"
+            />
+            {{ 'widgets.todo.repeat.lastDay' | transloco }}
+          </label>
+        </fieldset>
+      }
+
+      @if (skipNote(); as note) {
+        <p class="m-0 text-xs text-fg-muted" data-testid="todo-detail-repeat-note">
+          {{
+            (note === 'months' ? 'widgets.todo.repeat.skipMonths' : 'widgets.todo.repeat.skipYears')
+              | transloco: { day: dueDay() }
+          }}
+        </p>
+      }
+    }
+
+    @if (ruleForm().kind !== 'none') {
+      <p class="m-0 text-xs text-fg-muted" data-testid="todo-detail-repeat-summary">
+        {{ summary().key | transloco: summary().params }}.
+        @if (rule()) {
+          {{ 'widgets.todo.repeat.hint' | transloco }}
+        }
+      </p>
+    }
+  </div>
+
   <p class="m-0 flex flex-wrap gap-x-3 text-xs text-fg-muted" data-testid="todo-detail-meta">
     <span data-testid="todo-detail-created">
       {{ 'widgets.todo.detail.created' | transloco: { date: createdOn() } }}

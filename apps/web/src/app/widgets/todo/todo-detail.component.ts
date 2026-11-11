@@ -12,12 +12,19 @@ import {
   signal,
 } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { TimeDisplay, Today, isValidLocalDate } from '../../core/time';
+import { TimeDisplay, Today, isValidLocalDate, parseLocalDate } from '../../core/time';
+import {
+  DATE_RULE_INTERVAL_MAX,
+  formatDateRule,
+  isLastDayOfMonth,
+} from '../../core/time/date-rule';
+import type { DateRuleFreq } from '../../core/time/date-rule';
 import { PendingWrites } from '../../core/widgets';
 import { DataError, TODO_REPOSITORY, TODO_TITLE_MAX } from '../../data';
 import type { Todo, TodoChanges } from '../../data';
 import { mergeChanges } from './todo-changes';
 import { dueLabel } from './todo-due';
+import { ruleFormOf, ruleSummary } from './todo-repeat';
 
 /** Delay between the last keystroke in a text field and the automatic save. */
 export const TODO_DETAIL_SAVE_DEBOUNCE_MS = 800;
@@ -94,6 +101,48 @@ export class TodoDetailComponent {
       if ('important' in changes) return changes.important === true;
     }
     return this.stored().important;
+  });
+  /** Rule as wanted: the pending or in-flight choice if any, else the saved one. */
+  protected readonly wantedRrule = computed(() => {
+    for (const changes of [this.pending(), this.inflight()]) {
+      if ('rrule' in changes) return changes.rrule ?? null;
+    }
+    return this.stored().rrule;
+  });
+  protected readonly ruleForm = computed(() => ruleFormOf(this.wantedRrule()));
+  protected readonly rule = computed(() => {
+    const form = this.ruleForm();
+    return form.kind === 'rule' ? form.rule : null;
+  });
+  protected readonly repeatSelect = computed(() => {
+    const form = this.ruleForm();
+    return form.kind === 'rule' ? form.rule.freq : form.kind;
+  });
+  protected readonly summary = computed(() => ruleSummary(this.ruleForm()));
+  protected readonly intervalMax = computed(() => {
+    const rule = this.rule();
+    return rule === null ? 1 : DATE_RULE_INTERVAL_MAX[rule.freq];
+  });
+  protected readonly intervalInvalid = signal(false);
+  /** The due date was cleared together with a repetition rule (message shown until the next choice). */
+  protected readonly repeatCleared = signal(false);
+  /** Day of the month of the wanted due date. */
+  protected readonly dueDay = computed(() => {
+    const due = this.wantedDue();
+    return due === null ? null : parseLocalDate(due).day;
+  });
+  protected readonly showMonthDay = computed(() => {
+    const due = this.wantedDue();
+    return this.rule()?.freq === 'MONTHLY' && due !== null && isLastDayOfMonth(due);
+  });
+  protected readonly skipNote = computed<'months' | 'years' | null>(() => {
+    const rule = this.rule();
+    const due = this.wantedDue();
+    if (rule === null || due === null) return null;
+    const date = parseLocalDate(due);
+    if (rule.freq === 'MONTHLY' && !rule.lastDayOfMonth && date.day >= 29) return 'months';
+    if (rule.freq === 'YEARLY' && date.month === 2 && date.day === 29) return 'years';
+    return null;
   });
   protected readonly due = computed(() =>
     dueLabel(
@@ -214,7 +263,56 @@ export class TodoDetailComponent {
     this.focus('[data-testid="todo-detail-due"]');
   }
 
+  // ---- Repetition ----
+
+  protected onRepeatChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.intervalInvalid.set(false);
+    if (value === 'none') {
+      this.choose({ rrule: null });
+      return;
+    }
+    if (value === 'other' || this.wantedDue() === null) return;
+    const freq = value as DateRuleFreq;
+    this.choose({ rrule: formatDateRule({ freq, interval: 1, lastDayOfMonth: false }) });
+  }
+
+  protected onIntervalChange(event: Event): void {
+    const rule = this.rule();
+    if (rule === null) return;
+    const input = event.target as HTMLInputElement;
+    const interval = Number(input.value);
+    const max = DATE_RULE_INTERVAL_MAX[rule.freq];
+    if (
+      input.value.trim() === '' ||
+      !Number.isInteger(interval) ||
+      interval < 1 ||
+      interval > max
+    ) {
+      this.intervalInvalid.set(true);
+      return;
+    }
+    this.intervalInvalid.set(false);
+    if (interval === rule.interval) return;
+    this.choose({ rrule: formatDateRule({ ...rule, interval }) });
+  }
+
+  protected onIntervalBlur(event: Event): void {
+    const rule = this.rule();
+    if (rule === null) return;
+    this.intervalInvalid.set(false);
+    (event.target as HTMLInputElement).value = String(rule.interval);
+  }
+
+  protected onMonthDayChange(lastDayOfMonth: boolean): void {
+    const rule = this.rule();
+    if (rule === null || rule.lastDayOfMonth === lastDayOfMonth) return;
+    this.choose({ rrule: formatDateRule({ ...rule, lastDayOfMonth }) });
+  }
+
   private choose(change: TodoChanges): void {
+    // Clearing the due date of a repeating todo also removes its rule: say so.
+    this.repeatCleared.set(change.dueOn === null && this.wantedRrule() !== null);
     this.closeFailed.set(false);
     if (this.finished) return;
     this.pending.set(mergeChanges(this.stored(), this.pending(), change));
@@ -358,6 +456,13 @@ export class TodoDetailComponent {
     if (important) important.checked = this.wantedImportant();
     const due = root.querySelector<HTMLInputElement>('[data-testid="todo-detail-due"]');
     if (due) due.value = this.wantedDue() ?? '';
+    const repeat = root.querySelector<HTMLSelectElement>('[data-testid="todo-detail-repeat"]');
+    if (repeat) repeat.value = this.repeatSelect();
+    const interval = root.querySelector<HTMLInputElement>('[data-testid="todo-detail-interval"]');
+    const rule = this.rule();
+    if (interval && rule) interval.value = String(rule.interval);
+    this.intervalInvalid.set(false);
+    this.repeatCleared.set(false);
   }
 
   /** Focuses the element once the next render has put it in the DOM. */

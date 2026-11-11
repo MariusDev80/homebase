@@ -56,4 +56,46 @@ describe('mergeChanges', () => {
     expect(older).toEqual({ important: true });
     expect(newer).toEqual({ dueOn: null });
   });
+
+  describe('last day of the month rule', () => {
+    const LAST = 'FREQ=MONTHLY;BYMONTHDAY=-1';
+
+    it('rewrites a pending rule when the new due date is not a last day', () => {
+      expect(mergeChanges(STORED, { rrule: LAST }, { dueOn: '2026-01-15' })).toEqual({
+        rrule: 'FREQ=MONTHLY',
+        dueOn: '2026-01-15',
+      });
+    });
+
+    it('rewrites the stored rule when only the due date changes', () => {
+      const stored = { ...STORED, dueOn: '2026-01-31', rrule: LAST };
+      expect(mergeChanges(stored, {}, { dueOn: '2026-01-15' })).toEqual({
+        dueOn: '2026-01-15',
+        rrule: 'FREQ=MONTHLY',
+      });
+    });
+
+    it('keeps the interval when rewriting', () => {
+      const stored = {
+        ...STORED,
+        dueOn: '2026-01-31',
+        rrule: 'FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=-1',
+      };
+      expect(mergeChanges(stored, {}, { dueOn: '2026-01-15' }).rrule).toBe(
+        'FREQ=MONTHLY;INTERVAL=2',
+      );
+    });
+
+    it('keeps the rule on a last day', () => {
+      expect(mergeChanges(STORED, { rrule: LAST }, { dueOn: '2026-02-28' })).toEqual({
+        rrule: LAST,
+        dueOn: '2026-02-28',
+      });
+    });
+
+    it('leaves an unrecognised stored rule untouched', () => {
+      const stored = { ...STORED, rrule: 'FREQ=HOURLY' };
+      expect(mergeChanges(stored, {}, { dueOn: '2026-01-15' })).toEqual({ dueOn: '2026-01-15' });
+    });
+  });
 });

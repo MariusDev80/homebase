@@ -8,6 +8,7 @@ import { ManualClock } from '../../core/time/testing/manual-clock';
 import { WIDGET_CONTEXT } from '../../core/widgets';
 import type { WidgetContext } from '../../core/widgets';
 import { CLOCK, DataError, SETTINGS_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import type { Todo } from '../../data';
 import { TodoComponent } from './todo.component';
 import type { TodoConfig } from './todo.config';
 
@@ -815,6 +816,126 @@ describe('TodoComponent', () => {
       await click(all('todo-down')[0]);
       const reorder = repo.calls.find((c) => c.startsWith('reorder:'));
       expect(reorder).toBe(`reorder:${s.b.id},${s.a.id}`);
+    });
+  });
+
+  describe('repeating tasks', () => {
+    function weekly(over: Partial<Todo> = {}) {
+      const clock = new ManualClock(NOON);
+      const repo = new FakeTodoRepository(clock);
+      const list = repo.seedList(INSTANCE);
+      // Monday 19 October: two days late on Wednesday 21 October.
+      const task = repo.seed(list.id, 'Poubelles', {
+        dueOn: '2026-10-19',
+        rrule: 'FREQ=WEEKLY',
+        ...over,
+      });
+      const other = repo.seed(list.id, 'Autre');
+      return { repo, clock, task, other, config: { listId: list.id, showCompleted: false } };
+    }
+
+    it('keeps the status region present and empty when nothing happened', async () => {
+      const { q } = await render(weekly());
+      expect(q('todo-advanced-status')?.getAttribute('role')).toBe('status');
+      expect(q('todo-advanced-status')?.textContent?.trim()).toBe('');
+      expect(q('todo-advanced-undo')).toBeNull();
+    });
+
+    it('advances a late weekly task to the next same weekday and keeps it in place', async () => {
+      const setup = weekly();
+      const { repo, all, click, q, titles, focusedId } = await render(setup);
+      const spy = vi.spyOn(repo, 'shiftRepeatDue');
+      await click(all('todo-check')[0]);
+      expect(spy).toHaveBeenCalledExactlyOnceWith(setup.task.id, '2026-10-19', '2026-10-26');
+      expect(repo.items[0]).toMatchObject({ dueOn: '2026-10-26', completedAt: null });
+      expect(titles()).toEqual(['Poubelles', 'Autre']);
+      expect((all('todo-check')[0] as HTMLInputElement).checked).toBe(false);
+      expect(focusedId()).toBe('todo-check');
+      expect(q('todo-advanced-status')?.textContent).toContain(
+        'Prochaine échéance de « Poubelles » : lundi 26 octobre 2026',
+      );
+      expect(repo.calls.filter((c) => c.startsWith('setCompleted'))).toHaveLength(0);
+    });
+
+    it('undoes the advance with the inverse call and clears the message', async () => {
+      const setup = weekly();
+      const { repo, all, click, q } = await render(setup);
+      await click(all('todo-check')[0]);
+      const spy = vi.spyOn(repo, 'shiftRepeatDue');
+      await click(q('todo-advanced-undo'));
+      expect(spy).toHaveBeenCalledExactlyOnceWith(setup.task.id, '2026-10-26', '2026-10-19');
+      expect(repo.items[0].dueOn).toBe('2026-10-19');
+      expect(q('todo-advanced-status')?.textContent?.trim()).toBe('');
+      expect(q('todo-advanced-undo')).toBeNull();
+    });
+
+    it('clears the message on the next action, "Afficher les terminées" included', async () => {
+      const { all, click, q } = await render(weekly());
+      await click(all('todo-check')[0]);
+      expect(q('todo-advanced-undo')).not.toBeNull();
+      await click(q('todo-show-completed'));
+      expect(q('todo-advanced-status')?.textContent?.trim()).toBe('');
+      await click(all('todo-check')[0]);
+      expect(q('todo-advanced-undo')).not.toBeNull();
+      await click(all('todo-check')[1]);
+      expect(q('todo-advanced-undo')).toBeNull();
+    });
+
+    it('reloads the list and shows an error when the task changed meanwhile (conflict)', async () => {
+      const setup = weekly();
+      const { repo, all, click, q, settle } = await render(setup);
+      // Changed behind the widget's back.
+      repo.items[0] = { ...repo.items[0], dueOn: '2026-10-20' };
+      const list = vi.spyOn(repo, 'listTodos');
+      await click(all('todo-check')[0]);
+      await settle();
+      expect(q('todo-action-error')).not.toBeNull();
+      expect(list).toHaveBeenCalled();
+      expect((all('todo-check')[0] as HTMLInputElement).checked).toBe(false);
+      expect(q('todo-advanced-undo')).toBeNull();
+    });
+
+    it('reports an error and a reload when the undo conflicts', async () => {
+      const { repo, all, click, q } = await render(weekly());
+      await click(all('todo-check')[0]);
+      repo.items[0] = { ...repo.items[0], dueOn: '2026-11-02' };
+      const list = vi.spyOn(repo, 'listTodos');
+      await click(q('todo-advanced-undo'));
+      expect(q('todo-action-error')).not.toBeNull();
+      expect(list).toHaveBeenCalled();
+    });
+
+    it('completes normally when the rule is unknown or has no next date', async () => {
+      const unknown = await render(weekly({ rrule: 'FREQ=HOURLY' }));
+      await unknown.click(unknown.all('todo-check')[0]);
+      expect(unknown.repo.calls.some((c) => c.startsWith('shiftRepeatDue'))).toBe(false);
+      expect(unknown.repo.items[0].completedAt).not.toBeNull();
+      TestBed.resetTestingModule();
+      const bounds = await render(weekly({ dueOn: '2199-12-31', rrule: 'FREQ=DAILY' }));
+      await bounds.click(bounds.all('todo-check')[0]);
+      expect(bounds.repo.items[0].completedAt).not.toBeNull();
+      expect(bounds.repo.items[0].rrule).toBe('FREQ=DAILY');
+      expect(bounds.q('todo-advanced-undo')).toBeNull();
+    });
+
+    it('puts the box back and reports an error when the write fails', async () => {
+      const { repo, all, click, q } = await render(weekly());
+      repo.failNext(new DataError('busy', 'boom'));
+      await click(all('todo-check')[0]);
+      expect((all('todo-check')[0] as HTMLInputElement).checked).toBe(false);
+      expect(q('todo-action-error')).not.toBeNull();
+      expect(q('todo-advanced-undo')).toBeNull();
+    });
+
+    it('shows the repetition indicator with an accessible text only on repeating tasks', async () => {
+      const { all } = await render(weekly({ rrule: 'FREQ=WEEKLY;INTERVAL=2' }));
+      const [first, second] = all('todo-row');
+      const marker = first.querySelector('[data-testid="todo-repeat-marker"]');
+      expect(marker?.querySelector('.pi-sync')?.getAttribute('aria-hidden')).toBe('true');
+      expect(marker?.querySelector('.sr-only')?.textContent).toContain(
+        'Répétée : Toutes les 2 semaines',
+      );
+      expect(second.querySelector('[data-testid="todo-repeat-marker"]')).toBeNull();
     });
   });
 });
