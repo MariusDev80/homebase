@@ -106,6 +106,24 @@
       "clearCompleted": "Effacer les terminées",
       "confirmClearOne": "Effacer {{ count }} tâche terminée ?",
       "confirmClearMany": "Effacer {{ count }} tâches terminées ?",
+      "detail": {
+        "group": "Détails de « {{ title }} »",
+        "back": "Retour",
+        "titleLabel": "Titre",
+        "importantLabel": "Important",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Ajouter une description…",
+        "dueLabel": "Échéance",
+        "clearDue": "Effacer l'échéance",
+        "dueAndRepeatCleared": "Échéance effacée : la répétition est retirée.",
+        "created": "Créée le {{ date }}",
+        "completed": "Terminée le {{ date }}",
+        "saving": "Enregistrement…",
+        "saved": "Enregistré",
+        "saveError": "Les modifications n'ont pas pu être enregistrées. Réessayez, ou appuyez de nouveau sur Retour pour les abandonner.",
+        "remove": "Supprimer la tâche",
+        "confirmRemove": "Supprimer cette tâche ?"
+      },
       "errors": {
         "titleInvalid": "Le titre doit contenir de 1 à 500 caractères."
       },

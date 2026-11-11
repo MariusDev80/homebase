@@ -1,0 +1,196 @@
+@let id = instanceId();
+<div
+  role="group"
+  class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+  data-testid="todo-detail"
+  [attr.aria-label]="'widgets.todo.detail.group' | transloco: { title: stored().title }"
+  (keydown.escape)="onEscape($event)"
+>
+  @if (confirmingRemove()) {
+    <div class="flex items-center gap-2" data-testid="todo-detail-confirm">
+      <p class="m-0 min-w-0 flex-1" id="todo-detail-confirm-{{ id }}">
+        {{ 'widgets.todo.detail.confirmRemove' | transloco }}
+      </p>
+      <button
+        type="button"
+        class="btn btn-compact btn-danger"
+        data-testid="todo-detail-confirm-yes"
+        [attr.aria-describedby]="'todo-detail-confirm-' + id"
+        (click)="confirmRemove()"
+      >
+        {{ 'widgets.todo.confirmYes' | transloco }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-compact"
+        data-testid="todo-detail-confirm-no"
+        [attr.aria-describedby]="'todo-detail-confirm-' + id"
+        (click)="cancelRemove()"
+      >
+        {{ 'widgets.todo.confirmNo' | transloco }}
+      </button>
+    </div>
+  } @else {
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        class="btn btn-invisible btn-compact"
+        data-testid="todo-detail-back"
+        (click)="back()"
+      >
+        <i class="pi pi-arrow-left" aria-hidden="true"></i>
+        {{ 'widgets.todo.detail.back' | transloco }}
+      </button>
+      <span
+        class="min-w-0 flex-1 text-xs text-fg-muted"
+        data-testid="todo-detail-status"
+        [class.truncate]="saveState() !== 'error' && !removeFailed()"
+      >
+        @if (removeFailed()) {
+          <span role="alert" class="text-danger" data-testid="todo-detail-error">
+            {{ 'widgets.todo.actionError' | transloco }}
+          </span>
+        } @else if (saveState() === 'error') {
+          <span
+            role="alert"
+            class="text-danger"
+            data-testid="todo-detail-error"
+            [attr.title]="'widgets.todo.detail.saveError' | transloco"
+          >
+            {{ 'widgets.todo.detail.saveError' | transloco }}
+          </span>
+        } @else if (saveState() === 'saving') {
+          <span role="status">{{ 'widgets.todo.detail.saving' | transloco }}</span>
+        } @else if (saveState() === 'saved') {
+          <span role="status">{{ 'widgets.todo.detail.saved' | transloco }}</span>
+        }
+      </span>
+      <button
+        type="button"
+        class="btn btn-invisible btn-icon btn-compact btn-danger"
+        data-testid="todo-detail-remove"
+        [attr.aria-label]="'widgets.todo.detail.remove' | transloco"
+        [attr.title]="'widgets.todo.detail.remove' | transloco"
+        (click)="askRemove()"
+      >
+        <i class="pi pi-trash" aria-hidden="true"></i>
+      </button>
+    </div>
+  }
+
+  <div class="flex flex-col gap-1">
+    <label for="todo-detail-title-{{ id }}" class="text-xs font-semibold">
+      {{ 'widgets.todo.detail.titleLabel' | transloco }}
+    </label>
+    <textarea
+      id="todo-detail-title-{{ id }}"
+      class="field w-full resize-none py-2 field-sizing-content"
+      rows="2"
+      maxlength="500"
+      autocomplete="off"
+      data-testid="todo-detail-title"
+      [value]="titleValue()"
+      [attr.aria-invalid]="titleInvalid()"
+      [attr.aria-describedby]="titleInvalid() ? 'todo-detail-title-error-' + id : null"
+      (input)="onTitleInput($event)"
+      (keydown)="onTitleKeydown($event)"
+      (blur)="onTextBlur()"
+    ></textarea>
+    @if (titleInvalid()) {
+      <p
+        class="field-error"
+        id="todo-detail-title-error-{{ id }}"
+        data-testid="todo-detail-title-error"
+      >
+        {{ 'widgets.todo.errors.titleInvalid' | transloco }}
+      </p>
+    }
+  </div>
+
+  <label class="flex items-center gap-2">
+    <input
+      type="checkbox"
+      role="switch"
+      class="switch"
+      data-testid="todo-detail-important"
+      [checked]="wantedImportant()"
+      (change)="onImportantChange($event)"
+    />
+    {{ 'widgets.todo.detail.importantLabel' | transloco }}
+  </label>
+
+  <div class="flex flex-col gap-1">
+    <label for="todo-detail-description-{{ id }}" class="text-xs font-semibold">
+      {{ 'widgets.todo.detail.descriptionLabel' | transloco }}
+    </label>
+    <textarea
+      id="todo-detail-description-{{ id }}"
+      class="field w-full resize-none py-2 field-sizing-content"
+      rows="3"
+      maxlength="10000"
+      data-testid="todo-detail-description"
+      [value]="descriptionValue()"
+      [placeholder]="'widgets.todo.detail.descriptionPlaceholder' | transloco"
+      (input)="onDescriptionInput($event)"
+      (blur)="onTextBlur()"
+    ></textarea>
+  </div>
+
+  <div class="flex flex-col gap-1">
+    <label for="todo-detail-due-{{ id }}" class="text-xs font-semibold">
+      {{ 'widgets.todo.detail.dueLabel' | transloco }}
+    </label>
+    <div class="flex flex-wrap items-center gap-2">
+      <input
+        id="todo-detail-due-{{ id }}"
+        type="date"
+        class="field"
+        data-testid="todo-detail-due"
+        [attr.min]="dueMin"
+        [attr.max]="dueMax"
+        [value]="wantedDue() ?? ''"
+        (change)="onDueChange($event)"
+        (blur)="onDueBlur($event)"
+      />
+      @if (wantedDue() !== null) {
+        <button
+          type="button"
+          class="btn btn-invisible btn-icon btn-compact"
+          data-testid="todo-detail-due-clear"
+          [attr.aria-label]="'widgets.todo.detail.clearDue' | transloco"
+          [attr.title]="'widgets.todo.detail.clearDue' | transloco"
+          (click)="clearDue()"
+        >
+          <i class="pi pi-times" aria-hidden="true"></i>
+        </button>
+      }
+      @if (due(); as label) {
+        <span
+          class="text-xs"
+          data-testid="todo-detail-due-label"
+          [attr.data-due]="label.kind"
+          [class.text-danger]="label.kind === 'overdue'"
+          [class.font-semibold]="label.kind === 'overdue'"
+          [class.text-attention]="label.kind === 'today' || label.kind === 'tomorrow'"
+          [class.text-fg-muted]="label.kind === 'date'"
+        >
+          @if (label.kind === 'overdue') {
+            <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+          }
+          {{ label.long.key ? (label.long.key | transloco: label.long.params) : label.long.text }}
+        </span>
+      }
+    </div>
+  </div>
+
+  <p class="m-0 flex flex-wrap gap-x-3 text-xs text-fg-muted" data-testid="todo-detail-meta">
+    <span data-testid="todo-detail-created">
+      {{ 'widgets.todo.detail.created' | transloco: { date: createdOn() } }}
+    </span>
+    @if (completedOn(); as completed) {
+      <span data-testid="todo-detail-completed">
+        {{ 'widgets.todo.detail.completed' | transloco: { date: completed } }}
+      </span>
+    }
+  </p>
+</div>
