@@ -927,6 +927,123 @@ describe('TodoComponent', () => {
       expect(q('todo-advanced-undo')).toBeNull();
     });
 
+    it('shows the up-to-date list after a conflict', async () => {
+      const { repo, all, click } = await render(weekly());
+      repo.items[0] = { ...repo.items[0], dueOn: '2026-10-20' };
+      await click(all('todo-check')[0]);
+      expect(all('todo-due')[0].textContent).toContain("En retard d'1 jour");
+    });
+
+    it('ignores a second check of a repeating task while the first write runs', async () => {
+      const setup = weekly();
+      const { repo, all, settle } = await render(setup);
+      const original = repo.shiftRepeatDue.bind(repo);
+      let release: () => void = () => undefined;
+      const waiting = new Promise<void>((resolve) => (release = resolve));
+      const spy = vi.spyOn(repo, 'shiftRepeatDue').mockImplementationOnce(async (id, from, to) => {
+        await waiting;
+        return original(id, from, to);
+      });
+      const box = all('todo-check')[0] as HTMLInputElement;
+      box.checked = true;
+      box.dispatchEvent(new Event('change'));
+      box.checked = true;
+      box.dispatchEvent(new Event('change'));
+      expect(box.checked).toBe(false);
+      release();
+      await settle();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(repo.items[0].dueOn).toBe('2026-10-26');
+    });
+
+    it('focuses the checkbox after a successful undo', async () => {
+      const { all, click, q, focusedId } = await render(weekly());
+      await click(all('todo-check')[0]);
+      await click(q('todo-advanced-undo'));
+      expect(focusedId()).toBe('todo-check');
+    });
+
+    it('restores the message and the focus when the undo fails for another reason', async () => {
+      const { repo, all, click, q, focusedId } = await render(weekly());
+      await click(all('todo-check')[0]);
+      repo.failNext(new DataError('busy', 'boom'));
+      await click(q('todo-advanced-undo'));
+      expect(q('todo-action-error')).not.toBeNull();
+      expect(q('todo-advanced-undo')).not.toBeNull();
+      expect(q('todo-advanced-status')?.textContent).toContain('Prochaine échéance');
+      expect(focusedId()).toBe('todo-check');
+    });
+
+    it('reloads and focuses the field when the task disappeared before the undo (not_found)', async () => {
+      const { repo, all, click, q, focusedId, titles } = await render(weekly());
+      await click(all('todo-check')[0]);
+      repo.items = repo.items.filter((t) => t.title !== 'Poubelles');
+      await click(q('todo-advanced-undo'));
+      expect(q('todo-action-error')).not.toBeNull();
+      expect(q('todo-advanced-undo')).toBeNull();
+      expect(titles()).toEqual(['Autre']);
+      expect(focusedId()).toBe('todo-new');
+    });
+
+    it('disables the undo button while a write is running', async () => {
+      const { all, click, q, fixture } = await render(weekly());
+      await click(all('todo-check')[0]);
+      expect((q('todo-advanced-undo') as HTMLButtonElement).disabled).toBe(false);
+      fixture.componentInstance['busy'].set(true);
+      fixture.detectChanges();
+      expect((q('todo-advanced-undo') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    describe('the message is removed by the next action', () => {
+      const advance = async () => {
+        const setup = weekly();
+        const ctx = await render(setup);
+        await ctx.click(ctx.all('todo-check')[0]);
+        expect(ctx.q('todo-advanced-undo')).not.toBeNull();
+        return { ...ctx, listId: setup.config.listId };
+      };
+
+      it('on add', async () => {
+        const { q, fill, click } = await advance();
+        fill(q<HTMLInputElement>('todo-new'), 'Nouvelle');
+        await click(q('todo-add'));
+        expect(q('todo-advanced-undo')).toBeNull();
+        expect(q('todo-advanced-status')?.textContent?.trim()).toBe('');
+      });
+
+      it('on move', async () => {
+        const { q, all, click } = await advance();
+        await click(all('todo-down')[0]);
+        expect(q('todo-advanced-undo')).toBeNull();
+      });
+
+      it('on removal', async () => {
+        const { q, all, click } = await advance();
+        await click(all('todo-remove')[1]);
+        await click(q('todo-confirm-yes'));
+        expect(q('todo-advanced-undo')).toBeNull();
+      });
+
+      it('on clearing the completed tasks', async () => {
+        const setup = weekly();
+        setup.repo.seed(setup.config.listId, 'Fini', { completedAt: '2026-10-20T08:00:00.000Z' });
+        const { q, all, click } = await render(setup);
+        await click(all('todo-check')[0]);
+        expect(q('todo-advanced-undo')).not.toBeNull();
+        await click(q('todo-clear'));
+        await click(q('todo-clear-yes'));
+        expect(q('todo-advanced-undo')).toBeNull();
+        expect(all('todo-row')).toHaveLength(2);
+      });
+
+      it('on opening the detail sheet', async () => {
+        const { q, all, click, fixture } = await advance();
+        await click(all('todo-info')[0]);
+        expect(fixture.componentInstance['advanced']()).toBeNull();
+        expect(q('todo-detail')).not.toBeNull();
+      });
+    });
+
     it('shows the repetition indicator with an accessible text only on repeating tasks', async () => {
       const { all } = await render(weekly({ rrule: 'FREQ=WEEKLY;INTERVAL=2' }));
       const [first, second] = all('todo-row');

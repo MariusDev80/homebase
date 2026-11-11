@@ -300,8 +300,12 @@ export class TodoDetailComponent {
   protected onIntervalBlur(event: Event): void {
     const rule = this.rule();
     if (rule === null) return;
-    this.intervalInvalid.set(false);
+    // The error stays visible (it explains the change of value) until the next input or choice.
     (event.target as HTMLInputElement).value = String(rule.interval);
+  }
+
+  protected onIntervalInput(): void {
+    this.intervalInvalid.set(false);
   }
 
   protected onMonthDayChange(lastDayOfMonth: boolean): void {
@@ -313,9 +317,12 @@ export class TodoDetailComponent {
   private choose(change: TodoChanges): void {
     // Clearing the due date of a repeating todo also removes its rule: say so.
     this.repeatCleared.set(change.dueOn === null && this.wantedRrule() !== null);
+    this.intervalInvalid.set(false);
     this.closeFailed.set(false);
     if (this.finished) return;
-    this.pending.set(mergeChanges(this.stored(), this.pending(), change));
+    this.pending.set(
+      mergeChanges({ ...this.stored(), ...this.inflight() }, this.pending(), change),
+    );
     void this.save();
   }
 
@@ -461,6 +468,10 @@ export class TodoDetailComponent {
     const interval = root.querySelector<HTMLInputElement>('[data-testid="todo-detail-interval"]');
     const rule = this.rule();
     if (interval && rule) interval.value = String(rule.interval);
+    const day = root.querySelector<HTMLInputElement>('[data-testid="todo-detail-monthday-day"]');
+    if (day && rule) day.checked = !rule.lastDayOfMonth;
+    const last = root.querySelector<HTMLInputElement>('[data-testid="todo-detail-monthday-last"]');
+    if (last && rule) last.checked = rule.lastDayOfMonth;
     this.intervalInvalid.set(false);
     this.repeatCleared.set(false);
   }

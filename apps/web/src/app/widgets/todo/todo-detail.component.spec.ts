@@ -539,7 +539,75 @@ describe('TodoDetailComponent', () => {
       field('todo-detail-interval').dispatchEvent(new Event('blur'));
       await settle();
       expect(field<HTMLInputElement>('todo-detail-interval').value).toBe('1');
+      // The explanation stays after the value was put back, until the next input.
+      expect(q('todo-detail-interval-error')).not.toBeNull();
+      field('todo-detail-interval').dispatchEvent(new Event('input'));
+      await settle();
       expect(q('todo-detail-interval-error')).toBeNull();
+    });
+
+    it('includes the unit in the accessible description of the interval', async () => {
+      const { field, el } = await render({ dueOn: '2026-11-03', rrule: 'FREQ=WEEKLY' });
+      const ids = field('todo-detail-interval').getAttribute('aria-describedby') ?? '';
+      expect(el.querySelector('#' + ids.split(' ')[0])?.textContent).toContain('semaine(s)');
+    });
+
+    it('resets the interval to 1 and unticks "last day" when the frequency changes', async () => {
+      const { field, settle, repo } = await render({
+        dueOn: '2026-01-31',
+        rrule: 'FREQ=MONTHLY;INTERVAL=3;BYMONTHDAY=-1',
+      });
+      const spy = vi.spyOn(repo, 'update');
+      await choose(field, settle, 'WEEKLY');
+      expect(spy).toHaveBeenLastCalledWith(repo.items[0].id, { rrule: 'FREQ=WEEKLY' });
+      await choose(field, settle, 'MONTHLY');
+      expect(spy).toHaveBeenLastCalledWith(repo.items[0].id, { rrule: 'FREQ=MONTHLY' });
+    });
+
+    describe('choices made while a write is in flight', () => {
+      it('normalises the last-day rule against the in-flight rule (A)', async () => {
+        const { field, settle, chooseDate, gate, repo } = await render({
+          dueOn: '2026-01-31',
+          rrule: 'FREQ=MONTHLY',
+        });
+        const { release } = gate();
+        field('todo-detail-monthday-last').click();
+        await settle();
+        await chooseDate('2026-01-15');
+        release();
+        await settle();
+        expect(repo.items[0]).toMatchObject({ dueOn: '2026-01-15', rrule: 'FREQ=MONTHLY' });
+      });
+
+      it('keeps the last-day choice made on an in-flight last-day due date (B)', async () => {
+        const { field, settle, chooseDate, gate, repo } = await render({
+          dueOn: '2026-01-15',
+          rrule: 'FREQ=MONTHLY',
+        });
+        const { release } = gate();
+        await chooseDate('2026-01-31');
+        field('todo-detail-monthday-last').click();
+        await settle();
+        release();
+        await settle();
+        expect(repo.items[0]).toMatchObject({
+          dueOn: '2026-01-31',
+          rrule: 'FREQ=MONTHLY;BYMONTHDAY=-1',
+        });
+      });
+
+      it('does not bring the rule back when the due date is cleared then set again', async () => {
+        const { click, settle, chooseDate, gate, repo } = await render({
+          dueOn: '2026-01-31',
+          rrule: 'FREQ=MONTHLY;BYMONTHDAY=-1',
+        });
+        const { release } = gate();
+        await click('todo-detail-due-clear');
+        await chooseDate('2026-01-15');
+        release();
+        await settle();
+        expect(repo.items[0]).toMatchObject({ dueOn: '2026-01-15', rrule: null });
+      });
     });
 
     it('offers the day-of-month choice only on a last day, and writes the last-day rule', async () => {
@@ -621,6 +689,21 @@ describe('TodoDetailComponent', () => {
       await choose(field, settle, 'WEEKLY');
       expect(field<HTMLSelectElement>('todo-detail-repeat').value).toBe('none');
       expect(repo.items[0].rrule).toBeNull();
+    });
+
+    it('realigns the interval and the day-of-month radios after a failed write', async () => {
+      const { field, settle, repo } = await render({ dueOn: '2026-11-30', rrule: 'FREQ=MONTHLY' });
+      repo.failNext(new DataError('busy', 'boom'));
+      field('todo-detail-monthday-last').click();
+      await settle();
+      expect(field<HTMLInputElement>('todo-detail-monthday-day').checked).toBe(true);
+      expect(field<HTMLInputElement>('todo-detail-monthday-last').checked).toBe(false);
+      repo.failNext(new DataError('busy', 'boom'));
+      const input = field<HTMLInputElement>('todo-detail-interval');
+      input.value = '4';
+      input.dispatchEvent(new Event('change'));
+      await settle();
+      expect(field<HTMLInputElement>('todo-detail-interval').value).toBe('1');
     });
   });
 });

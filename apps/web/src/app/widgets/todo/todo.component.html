@@ -53,11 +53,17 @@
         </p>
       }
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2" [class.-mb-2]="!advanced()">
         <p
           role="status"
           class="m-0 min-w-0 flex-1 truncate text-xs text-fg-muted"
           data-testid="todo-advanced-status"
+          [attr.title]="
+            advanced()
+              ? ('widgets.todo.advanced'
+                | transloco: { title: advanced()!.title, date: advanced()!.date })
+              : null
+          "
         >
           @if (advanced(); as adv) {
             {{ 'widgets.todo.advanced' | transloco: { title: adv.title, date: adv.date } }}
@@ -68,6 +74,7 @@
             type="button"
             class="btn btn-invisible btn-compact"
             data-testid="todo-advanced-undo"
+            [disabled]="busy()"
             (click)="undoAdvance()"
           >
             {{ 'widgets.todo.undoAdvance' | transloco }}

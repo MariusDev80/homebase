@@ -240,7 +240,12 @@ export class TodoComponent {
       this.actionError.set(true);
       if (error instanceof DataError && (error.kind === 'conflict' || error.kind === 'not_found')) {
         await this.reloadQuietly();
+      } else {
+        // Nothing changed: the advance can still be undone.
+        this.advanced.set(advanced);
       }
+      const shown = this.rows().some((r) => r.todo.id === advanced.id);
+      this.focus(shown ? this.inRow(advanced.id, 'todo-check') : '[data-testid="todo-new"]');
     } finally {
       this.busy.set(false);
     }

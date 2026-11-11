@@ -244,11 +244,18 @@
           [attr.max]="intervalMax()"
           [value]="r.interval"
           [attr.aria-invalid]="intervalInvalid()"
-          [attr.aria-describedby]="intervalInvalid() ? 'todo-detail-interval-error-' + id : null"
+          [attr.aria-describedby]="
+            'todo-detail-interval-unit-' +
+            id +
+            (intervalInvalid() ? ' todo-detail-interval-error-' + id : '')
+          "
+          (input)="onIntervalInput()"
           (change)="onIntervalChange($event)"
           (blur)="onIntervalBlur($event)"
         />
-        <span class="text-xs">{{ 'widgets.todo.repeat.unit.' + r.freq | transloco }}</span>
+        <span class="text-xs" id="todo-detail-interval-unit-{{ id }}">{{
+          'widgets.todo.repeat.unit.' + r.freq | transloco
+        }}</span>
       </div>
       @if (intervalInvalid()) {
         <p
