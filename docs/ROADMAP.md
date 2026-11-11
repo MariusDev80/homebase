@@ -30,7 +30,7 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
 
 ## Phase 1 bis : navigation et grille
-Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (et MT1 à MT9 de `docs/specs/dashboard-theme.md`, MD1 à MD9 de `docs/specs/todo-details.md`) à faire par Marius (sur l'exe release, juste avant la fusion).
+Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (et MT1 à MT9 de `docs/specs/dashboard-theme.md`, MD1 à MD9 de `docs/specs/todo-details.md`) à faire par Marius (M1 à M17, MT1 à MT9 et MD8 à MD9 sur l'exe release et la vraie base, juste avant la fusion ; MD1 à MD7 sur l'app de dev, `npm run dev`).
 - [x] (S) Lot 0 : base et démarrage automatique de développement séparés (`tauri.dev.conf.json`, « Homebase Dev »)
 - [x] (S) Lot A : grille de 12 × 8 qui s'adapte à la fenêtre, repositionnement à l'affichage
 - [x] (S) Lot B : barre verticale à bulles, retrait du H1, du nom de l'app et du bouton de thème
@@ -50,7 +50,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot TD1a (spec `todo-details.md`) : migration V6 `todos.description` / `rrule` / `important`, couche de données (texte de V6 figé à la revue ; pas de `npm run dev` avant)
 - [x] (S) Lot TD1b : prochaine échéance d'une tâche répétée (`core/time/date-rule.ts`, vecteurs `dateNext`)
 - [x] (S) Lot TD2a : fiche de tâche (titre, « Important », description, échéance, suppression), non branchée
-- [x] (S) Lot TD2b : ligne de tâche sur une ligne (bouton [i], échéance sur la ligne, requêtes de conteneur) et branchement de la fiche (vérification manuelle MD1 à faire par Marius)
+- [x] (S) Lot TD2b : ligne de tâche sur une ligne (bouton [i], échéance sur la ligne, requêtes de conteneur) et branchement de la fiche (vérifications manuelles MD1 à MD4 et MD6 à faire par Marius)
 - [x] (S) Lot TD3 : répétition des tâches (cocher avance l'échéance, « Annuler ») (vérification manuelle MD5 à faire par Marius)
 - [x] (S) Lot TD4 : recherche dans les descriptions de tâches (vérification manuelle MD7 à faire par Marius)
 - [ ] (O) Revue de fin de phase (thème et détail des tâches compris) ; vérifications manuelles M1 à M17, MT1 à MT9 et MD1 à MD9 à faire par Marius, juste avant la fusion (M10 en premier : V4, V5 et V6 appliquées ensemble)

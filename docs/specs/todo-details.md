@@ -1,6 +1,6 @@
 # Spec : détail d'une tâche (fiche dans le widget TODO, description, « Important », répétition)
 
-- **Statut** : prête à implémenter, révision 2 (2026-11-10) : revue indépendante intégrée (B1, C1 à C7, suggestions S1 à S10) ; décisions de Marius au §12
+- **Statut** : implémentée (TD1a à TD4) ; vérifications manuelles MD1 à MD9 en attente. Historique : révision 2 (2026-11-10), revue indépendante intégrée (B1, C1 à C7, suggestions S1 à S10) ; décisions de Marius au §12
 - **Auteur** : architect (Opus)
 - **Destinataire** : `implementer` (Sonnet), un lot à la fois (§7), **sur la branche `dashboards-sidebar`**
 - **Liens** : `CLAUDE.md` ; `docs/DESIGN.md` ; ADR-002 (données) ; ADR-003 (temps : §3.1.3, §3.4, §3.5, §3.6, §3.9, D2) ; `docs/specs/dashboards-sidebar.md` (D0, §7, §9) ; `docs/specs/dashboard-theme.md` (§4.3, §6.2, §6.3, D10) ; `docs/specs/backup-restore.md` §4.7
@@ -609,7 +609,7 @@ Contrôle à chaque lot sur **tous** les fichiers listés « Initial chunk files
 
 ### 6.1 `test:data`
 - `migrations.spec.ts`, bloc « V6 (todos.description, rrule, important) » : `createTestDatabase(5)`, un tableau, une instance `todo`, une liste, deux tâches (une avec échéance et `completed_at`) ; V6 appliquée (comme V5) → `description = ''`, `rrule = NULL`, `important = 0`, autres colonnes et `updated_at` inchangés, `integrity_check` et `foreign_key_check` propres. `CHECK` (erreur `constraint`) : description de 10 001 caractères (10 000 acceptés) ; description `'a' || char(0) || <40 000 octets>` (borne en octets) ; `rrule` `'FREQ=DAILY'` sans échéance (S1) ; `'DAILY'`, `'FREQ='`, 257 caractères ; `UPDATE todos SET due_on = NULL` sur une tâche avec règle (S1) ; `important` 2 et -1. Acceptés : `'FREQ=DAILY'` avec échéance ; `important` 1. Texte `CREATE TABLE todos` de `sqlite_schema` égal au §4.1 (S2).
-- `sqlite-todo.repository.spec.ts` : `create` → `''`, `null`, `false` ; `listTodos` et les valeurs renvoyées par `update` restituent les nouveaux champs ; description (titre seul la garde ; `''` ; 10 001 → `invalid_input`) ; `important` (vrai puis faux ; omis → gardé ; paramètre lié 1/0) ; règle (forme invalide → `invalid_input` ; avec `dueOn: null` → `invalid_input` sans requête ; échéance absente en base → `constraint`) ; `dueOn: null` efface la règle ; changer l'échéance garde la règle ; `rrule: null` la retire ; `shiftRepeatDue` (écrit ; `sort_order`, `completed_at` inchangés ; `updated_at` mis à jour ; échéance attendue différente, sans règle, terminée → `conflict` ; absente → `not_found` ; forme invalide → `invalid_input`) ; `setCompleted` sur une tâche répétée → terminée, règle gardée ; décocher → active, intacte. Ligne avec `important = 2` écrite en contournant le `CHECK` impossible : pas de test (STRICT + CHECK). (TD4) `search` : description seule → trouvée avec extrait ; titres d'abord ; actives d'abord ; `%` et `_` littéraux.
+- `sqlite-todo.repository.spec.ts` : `create` → `''`, `null`, `false` ; `listTodos` et les valeurs renvoyées par `update` restituent les nouveaux champs ; description (titre seul la garde ; `''` ; 10 001 → `invalid_input`) ; `important` (vrai puis faux ; omis → gardé ; paramètre lié 1/0) ; règle (forme invalide → `invalid_input` ; avec `dueOn: null` → `invalid_input` sans requête ; échéance absente en base → `constraint`) ; `dueOn: null` efface la règle ; changer l'échéance garde la règle ; `rrule: null` la retire ; `shiftRepeatDue` (écrit ; `sort_order`, `completed_at` inchangés ; `updated_at` mis à jour ; échéance attendue différente, sans règle, terminée → `conflict` ; absente → `not_found` ; forme invalide → `invalid_input`) ; `setCompleted` sur une tâche répétée → terminée, règle gardée ; décocher → active, intacte. Ligne avec `important = 2` écrite en contournant le `CHECK` impossible : pas de test (STRICT + CHECK). (TD4) `search` (écart : ces tests sont dans `apps/web/src/app/data/sqlite/sqlite-search.spec.ts`, avec ceux des notes et raccourcis, et non dans `sqlite-todo.repository.spec.ts`) : description seule → trouvée avec extrait ; titres d'abord ; actives d'abord ; `%` et `_` littéraux.
 
 ### 6.2 Vitest, runner Angular
 | Fichier | Lot | Contenu |
@@ -716,6 +716,8 @@ Acceptation :
 
 ### Lot TD4 : recherche dans les descriptions
 Fichiers : `data/models.ts`, `sqlite/sqlite-todo.repository.ts` et sa spec ; `core/testing/fake-todo.repository.ts` ; `core/search/search.service.ts` et sa spec ; `widgets/search/search.component.html` et sa spec.
+
+Écart : les tests `search` des tâches sont dans `apps/web/src/app/data/sqlite/sqlite-search.spec.ts` (avec ceux des notes et raccourcis), pas dans `sqlite-todo.repository.spec.ts`.
 
 Étapes : SQL et extrait (§4.2) ; `TodoResult.subtitle` ; condition du gabarit ; specs ; MD7.
 
