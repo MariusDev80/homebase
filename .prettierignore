@@ -6,6 +6,7 @@ coverage
 package-lock.json
 apps/desktop/src-tauri/gen
 apps/desktop/src-tauri/icons
+apps/desktop/src-tauri/src/**/fixtures
 docs
 .claude
 CLAUDE.md

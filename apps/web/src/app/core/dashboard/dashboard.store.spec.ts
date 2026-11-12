@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { DASHBOARD_REPOSITORY, DataError, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
+import { PendingWrites } from '../widgets/pending-writes';
 import { fixtureDefinition } from '../testing/fixture-definitions';
 import { provideWidget } from '../widgets/widget-registry';
 import type { WidgetDefinition } from '../widgets/widget-definition';
@@ -102,5 +103,110 @@ describe('DashboardStore', () => {
     await store.load('Accueil');
     expect(store.status()).toBe('error');
     expect(store.error()?.kind).toBe('unavailable');
+  });
+});
+
+describe('DashboardStore layout', () => {
+  async function loaded() {
+    const ctx = setup();
+    await ctx.store.load('Accueil');
+    const a = await ctx.store.add('hello');
+    const b = await ctx.store.add('hello');
+    const spy = vi.spyOn(ctx.instances, 'updateLayout');
+    return { ...ctx, a, b, spy };
+  }
+  const rect = (x: number, y: number) => ({ x, y, w: 2, h: 2 });
+
+  it('writes nothing at load', async () => {
+    const ctx = setup();
+    const spy = vi.spyOn(ctx.instances, 'updateLayout');
+    await ctx.store.load('Accueil');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('updates the state at once and writes one updateLayout with the modified items only', async () => {
+    const { store, a, b, spy } = await loaded();
+    const done = store.changeLayout([
+      { id: a.id, grid: rect(4, 0) },
+      { id: b.id, grid: b.grid },
+    ]);
+    expect(store.instances().find((i) => i.id === a.id)?.grid).toEqual(rect(4, 0));
+    await done;
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith(store.dashboard()?.id, [{ id: a.id, grid: rect(4, 0) }]);
+  });
+
+  it('registers in PendingWrites: flushAll waits for the layout write in flight', async () => {
+    const { store, spy, a } = await loaded();
+    expect(TestBed.inject(PendingWrites).count).toBe(1);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    spy.mockImplementationOnce(async () => {
+      await gate;
+      return 1;
+    });
+    void store.changeLayout([{ id: a.id, grid: rect(4, 0) }]);
+    let flushed = false;
+    const flush = TestBed.inject(PendingWrites)
+      .flushAll()
+      .then(() => (flushed = true));
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+    release();
+    await flush;
+    expect(flushed).toBe(true);
+  });
+
+  it('does not write when nothing changed', async () => {
+    const { store, a, spy } = await loaded();
+    await store.changeLayout([{ id: a.id, grid: a.grid }]);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('coalesces a burst: one write in flight, one pending, last value wins', async () => {
+    const { store, a, b, spy } = await loaded();
+    const pending = [
+      store.changeLayout([{ id: a.id, grid: rect(1, 0) }]),
+      store.changeLayout([{ id: a.id, grid: rect(2, 0) }]),
+      store.changeLayout([
+        { id: a.id, grid: rect(3, 0) },
+        { id: b.id, grid: rect(6, 6) },
+      ]),
+    ];
+    await Promise.all(pending);
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy.mock.calls[0][1]).toEqual([{ id: a.id, grid: rect(1, 0) }]);
+    expect(spy.mock.calls[1][1]).toEqual([
+      { id: a.id, grid: rect(3, 0) },
+      { id: b.id, grid: rect(6, 6) },
+    ]);
+  });
+
+  it('goes back to the last persisted layout on failure and flags the error', async () => {
+    const { store, instances, a } = await loaded();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await store.changeLayout([{ id: a.id, grid: rect(1, 0) }]);
+    instances.failNext(new DataError('busy', 'locked'));
+    await store.changeLayout([{ id: a.id, grid: rect(5, 0) }]);
+    expect(store.instances().find((i) => i.id === a.id)?.grid).toEqual(rect(1, 0));
+    expect(store.layoutError()).toBe(true);
+    await store.changeLayout([{ id: a.id, grid: rect(2, 0) }]);
+    expect(store.layoutError()).toBe(false);
+  });
+
+  it('keeps the optimistic grid when a config save returns an older record', async () => {
+    const { store, a } = await loaded();
+    const write = store.changeLayout([{ id: a.id, grid: rect(7, 0) }]);
+    await store.saveConfig(a.id, { label: 'x' }, 1);
+    await write;
+    expect(store.instances().find((i) => i.id === a.id)?.grid).toEqual(rect(7, 0));
+  });
+
+  it('nudges a widget within its constraints and persists the result', async () => {
+    const { store, a, spy } = await loaded();
+    expect(store.nudge(a.id, { dx: -1 })).toBeNull();
+    expect(store.nudge(a.id, { dw: 5 })).toEqual({ x: 0, y: 0, w: 4, h: 2 });
+    expect(store.nudge(a.id, { dw: 1 })).toBeNull();
+    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
   });
 });

@@ -1,0 +1,6 @@
+disallowed-methods = [
+  { path = "std::time::SystemTime::now", reason = "ADR-003 : utiliser time::clock::Clock" },
+  { path = "jiff::Timestamp::now", reason = "ADR-003 : utiliser time::clock::Clock" },
+  { path = "jiff::Zoned::now", reason = "ADR-003 : utiliser time::clock::Clock" },
+  { path = "jiff::tz::TimeZone::system", reason = "ADR-003 : le Rust n'utilise jamais le fuseau système" },
+]

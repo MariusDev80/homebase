@@ -1,0 +1,1 @@
+const components = { button, dialog };

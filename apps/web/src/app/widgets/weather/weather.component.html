@@ -1,0 +1,247 @@
+@if (panelOpen()) {
+  <div
+    role="group"
+    class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+    data-testid="weather-panel"
+    (keydown.escape)="closePanel()"
+    [attr.aria-label]="'widgets.weather.settings' | transloco"
+  >
+    <app-weather-location-picker
+      [disabled]="saving()"
+      (picked)="onPicked($event)"
+      (cancelled)="closePanel()"
+    />
+    @if (saveError()) {
+      <p role="alert" class="flash flash-danger" data-testid="weather-save-error">
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+        {{ 'widgets.weather.errors.saveLocation' | transloco }}
+      </p>
+    }
+    @if (daysError()) {
+      <p role="alert" class="flash flash-danger" data-testid="weather-days-error">
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+        {{ 'widgets.weather.errors.saveDays' | transloco }}
+      </p>
+    }
+    <div class="flex items-center gap-2">
+      <label class="text-sm" [for]="daysId">{{ 'widgets.weather.daysLabel' | transloco }}</label>
+      <select
+        class="field"
+        data-testid="weather-days"
+        [id]="daysId"
+        (change)="onDaysChange($event)"
+      >
+        @for (n of dayOptions; track n) {
+          <option [value]="n" [selected]="n === days()">{{ n }}</option>
+        }
+      </select>
+    </div>
+    <div>
+      <button type="button" class="btn" data-testid="weather-close" (click)="closePanel()">
+        {{ 'widgets.weather.close' | transloco }}
+      </button>
+    </div>
+  </div>
+} @else {
+  @let v = view();
+  @if (v.kind === 'no-location') {
+    <div class="empty-state" data-testid="weather-empty">
+      <i class="pi pi-map-marker" aria-hidden="true"></i>
+      <p>{{ 'widgets.weather.empty' | transloco }}</p>
+      <button
+        type="button"
+        class="btn"
+        data-testid="weather-choose"
+        data-focus-key="choose"
+        (click)="openPanel('choose')"
+      >
+        {{ 'widgets.weather.chooseCity' | transloco }}
+      </button>
+    </div>
+  } @else if (v.kind === 'loading') {
+    <div class="flex items-center gap-2">
+      <p role="status" class="flex-1 text-fg-muted" data-testid="weather-loading">
+        {{ 'widgets.weather.loading' | transloco }}
+      </p>
+      <button
+        type="button"
+        class="btn btn-invisible btn-icon btn-compact"
+        data-testid="weather-settings"
+        data-focus-key="settings"
+        [attr.aria-label]="'widgets.weather.settings' | transloco"
+        (click)="openPanel('settings')"
+      >
+        <i class="pi pi-cog" aria-hidden="true"></i>
+      </button>
+    </div>
+  } @else if (v.kind === 'error') {
+    <div class="empty-state" role="alert" data-testid="weather-error">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      <p>{{ errorText() }}</p>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="btn"
+          data-testid="weather-retry"
+          [disabled]="refreshing()"
+          (click)="onRefresh()"
+        >
+          {{ 'widgets.weather.retry' | transloco }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-invisible btn-icon"
+          data-testid="weather-settings"
+          data-focus-key="settings"
+          [attr.aria-label]="'widgets.weather.settings' | transloco"
+          (click)="openPanel('settings')"
+        >
+          <i class="pi pi-cog" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+  } @else if (model(); as m) {
+    @if (compact()) {
+      <div class="flex items-center gap-2">
+        <app-weather-icon [name]="m.icon" [size]="16" [class]="m.toneClass" />
+        <span class="text-2xl font-semibold tabular-nums" data-testid="weather-temperature">{{
+          'widgets.weather.temperatureShort' | transloco: { value: m.temperature }
+        }}</span>
+        <button
+          type="button"
+          class="btn btn-invisible btn-icon btn-compact ml-auto"
+          data-testid="weather-settings"
+          data-focus-key="settings"
+          [attr.aria-label]="'widgets.weather.settings' | transloco"
+          (click)="openPanel('settings')"
+        >
+          <i class="pi pi-cog" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="min-w-0">
+        <span class="sr-only" data-testid="weather-condition">{{ m.condition }}</span>
+        <p class="truncate text-xs text-fg-muted" data-testid="weather-location">
+          {{ m.location }}
+        </p>
+      </div>
+      @if (m.banner) {
+        <p role="status" class="text-xs text-attention" data-testid="weather-banner">
+          {{ m.banner }}
+        </p>
+      }
+      <div class="flex flex-wrap items-center gap-x-2 text-xs text-fg-muted">
+        <button
+          type="button"
+          class="btn btn-invisible btn-compact"
+          data-testid="weather-attribution"
+          (click)="openAttribution()"
+        >
+          {{ 'widgets.weather.attributionShort' | transloco }}
+        </button>
+        <span data-testid="weather-age">{{ m.age }}</span>
+      </div>
+    } @else {
+      <div class="flex items-center gap-1">
+        <p class="min-w-0 flex-1 truncate font-semibold" data-testid="weather-location">
+          {{ m.location }}
+        </p>
+        <button
+          type="button"
+          class="btn btn-invisible btn-icon btn-compact"
+          data-testid="weather-refresh"
+          [disabled]="refreshing()"
+          [attr.aria-label]="'widgets.weather.refresh' | transloco"
+          (click)="onRefresh()"
+        >
+          <i class="pi pi-refresh" [class.pi-spin]="refreshing()" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="btn btn-invisible btn-icon btn-compact"
+          data-testid="weather-settings"
+          data-focus-key="settings"
+          [attr.aria-label]="'widgets.weather.settings' | transloco"
+          (click)="openPanel('settings')"
+        >
+          <i class="pi pi-cog" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="flex items-center gap-3">
+        <app-weather-icon [name]="m.icon" [size]="32" [class]="m.toneClass" />
+        <div class="min-w-0">
+          <p class="text-2xl font-semibold tabular-nums" data-testid="weather-temperature">
+            {{ 'widgets.weather.temperature' | transloco: { value: m.temperature } }}
+          </p>
+          <p data-testid="weather-condition">{{ m.condition }}</p>
+        </div>
+      </div>
+      @if (showDetails()) {
+        <p class="flex flex-wrap gap-x-3 text-xs text-fg-muted" data-testid="weather-details">
+          @if (m.feelsLike !== null) {
+            <span data-testid="weather-feels-like">{{
+              'widgets.weather.feelsLike' | transloco: { value: m.feelsLike }
+            }}</span>
+          }
+          @if (m.humidity !== null) {
+            <span>{{ 'widgets.weather.humidity' | transloco: { value: m.humidity } }}</span>
+          }
+          @if (m.wind !== null) {
+            <span>{{ 'widgets.weather.wind' | transloco: { value: m.wind } }}</span>
+          }
+        </p>
+      }
+      @if (m.banner) {
+        <p role="status" class="flash flash-attention" data-testid="weather-banner">
+          <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+          <span>{{ m.banner }}</span>
+        </p>
+      }
+      @if (m.rows.length > 0) {
+        <ul
+          class="m-0 min-h-0 flex-1 list-none overflow-y-auto p-0"
+          data-testid="weather-days-list"
+          [attr.aria-label]="'widgets.weather.forecastLabel' | transloco"
+        >
+          @for (row of m.rows; track row.date) {
+            <li class="box-row flex items-center gap-2 text-sm" data-testid="weather-day">
+              <span class="w-20 shrink-0 truncate" data-testid="weather-day-label">{{
+                row.dayLabel
+              }}</span>
+              <app-weather-icon [name]="row.icon" [size]="16" [class]="row.toneClass" />
+              <span class="min-w-0 truncate" [class.sr-only]="!showDetails()">{{
+                row.condition
+              }}</span>
+              <span class="ml-auto shrink-0 tabular-nums">
+                <span aria-hidden="true" data-testid="weather-day-range">{{ row.rangeText }}</span>
+                <span class="sr-only" data-testid="weather-day-range-sr">{{ row.rangeSr }}</span>
+              </span>
+              @if (showDetails() && row.precipitation !== null) {
+                <span class="w-16 shrink-0 text-right text-xs text-fg-muted">{{
+                  'widgets.weather.precipitationProbability'
+                    | transloco: { value: row.precipitation }
+                }}</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+      <div class="flex flex-wrap items-center gap-x-2 text-xs text-fg-muted">
+        <span data-testid="weather-age">{{ m.age }}</span>
+        <button
+          type="button"
+          class="btn btn-invisible btn-compact"
+          data-testid="weather-attribution"
+          (click)="openAttribution()"
+        >
+          {{ 'widgets.weather.attribution' | transloco }}
+        </button>
+      </div>
+    }
+    @if (linkError()) {
+      <p role="alert" class="flash flash-danger" data-testid="weather-link-error">
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+        {{ 'widgets.weather.errors.openLink' | transloco }}
+      </p>
+    }
+  }
+}

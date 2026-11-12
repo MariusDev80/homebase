@@ -112,4 +112,75 @@ describe('createWidgetContext', () => {
     await expect(done).rejects.toBeInstanceOf(WidgetInstanceNotFoundError);
     expect(ctx.config()).toEqual({ label: 'default' });
   });
+
+  it('turns a burst of 5 calls into 2 writes and persists the last value', async () => {
+    const { ctx, calls } = setup();
+    const results = ['a', 'b', 'c', 'd', 'e'].map((label) => ctx.updateConfig({ label }));
+    expect(ctx.config()).toEqual({ label: 'e' });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].config).toEqual({ label: 'a' });
+    calls[0].resolve();
+    await results[0];
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1].config).toEqual({ label: 'e' });
+    let settled = 0;
+    results.slice(1).forEach((r) => void r.then(() => settled++));
+    await Promise.resolve();
+    expect(settled).toBe(0);
+    calls[1].resolve();
+    await Promise.all(results);
+    expect(settled).toBe(4);
+    expect(calls).toHaveLength(2);
+    expect(ctx.config()).toEqual({ label: 'e' });
+  });
+
+  it('rejects coalesced promises and restores the last persisted value when the pending write fails', async () => {
+    const { ctx, calls } = setup();
+    const first = ctx.updateConfig({ label: 'one' });
+    const second = ctx.updateConfig({ label: 'two' });
+    const third = ctx.updateConfig({ label: 'three' });
+    calls[0].resolve();
+    await first;
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    calls[1].reject(new Error('disk'));
+    await expect(second).rejects.toThrow('disk');
+    await expect(third).rejects.toThrow('disk');
+    expect(ctx.config()).toEqual({ label: 'one' });
+  });
+
+  it('keeps the newest value when the running write fails but the pending one succeeds', async () => {
+    const { ctx, calls } = setup();
+    const first = ctx.updateConfig({ label: 'one' });
+    const second = ctx.updateConfig({ label: 'two' });
+    calls[0].reject(new Error('disk'));
+    await expect(first).rejects.toThrow('disk');
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    expect(ctx.config()).toEqual({ label: 'two' });
+    calls[1].resolve();
+    await second;
+    expect(ctx.config()).toEqual({ label: 'two' });
+  });
+
+  it('maps not_found of a coalesced write to WidgetInstanceNotFoundError', async () => {
+    const { ctx, calls } = setup();
+    const first = ctx.updateConfig({ label: 'one' });
+    const second = ctx.updateConfig({ label: 'two' });
+    calls[0].resolve();
+    await first;
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    calls[1].reject(new DataError('not_found', 'gone'));
+    await expect(second).rejects.toBeInstanceOf(WidgetInstanceNotFoundError);
+    expect(ctx.config()).toEqual({ label: 'one' });
+  });
+
+  it('starts a new write once the queue has drained', async () => {
+    const { ctx, calls } = setup();
+    const first = ctx.updateConfig({ label: 'one' });
+    calls[0].resolve();
+    await first;
+    const second = ctx.updateConfig({ label: 'two' });
+    expect(calls).toHaveLength(2);
+    calls[1].resolve();
+    await second;
+  });
 });

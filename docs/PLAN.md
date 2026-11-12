@@ -23,14 +23,16 @@ Ce que Tauri complique :
 |---|---|---|
 | Shell desktop | Tauri 2 (Rust) | Léger, notifications natives, tray, autostart, lancement d'apps |
 | Front | Angular 21 (zoneless, signals, Vitest) | Stack déjà maîtrisée |
-| UI | Tailwind 4 + PrimeNG | Composants prêts, thèmes clair/sombre |
-| Grille | angular-gridster2 **21.x épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Support zoneless revendiqué (PR #917, #950) mais issue #916 encore ouverte : à valider en phase 1 (la phase 0 utilise une grille CSS simple, voir ADR-001) |
+| UI | Tailwind 4 + PrimeNG, direction visuelle inspirée de GitHub (Primer) | Composants prêts, thèmes clair/sombre ; tokens `--hb-*`, preset PrimeNG maison, patterns : voir `docs/DESIGN.md` (décidé le 20/10/2026) |
+| Grille | angular-gridster2 **21.0.1 épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Intégré en phase 1 derrière `core/dashboard/grid-adapter.ts`, tests verts en zoneless ; comportement réel à confirmer à la main (issue #916) |
 | Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR) |
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
-| Récurrence | `rrule` | Standard RFC 5545 |
+| Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003 |
 | Timers | Web Worker (UI) + horloge Rust (rappels) | Fiable même fenêtre réduite |
 | Notifications | `tauri-plugin-notification`, tray, `autostart` | Natif Windows |
+| HTTP sortant | `reqwest` 0.13.5 (`default-features = false`, feature `native-tls` : TLS de Windows), module Rust `net`, appelé uniquement par des commandes dédiées | Pas de `tauri-plugin-http` ni de réseau depuis le front (CSP inchangée) ; rustls par défaut écarté (aws-lc exige NASM sous Windows). Voir `docs/specs/weather-widget.md` (décidé le 21/10/2026) |
+| Sauvegarde et fichiers natifs | `tauri-plugin-dialog` (dialogues ouverts par Rust uniquement, aucune permission JS ; ESLint `no-alert` car son script injecté remplace `alert`/`confirm`) ; `rfd` direct pour le message natif de démarrage bloqué ; archives `zip` 9 ; accès Rust à la base via `sqlx` 0.8 (même version que `tauri-plugin-sql`) | Voir `docs/specs/backup-restore.md` |
 | Mise à jour | `tauri-plugin-updater` (binaires signés) | Phase finitions |
 | CI | GitHub Actions, runner `windows-latest` | Build de l'installateur |
 
@@ -69,7 +71,7 @@ UTC + fuseau IANA ; récurrence en RRULE ; planificateur Rust qui recalcule la p
 - **Habits** : distinct de la TODO ; inclut des rappels de mise à jour périodique (ex. solde des comptes).
 - **Objectifs** : entièrement manuels (progression éditable, durée définie), étiquette libre (ex. SkyBlock). Aucune dépendance à une API de jeu.
 - **Budget/comptes** : saisie manuelle et import CSV ; automatisation bancaire reportée (GoCardless fermé aux nouveaux comptes depuis juillet 2025, Powens sur devis, autres non vérifiés).
-- **Météo** : Open-Meteo (sans clé, usage non commercial) ; géocodage inclus.
+- **Météo** : Open-Meteo (sans clé, usage non commercial, attribution CC BY 4.0) ; géocodage inclus ; requêtes par commandes Rust dédiées, cache en mémoire (spec : `docs/specs/weather-widget.md`).
 - **RSS** : récupération côté Rust ; vérifier d'abord que ses sources ont des flux.
 - **Statut de services** : sondes HTTP/TCP côté Rust, y compris le NAS local.
 - **Raccourcis** : liens URL et applications locales, via liste autorisée.
@@ -79,7 +81,7 @@ UTC + fuseau IANA ; récurrence en RRULE ; planificateur Rust qui recalcule la p
 
 ## 6. Sécurité
 - **Tauri** : capacités au strict minimum (`sql:allow-execute` explicitement, plugins de lancement/ouverture limités à une liste d'applications et de schémas d'URL autorisés), CSP stricte, aucune page distante chargée dans la fenêtre principale.
-- **Requêtes sortantes** (RSS, sondes) : liste d'hôtes autorisés ; refus des IP privées, sauf une liste explicite pour le NAS ; timeouts et taille maximale.
+- **Requêtes sortantes** (météo, RSS, sondes) : uniquement depuis le Rust (module `net`), jamais depuis le front. Liste d'hôtes autorisés ; refus des IP privées, sauf une liste explicite pour le NAS ; timeouts et taille maximale. Phase 1 (météo) : deux hôtes Open-Meteo fixés en dur, HTTPS seul, sans redirection ni proxy ; le filtrage des IP privées arrive en phase 3 (`OutboundHttp`).
 - **Secrets** : jamais dans le dépôt, le front ni les exports ; coffre du système (Windows Credential Manager).
 - **Contenu** : tout Markdown et tout flux RSS sont assainis avant affichage.
 - **Mises à jour** : binaires signés (clé privée hors dépôt).

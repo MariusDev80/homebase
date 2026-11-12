@@ -1,0 +1,230 @@
+@if (actionError(); as failure) {
+  <p role="alert" class="flash flash-danger" data-testid="shortcuts-action-error">
+    <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+    @if (failure === 'open') {
+      {{ 'widgets.shortcuts.openError' | transloco }}
+    } @else {
+      {{ 'widgets.shortcuts.actionError' | transloco }}
+    }
+  </p>
+}
+
+@switch (status()) {
+  @case ('error') {
+    <div class="empty-state" role="alert" data-testid="shortcuts-load-error">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      <p>{{ 'widgets.shortcuts.loadError' | transloco }}</p>
+      <button type="button" class="btn" data-testid="shortcuts-retry" (click)="load()">
+        {{ 'widgets.shortcuts.retry' | transloco }}
+      </button>
+    </div>
+  }
+  @case ('ready') {
+    <div class="flex items-center justify-end gap-2">
+      @if (managing()) {
+        <button
+          type="button"
+          class="btn btn-compact"
+          data-testid="shortcuts-add"
+          (click)="startAdd()"
+        >
+          <i class="pi pi-plus" aria-hidden="true"></i>
+          {{ 'widgets.shortcuts.add' | transloco }}
+        </button>
+      }
+      <button
+        type="button"
+        class="btn btn-compact"
+        data-testid="shortcuts-manage"
+        [attr.aria-pressed]="managing()"
+        (click)="toggleManaging()"
+      >
+        {{ 'widgets.shortcuts.manage' | transloco }}
+      </button>
+    </div>
+
+    @let form = editing();
+    @if (form) {
+      <form
+        class="flex flex-col gap-2 border border-default rounded-box p-2"
+        data-testid="shortcuts-form"
+        novalidate
+        (submit)="submit($event)"
+      >
+        <div>
+          <label for="shortcut-label-{{ ctx.instanceId }}" class="text-xs text-fg-muted">
+            {{ 'widgets.shortcuts.labelLabel' | transloco }}
+          </label>
+          <input
+            id="shortcut-label-{{ ctx.instanceId }}"
+            type="text"
+            class="field w-full"
+            data-testid="shortcuts-label"
+            maxlength="80"
+            autocomplete="off"
+            [value]="form.label"
+            [attr.aria-invalid]="labelError() !== null"
+            [attr.aria-describedby]="labelError() ? 'shortcut-label-error-' + ctx.instanceId : null"
+            (input)="onLabelInput($event)"
+          />
+          @if (labelError(); as key) {
+            <p
+              role="alert"
+              class="field-error"
+              id="shortcut-label-error-{{ ctx.instanceId }}"
+              data-testid="shortcuts-label-error"
+            >
+              {{ key | transloco }}
+            </p>
+          }
+        </div>
+        <div>
+          <label for="shortcut-url-{{ ctx.instanceId }}" class="text-xs text-fg-muted">
+            {{ 'widgets.shortcuts.urlLabel' | transloco }}
+          </label>
+          <input
+            id="shortcut-url-{{ ctx.instanceId }}"
+            type="text"
+            inputmode="url"
+            class="field w-full"
+            data-testid="shortcuts-url"
+            autocomplete="off"
+            spellcheck="false"
+            [value]="form.url"
+            [attr.aria-invalid]="urlError() !== null"
+            [attr.aria-describedby]="urlError() ? 'shortcut-url-error-' + ctx.instanceId : null"
+            (input)="onUrlInput($event)"
+          />
+          @if (urlError(); as key) {
+            <p
+              role="alert"
+              class="field-error"
+              id="shortcut-url-error-{{ ctx.instanceId }}"
+              data-testid="shortcuts-url-error"
+            >
+              {{ key | transloco }}
+            </p>
+          }
+        </div>
+        <div class="flex justify-end gap-2">
+          <button
+            type="button"
+            class="btn btn-compact"
+            data-testid="shortcuts-cancel"
+            (click)="cancelEdit()"
+          >
+            {{ 'widgets.shortcuts.cancel' | transloco }}
+          </button>
+          <button
+            type="submit"
+            class="btn btn-compact btn-primary"
+            data-testid="shortcuts-save"
+            [disabled]="busy()"
+          >
+            {{ 'widgets.shortcuts.save' | transloco }}
+          </button>
+        </div>
+      </form>
+    }
+
+    @if (items().length === 0) {
+      <div class="empty-state" data-testid="shortcuts-empty">
+        <i class="pi pi-link" aria-hidden="true"></i>
+        <p>{{ 'widgets.shortcuts.empty' | transloco }}</p>
+      </div>
+    } @else {
+      <ul class="m-0 list-none p-0" data-testid="shortcuts-list">
+        @for (item of items(); track item.id; let first = $first; let last = $last) {
+          <li
+            class="box-row flex items-center gap-2"
+            data-testid="shortcut-row"
+            [attr.data-shortcut-id]="item.id"
+          >
+            @if (!managing()) {
+              <button
+                type="button"
+                class="btn btn-invisible min-w-0 flex-1 justify-start"
+                data-testid="shortcut-open"
+                [attr.aria-label]="'widgets.shortcuts.open' | transloco: { label: item.label }"
+                (click)="open(item)"
+              >
+                <span
+                  class="inline-flex h-6 w-6 flex-none items-center justify-center rounded-box border border-default bg-canvas-subtle text-xs font-semibold text-fg-muted"
+                  aria-hidden="true"
+                  >{{ initial(item) }}</span
+                >
+                <span class="min-w-0 truncate">{{ item.label }}</span>
+                <span class="min-w-0 flex-none truncate text-xs font-normal text-fg-muted">{{
+                  domain(item)
+                }}</span>
+              </button>
+            } @else if (confirmingId() === item.id) {
+              <p class="min-w-0 flex-1 truncate" data-testid="shortcut-confirm">
+                {{ 'widgets.shortcuts.confirmRemove' | transloco: { label: item.label } }}
+              </p>
+              <button
+                type="button"
+                class="btn btn-compact btn-danger"
+                data-testid="shortcut-confirm-yes"
+                (click)="confirmRemove(item)"
+              >
+                {{ 'widgets.shortcuts.confirmYes' | transloco }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-compact"
+                data-testid="shortcut-confirm-no"
+                (click)="cancelRemove(item)"
+              >
+                {{ 'widgets.shortcuts.confirmNo' | transloco }}
+              </button>
+            } @else {
+              <span class="min-w-0 flex-1">
+                <span class="block truncate">{{ item.label }}</span>
+                <span class="block truncate text-xs text-fg-muted">{{ domain(item) }}</span>
+              </span>
+              <button
+                type="button"
+                class="btn btn-invisible btn-icon btn-compact"
+                data-testid="shortcut-up"
+                [disabled]="first"
+                [attr.aria-label]="'widgets.shortcuts.moveUp' | transloco: { label: item.label }"
+                (click)="move(item, -1)"
+              >
+                <i class="pi pi-arrow-up" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-invisible btn-icon btn-compact"
+                data-testid="shortcut-down"
+                [disabled]="last"
+                [attr.aria-label]="'widgets.shortcuts.moveDown' | transloco: { label: item.label }"
+                (click)="move(item, 1)"
+              >
+                <i class="pi pi-arrow-down" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-invisible btn-icon btn-compact"
+                data-testid="shortcut-edit"
+                [attr.aria-label]="'widgets.shortcuts.edit' | transloco: { label: item.label }"
+                (click)="startEdit(item)"
+              >
+                <i class="pi pi-pencil" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-invisible btn-icon btn-compact btn-danger"
+                data-testid="shortcut-remove"
+                [attr.aria-label]="'widgets.shortcuts.remove' | transloco: { label: item.label }"
+                (click)="askRemove(item)"
+              >
+                <i class="pi pi-trash" aria-hidden="true"></i>
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+}

@@ -1,7 +1,7 @@
 # ADR-001 : contrat `Widget`, registre et format de configuration
 
-- **Statut** : proposé (à valider par Marius)
-- **Date** : 2026-10-20 (amendé le même jour pour alignement sur l'ADR-002)
+- **Statut** : accepté (2026-10-22, par Marius, en fin de phase 1 ; les changements passent par des amendements explicites)
+- **Date** : 2026-10-20 (amendé le même jour pour alignement sur l'ADR-002, puis en phase 1 : `removeConfirmKey`, durcissement de l'opener)
 - **Auteur** : architect (Opus)
 - **Liens** : `docs/PLAN.md` §3 « Contrat Widget », §4, §5, §6 ; `docs/ROADMAP.md` phases 0 et 1 ; `docs/adr/002-data-layer.md` (couche de données)
 
@@ -92,6 +92,7 @@ Une définition par type de widget, déclarée dans `widgets/<type>/<type>.defin
 - `config` : `version` (entier ≥ 1), `schema` (Standard Schema v1, synchrone), `defaults()` (fabrique, pas d'objet partagé), `migrations` (`migrations[n]` transforme une config de version `n` en version `n+1` ; clés exactement `1..version-1`).
 - `permissions` : sous-ensemble de `'network' | 'notifications' | 'launch-apps' | 'open-url'`, sans doublon.
 - `maxInstances?` : entier ≥ 1, **par dashboard** (ex. barre de recherche unique) ; absent = illimité.
+- `removeConfirmKey?` : clé i18n non vide (refusée vide par le registre) du message de confirmation de suppression, à la place du message générique de l'hôte. À renseigner quand la suppression du widget supprime aussi des données (ex. `notes` : la note est liée à l'instance en `ON DELETE CASCADE`). *Amendement phase 1.*
 - `loadCalendarSource?` : chargement lazy d'un service `@Injectable({ providedIn: 'root' })` implémentant `CalendarSource`. La source est **par type** et non par instance : les rappels existent même si aucun widget « rappels » n'est placé. L'interface `CalendarSource` est **provisoire** ; l'ADR-003 (modèle de temps) et l'ADR-004 (calendrier) la figent avant tout usage (phase 2).
 
 ### 3.3 Registre
@@ -151,7 +152,9 @@ Format JSON d'export de la configuration (implémenté en phase 1, figé ici) :
   ]
 }
 ```
-Règles d'import (à détailler en phase 1, principes figés ici) : le fichier est une **donnée non fiable** ; taille max 1 Mio ; `format` exact et `formatVersion` ≤ supportée sinon refus ; ids en double dans le fichier → refus ; chaque config passe par `resolveConfig` ; type inconnu → instance conservée telle quelle (placeholder) ; import = **remplacement complet** des dashboards. Comme le front n'a pas de transaction (ADR-002 §2.3), ce remplacement atomique nécessitera **une commande Rust dédiée (transaction sqlx) ou une instruction SQL unique**, à concevoir en phase 1 (spec Opus).
+*Amendement phase 1 (spec backup-restore)* : `exportedAt`, `dashboards` et `"settings": { "<clé>": <JsonValue> }` (éventuellement vide) sont **obligatoires**. L'enveloppe est stricte. Les clés secrètes sont exclues à l'export et refusées à l'import. Import = **remplacement par identifiant** (décision de Marius) : lignes existantes mises à jour en place, y compris une instance qui change de dashboard ; `widgetType` différent → suppression puis recréation ; dashboards et widgets absents supprimés avec leurs données, après aperçu et sauvegarde `pre-import` ; `settings` fusionné ; au moins un dashboard. Le tout est appliqué atomiquement par `config_import_apply` (`BEGIN IMMEDIATE`). `future-version` et types inconnus sont conservés tels quels ; toute autre config invalide fait refuser le fichier. Les longueurs se comptent en points de code ; `trim` = `HB_TRIM`. U+0000 est refusé dans les noms et les types ; la profondeur JSON est limitée à 127.
+
+Règles d'import (principes ; détail et implémentation : amendement ci-dessus et `docs/specs/backup-restore.md` §4.12) : le fichier est une **donnée non fiable** ; taille max 1 Mio ; `format` exact et `formatVersion` ≤ supportée sinon refus ; ids en double dans le fichier → refus ; chaque config passe par `resolveConfig` ; type inconnu → instance conservée telle quelle (placeholder) ; import = **remplacement par identifiant** (voir l'amendement), appliqué atomiquement par la commande Rust `config_import_apply` (transaction sqlx `BEGIN IMMEDIATE`), le front n'ayant pas de transaction (ADR-002 §2.3).
 
 ### 3.6 Communication widget ↔ core
 - Le widget obtient tout ce qui le concerne via `injectWidgetContext<TConfig>()` : `instanceId`, `type`, `config` (signal typé), `size` (signal), `permissions`, `updateConfig(next)`.
@@ -180,8 +183,8 @@ Toutes les vues Angular tournent dans **une seule webview** : les capabilities T
 | Permission | Service `core/` (phase) | Côté Tauri (moindre privilège) |
 |---|---|---|
 | `notifications` | `NotificationService` (phase 2) | `tauri-plugin-notification` : uniquement les permissions nécessaires (envoi + état de l'autorisation), pas `default` sans relecture ; rappels planifiés côté Rust |
-| `open-url` | `UrlOpener` (phase 1, raccourcis liens) | `opener:allow-open-url` avec portée explicite `[{ "url": "https://*" }, { "url": "http://*" }]` ; **pas** `opener:default` (il autorise aussi `reveal-item-in-dir`, `mailto:`, `tel:`) ; pas `allow-open-path` |
-| `network` | `OutboundHttp` (phase 3) | **Aucune** permission `http:*` exposée au JS. Commandes Rust dédiées (`fetch_feed`, `probe_service`…) avec liste d'hôtes, refus des IP privées sauf NAS, timeouts, taille max (spec phase 3) |
+| `open-url` | `UrlOpener` (phase 1, raccourcis liens) | `opener:allow-open-url` avec portée explicite `[{ "url": "https://*" }, { "url": "http://*" }]` ; **pas** `opener:default` (il autorise aussi `reveal-item-in-dir`, `mailto:`, `tel:`) ; pas `allow-open-path`. *Amendement phase 1* : portée `deny` `[{ "url": "*\"*" }, { "url": "* *" }]` (une URL normalisée n'en contient jamais) ; aucune entrée avec `app` (elle permettrait de lancer un exécutable via `with`) ; plugin initialisé avec `open_js_links_on_click(false)` pour que l'écouteur de clic injecté ne contourne pas `UrlOpener` ; garde-fou `src/capability_tests.rs` |
+| `network` | Un service typé par source, sans client HTTP générique côté front : `WeatherService` (phase 1, `core/weather`), puis `FeedService`, `ProbeService`… (phase 3, `OutboundHttp`) | **Aucune** permission `http:*` exposée au JS ; CSP `connect-src` inchangée. *Amendement phase 1* : commandes Rust dédiées (`weather_forecast`, `weather_geocode`) sur le module Rust `net` (reqwest + native-tls) : hôtes fixés par une énumération fermée `Endpoint`, HTTPS seul, aucune redirection ni proxy, timeouts, taille max, sorties désérialisées et validées (`docs/specs/weather-widget.md`). Le filtrage des IP privées (sauf NAS) et les hôtes configurables arrivent en phase 3 avec `OutboundHttp`, sur ce même module (`fetch_feed`, `probe_service`…) |
 | `launch-apps` | `AppLauncher` (phase 3) | **Aucune** permission `shell:*`. Commande Rust `launch_app(appId)` : `appId` résolu dans une liste autorisée tenue côté Rust ; jamais de chemin ni d'argument venant du front |
 
 Règle complémentaire : restreindre les commandes Rust de l'app via `AppManifest::commands` dans `build.rs` (par défaut elles sont toutes accessibles à toutes les fenêtres). Ajouter un type de permission = amendement de cet ADR + mise à jour du tableau. Rappel ADR-002 : `sql:allow-execute`/`sql:allow-select` donnent au front un accès SQL complet (risque R1 de l'ADR-002) ; c'est une raison de plus de ne pas considérer les permissions JS comme une barrière.
@@ -243,7 +246,7 @@ Config v1 `{ name: string }` (1 à 40 caractères après `trim`, défaut `"monde
 1. Forme définitive de `CalendarSource` / `CalendarEvent` : ADR-003/004.
 2. Plusieurs dashboards affichés (navigation entre dashboards) : le modèle de données les supporte (ADR-002), l'interface reste mono-dashboard en phases 0 et 1.
 3. Permission `secrets` (GitHub, phase 6) : à ajouter par amendement quand le besoin arrive.
-4. Import/remplacement atomique (phase 1) : commande Rust ou instruction unique (§3.5).
+4. Import/remplacement atomique (phase 1) : commande Rust ou instruction unique (§3.5). **Clos (spec backup-restore).**
 
 Points clos : mécanisme i18n (Transloco, clés runtime) ; nommage SQL/TS de la couche données (ADR-002) ; lib de grille de phase 1 (angular-gridster2 21.x, repli gridstack).
 

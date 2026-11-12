@@ -6,6 +6,7 @@ Documents de référence (à lire à la demande, pas à chaque tâche) :
 - `docs/PLAN.md` : stack, architecture, sécurité, décisions et points à vérifier
 - `docs/ROADMAP.md` : phases et tâches, chacune taguée du modèle recommandé
 - `docs/DELEGATION.md` : qui fait quoi (Haiku / Sonnet / Opus), règles d'escalade
+- `docs/DESIGN.md` : direction visuelle inspirée de GitHub (tokens, patterns, carte Box) ; à lire pour toute tâche d'UI
 
 ## Stack (résumé)
 - Application Windows : Tauri 2 (Rust, WebView2) enveloppant Angular, dès la phase 0
@@ -28,6 +29,7 @@ Toutes depuis la racine (npm workspaces ; front = workspace `web` dans `apps/web
 - Code, identifiants, commits : anglais. Textes d'interface : français, via i18n (prêt pour d'autres langues).
 - Un widget = un dossier autonome qui implémente le contrat `Widget` (voir `docs/PLAN.md`, §3 « Contrat Widget »). Aucun widget n'importe un autre widget.
 - Composants standalone, `ChangeDetectionStrategy.OnPush`, état en signals. Pas de `any`.
+- UI : uniquement les tokens et classes sémantiques de `docs/DESIGN.md` (pas de couleur Tailwind brute ni d'hexadécimal en dur) ; la structure passe par des bordures, pas des ombres ; un widget ne rend que son corps (le cadre est dessiné par l'hôte).
 - Toute donnée utilisateur passe par la couche `data/` (interfaces de repository + implémentation SQLite). Aucun SQL dans un composant ni dans un widget.
 - Migrations : fichiers `V<n>__<nom>.sql` versionnés et immuables (une nouvelle migration par changement), UUID + `created_at`/`updated_at`.
 - Dates : stockées en UTC (ISO 8601) + fuseau IANA de l'utilisateur ; récurrence en RRULE. Jamais de calcul de date « à la main ».

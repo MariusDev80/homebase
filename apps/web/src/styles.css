@@ -2,5 +2,79 @@
 
 @import 'tailwindcss';
 @import 'primeicons/primeicons.css' layer(components);
+@import './app/core/theme/tokens.css' layer(base);
+@import './app/core/theme/components.css' layer(components);
 
 @custom-variant dark (&:where(.app-dark, .app-dark *));
+
+/* Semantic classes over the --hb-* tokens (docs/DESIGN.md section 5). No raw Tailwind palette. */
+@theme inline {
+  --color-*: initial;
+
+  --color-canvas: var(--hb-bg);
+  --color-canvas-subtle: var(--hb-bg-subtle);
+  --color-canvas-inset: var(--hb-bg-inset);
+  --color-emphasis: var(--hb-bg-emphasis);
+  --color-page: var(--hb-page-bg);
+  --color-hover: var(--hb-hover);
+
+  /* border-default / border-muted */
+  --color-default: var(--hb-border);
+  --color-muted: var(--hb-border-muted);
+
+  --color-fg: var(--hb-fg);
+  --color-fg-muted: var(--hb-fg-muted);
+  --color-fg-on-emphasis: var(--hb-fg-on-emphasis);
+
+  --color-accent: var(--hb-accent);
+  --color-accent-subtle: var(--hb-accent-subtle);
+  --color-success: var(--hb-success);
+  --color-success-emphasis: var(--hb-success-emphasis);
+  --color-success-subtle: var(--hb-success-subtle);
+  --color-danger: var(--hb-danger);
+  --color-danger-subtle: var(--hb-danger-subtle);
+  --color-attention: var(--hb-attention);
+  --color-attention-subtle: var(--hb-attention-subtle);
+  --color-focus: var(--hb-focus);
+
+  --font-sans: var(--hb-font-sans);
+  --font-mono: var(--hb-font-mono);
+
+  --text-xs: var(--hb-text-xs);
+  --text-xs--line-height: var(--hb-line-height);
+  --text-sm: var(--hb-text-base);
+  --text-sm--line-height: var(--hb-line-height);
+  --text-base: var(--hb-text-md);
+  --text-base--line-height: var(--hb-line-height);
+  --text-lg: var(--hb-text-lg);
+  --text-lg--line-height: 1.4;
+  --text-xl: var(--hb-text-xl);
+  --text-xl--line-height: 1.3;
+  --text-2xl: var(--hb-text-2xl);
+  --text-2xl--line-height: 1.2;
+
+  --font-weight-*: initial;
+  --font-weight-normal: var(--hb-weight-normal);
+  --font-weight-semibold: var(--hb-weight-semibold);
+
+  --radius-box: var(--hb-radius);
+  --radius-dialog: var(--hb-radius-lg);
+  --radius-pill: var(--hb-radius-full);
+
+  --shadow-floating: var(--hb-shadow-floating);
+}
+
+@layer base {
+  /* The vertical scrollbar appearing must not change the page width (and resize the grid). */
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background: var(--hb-bg);
+    color: var(--hb-fg);
+    font-family: var(--hb-font-sans);
+    font-size: var(--hb-text-base);
+    line-height: var(--hb-line-height);
+  }
+}

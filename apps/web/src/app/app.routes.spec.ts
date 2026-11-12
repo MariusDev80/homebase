@@ -3,8 +3,9 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { provideAppI18n } from './core/i18n';
 import { FakeDashboardRepository } from './core/testing/fake-dashboard.repository';
+import { FakeSettingsRepository } from './core/testing/fake-settings.repository';
 import { FakeWidgetInstanceRepository } from './core/testing/fake-widget-instance.repository';
-import { DASHBOARD_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from './data';
+import { DASHBOARD_REPOSITORY, SETTINGS_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from './data';
 import { routes } from './app.routes';
 import { provideAllWidgets } from './widgets/widgets.providers';
 
@@ -16,6 +17,7 @@ describe('routes', () => {
         provideRouter(routes),
         ...provideAllWidgets(),
         { provide: DASHBOARD_REPOSITORY, useClass: FakeDashboardRepository },
+        { provide: SETTINGS_REPOSITORY, useClass: FakeSettingsRepository },
         { provide: WIDGET_INSTANCE_REPOSITORY, useClass: FakeWidgetInstanceRepository },
       ],
     });

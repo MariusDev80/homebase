@@ -6,6 +6,7 @@ export type {
   SerializedConfig,
   ValidationResult,
 } from './widget-config';
+export { PendingWrites } from './pending-writes';
 export {
   WIDGET_CONTEXT,
   WidgetConfigError,

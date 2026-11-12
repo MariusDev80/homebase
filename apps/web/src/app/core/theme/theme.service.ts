@@ -4,13 +4,18 @@ import { THEME_MODES, THEME_PREFERENCE_STORE, ThemeMode } from './theme-preferen
 
 export type EffectiveTheme = 'light' | 'dark';
 export const DARK_CLASS = 'app-dark';
+/**
+ * Synchronous mirror of the preference (the source of truth stays in the settings table).
+ * Read by public/theme-init.js before the first paint: keep both in sync.
+ */
+export const THEME_MIRROR_KEY = 'hb.theme';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private readonly document = inject(DOCUMENT);
   private readonly store = inject(THEME_PREFERENCE_STORE);
 
-  private readonly modeState = signal<ThemeMode>('system');
+  private readonly modeState = signal<ThemeMode>(this.readMirror() ?? 'system');
   private readonly systemDark = signal(false);
   private userChanged = false;
 
@@ -45,6 +50,7 @@ export class ThemeService {
   setMode(mode: ThemeMode): void {
     this.userChanged = true;
     this.modeState.set(mode);
+    this.writeMirror(mode);
     void this.store.save(mode).catch((error: unknown) => {
       console.error('Could not persist theme preference', error);
     });
@@ -56,12 +62,42 @@ export class ThemeService {
     this.setMode(THEME_MODES[(index + 1) % THEME_MODES.length]);
   }
 
+  private readMirror(): ThemeMode | null {
+    try {
+      const value = this.document.defaultView?.localStorage.getItem(THEME_MIRROR_KEY);
+      return THEME_MODES.find((mode) => mode === value) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeMirror(mode: ThemeMode): void {
+    try {
+      this.document.defaultView?.localStorage.setItem(THEME_MIRROR_KEY, mode);
+    } catch {
+      // Storage unavailable: only the first-paint optimisation is lost.
+    }
+  }
+
+  private removeMirror(): void {
+    try {
+      this.document.defaultView?.localStorage.removeItem(THEME_MIRROR_KEY);
+    } catch {
+      // Storage unavailable: nothing to realign.
+    }
+  }
+
   private async loadInitial(): Promise<void> {
     try {
       const saved = await this.store.load();
       // Do not override a choice the user made while the preference was loading.
-      if (saved && !this.userChanged && THEME_MODES.includes(saved)) {
-        this.modeState.set(saved);
+      // The database is the source of truth: nothing (or garbage) saved means 'system', and the
+      // synchronous mirror is realigned accordingly.
+      if (!this.userChanged) {
+        const next: ThemeMode = saved && THEME_MODES.includes(saved) ? saved : 'system';
+        this.modeState.set(next);
+        if (saved === null) this.removeMirror();
+        else this.writeMirror(next);
       }
     } catch (error: unknown) {
       console.error('Could not load theme preference', error);

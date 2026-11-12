@@ -1,4 +1,5 @@
 import { JsonObject } from './json';
+import type { InstantIso, LocalDateIso } from './time-formats';
 
 export interface Dashboard {
   id: string;
@@ -43,4 +44,99 @@ export interface NewWidgetInstance {
 export interface LayoutItem {
   id: string;
   grid: GridRect;
+}
+
+export interface Note {
+  id: string;
+  /** Owning widget instance (the note is deleted with it); null = standalone. */
+  widgetInstanceId: string | null;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewNote {
+  id?: string;
+  widgetInstanceId?: string | null;
+  title?: string;
+  body?: string;
+}
+
+export interface Shortcut {
+  id: string;
+  label: string;
+  url: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewShortcut {
+  id?: string;
+  label: string;
+  url: string;
+}
+
+export interface ShortcutFields {
+  label: string;
+  url: string;
+}
+
+export interface TodoList {
+  id: string;
+  /** Owning widget instance (the list is deleted with it); null = standalone. */
+  widgetInstanceId: string | null;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewTodoList {
+  id?: string;
+  widgetInstanceId?: string | null;
+  name: string;
+}
+
+export interface Todo {
+  id: string;
+  listId: string;
+  title: string;
+  /** Wall-clock due date `YYYY-MM-DD` (ADR-003), or null. */
+  dueOn: LocalDateIso | null;
+  /** Instant `YYYY-MM-DDTHH:MM:SS.sssZ` of completion, or null when not completed. */
+  completedAt: InstantIso | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewTodo {
+  id?: string;
+  listId: string;
+  title: string;
+  dueOn?: string | null;
+}
+
+/** Search hit on a note; `excerpt` is a short plain-text extract (may be empty). */
+export interface NoteSearchHit {
+  id: string;
+  title: string;
+  widgetInstanceId: string | null;
+  excerpt: string;
+}
+
+/** Search hit on a todo; `widgetInstanceId` is the one of its list. */
+export interface TodoSearchHit {
+  id: string;
+  title: string;
+  listId: string;
+  widgetInstanceId: string | null;
+  completedAt: InstantIso | null;
+}
+
+export interface TodoChanges {
+  title?: string;
+  /** undefined keeps the current value; null clears it. */
+  dueOn?: string | null;
 }

@@ -65,7 +65,15 @@ describe('migrations', () => {
       const tables = await db.select<{ name: string }>(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
       );
-      expect(tables.map((t) => t.name)).toEqual(['dashboards', 'settings', 'widget_instances']);
+      expect(tables.map((t) => t.name)).toEqual([
+        'dashboards',
+        'notes',
+        'settings',
+        'shortcuts',
+        'todo_lists',
+        'todos',
+        'widget_instances',
+      ]);
 
       const integrity = await db.select<{ integrity_check: string }>('PRAGMA integrity_check');
       expect(integrity).toEqual([{ integrity_check: 'ok' }]);

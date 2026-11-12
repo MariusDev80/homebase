@@ -3,14 +3,31 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 /// Must be identical to plugins.sql.preload (tauri.conf.json) and to DB_URL (front).
 pub const DB_URL: &str = "sqlite:homebase.db";
 
+/// File name of the live database under app_config_dir().
+pub const DB_FILE_NAME: &str = "homebase.db";
+
 /// One entry per V<n>__<name>.sql file, in order, no gap. Never modify an existing entry.
 pub fn migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "init",
-        sql: include_str!("../migrations/V1__init.sql"),
-        kind: MigrationKind::Up,
-    }]
+    vec![
+        Migration {
+            version: 1,
+            description: "init",
+            sql: include_str!("../migrations/V1__init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "notes_and_shortcuts",
+            sql: include_str!("../migrations/V2__notes_and_shortcuts.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "todos",
+            sql: include_str!("../migrations/V3__todos.sql"),
+            kind: MigrationKind::Up,
+        },
+    ]
 }
 
 #[cfg(test)]
@@ -66,6 +83,11 @@ mod tests {
             assert_eq!(m.sql, sql);
             assert!(matches!(m.kind, MigrationKind::Up));
         }
+    }
+
+    #[test]
+    fn db_url_matches_file_name() {
+        assert_eq!(DB_URL, format!("sqlite:{DB_FILE_NAME}"));
     }
 
     #[test]

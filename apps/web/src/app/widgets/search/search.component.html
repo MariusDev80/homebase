@@ -1,0 +1,160 @@
+<div class="flex items-center gap-2">
+  <input
+    #field
+    type="text"
+    role="combobox"
+    class="field min-w-0 flex-1"
+    autocomplete="off"
+    spellcheck="false"
+    data-testid="search-input"
+    aria-autocomplete="list"
+    aria-haspopup="listbox"
+    [attr.aria-label]="'widgets.search.inputLabel' | transloco"
+    [attr.aria-expanded]="open()"
+    [attr.aria-controls]="listboxId"
+    [attr.aria-activedescendant]="activeId()"
+    [attr.maxlength]="maxLength"
+    [placeholder]="'widgets.search.placeholder' | transloco"
+    [value]="query()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+    (blur)="onBlur()"
+  />
+  <select
+    class="field"
+    data-testid="search-engine"
+    [attr.aria-label]="'widgets.search.engineLabel' | transloco"
+    (change)="onEngineChange($event)"
+  >
+    @for (name of engines; track name) {
+      <option [value]="name" [selected]="name === engine()">
+        {{ 'widgets.search.engines.' + name | transloco }}
+      </option>
+    }
+  </select>
+</div>
+
+<div
+  #listbox
+  popover="manual"
+  role="listbox"
+  data-testid="search-listbox"
+  class="m-0 inset-auto overflow-auto rounded-box border border-default bg-canvas p-1 text-fg shadow-floating"
+  [class.hidden]="!open()"
+  [id]="listboxId"
+  [attr.aria-label]="'widgets.search.inputLabel' | transloco"
+  [style.top.px]="placement()?.top"
+  [style.left.px]="placement()?.left"
+  [style.width.px]="placement()?.width"
+  [style.max-height.px]="placement()?.maxHeight"
+  (mousedown)="$event.preventDefault()"
+>
+  @if (open()) {
+    @for (section of sections(); track section.kind) {
+      <div role="group" [attr.aria-labelledby]="section.headerId">
+        <div
+          role="presentation"
+          class="px-2 pt-1 text-xs font-semibold text-fg-muted"
+          [id]="section.headerId"
+        >
+          {{ 'widgets.search.groups.' + section.kind | transloco }}
+        </div>
+        @for (option of section.options; track option.id) {
+          @let result = option.result;
+          @if (result) {
+            <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events -->
+            <div
+              role="option"
+              tabindex="-1"
+              class="flex min-h-8 cursor-pointer items-center gap-2 rounded-box px-2 hover:bg-hover aria-selected:bg-accent-subtle"
+              [id]="option.id"
+              [attr.data-testid]="'search-option-' + option.index"
+              [attr.aria-selected]="activeIndex() === option.index"
+              (click)="onOptionClick(option)"
+            >
+              <i [class]="icon(result.kind) + ' text-fg-muted'" aria-hidden="true"></i>
+              <span
+                class="truncate"
+                [class.line-through]="result.kind === 'todo' && result.completed"
+              >
+                @if (result.title === '') {
+                  {{ 'widgets.search.untitledNote' | transloco }}
+                } @else {
+                  @for (part of segments(result.title); track $index) {
+                    @if (part.match) {
+                      <mark class="bg-attention-subtle font-semibold text-fg">{{ part.text }}</mark>
+                    } @else {
+                      <span>{{ part.text }}</span>
+                    }
+                  }
+                }
+              </span>
+              @if (result.kind === 'todo' && result.completed) {
+                <span class="sr-only">{{ 'widgets.search.completed' | transloco }}</span>
+              }
+              @if (result.kind !== 'todo' && result.subtitle) {
+                <span class="min-w-0 flex-1 truncate text-xs text-fg-muted">
+                  @for (part of segments(result.subtitle); track $index) {
+                    @if (part.match) {
+                      <mark class="bg-attention-subtle font-semibold text-fg">{{ part.text }}</mark>
+                    } @else {
+                      <span>{{ part.text }}</span>
+                    }
+                  }
+                </span>
+              }
+            </div>
+          }
+        }
+      </div>
+    }
+    @let web = webOption();
+    @if (web) {
+      <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events -->
+      <div
+        role="option"
+        tabindex="-1"
+        class="flex min-h-8 cursor-pointer items-center gap-2 rounded-box px-2 hover:bg-hover aria-selected:bg-accent-subtle"
+        data-testid="search-option-web"
+        [id]="web.id"
+        [attr.aria-selected]="activeIndex() === web.index"
+        (click)="onOptionClick(web)"
+      >
+        <i class="pi pi-globe text-fg-muted" aria-hidden="true"></i>
+        <span class="truncate">
+          {{ 'widgets.search.webSearch' | transloco: { query: term(), engine: engineLabel() } }}
+        </span>
+      </div>
+    }
+  }
+</div>
+
+<span class="sr-only" role="status" aria-live="polite" data-testid="search-status">{{
+  announcement()
+}}</span>
+
+@if (term() === '' && !message()) {
+  <p class="text-xs text-fg-muted" data-testid="search-hint">
+    {{ 'widgets.search.hint' | transloco }}
+  </p>
+}
+
+@if (showEmpty()) {
+  <p class="text-xs text-fg-muted" data-testid="search-empty">
+    {{ 'widgets.search.noResults' | transloco }}
+  </p>
+}
+
+@if (failed().length > 0) {
+  <p role="alert" class="flash flash-attention" data-testid="search-partial-error">
+    <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+    <span>{{ 'widgets.search.partialError' | transloco: { sources: failedNames() } }}</span>
+  </p>
+}
+
+@if (message(); as failure) {
+  <p role="alert" class="flash flash-danger" data-testid="search-message">
+    <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+    {{ 'widgets.search.' + failure | transloco }}
+  </p>
+}

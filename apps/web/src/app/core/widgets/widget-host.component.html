@@ -1,31 +1,49 @@
 <section
-  class="flex h-full flex-col overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
+  #section
+  class="box h-full"
+  tabindex="-1"
+  data-testid="widget-card"
+  [class.is-highlighted]="highlighted()"
 >
-  <header
-    class="flex items-center gap-2 border-b border-slate-200 px-3 py-1.5 text-sm font-medium dark:border-slate-700"
-  >
+  <header class="box-header">
+    @if (editing()) {
+      <button
+        type="button"
+        class="btn btn-invisible btn-icon btn-compact cursor-move {{ dragHandleClass }}"
+        data-testid="widget-drag-handle"
+        [attr.aria-label]="'widgetHost.layout.handle' | transloco"
+        [attr.title]="'widgetHost.layout.handle' | transloco"
+        (keydown)="onHandleKeydown($event)"
+        (blur)="announcement.set('')"
+      >
+        <i class="pi pi-arrows-alt" aria-hidden="true"></i>
+      </button>
+    }
     @let def = definition();
     @if (def) {
       <i [class]="def.icon" aria-hidden="true"></i>
       <h2 class="flex-1 truncate">{{ def.titleKey | transloco }}</h2>
     } @else {
+      <i class="pi pi-question-circle" aria-hidden="true"></i>
       <h2 class="flex-1 truncate">{{ instance().widgetType }}</h2>
     }
     <button
       type="button"
-      class="cursor-pointer rounded px-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
+      #removeButton
+      class="btn btn-invisible btn-icon btn-compact"
       data-testid="widget-remove"
       [attr.aria-label]="'widgetHost.remove' | transloco"
       [attr.title]="'widgetHost.remove' | transloco"
       (click)="remove()"
     >
-      <i class="pi pi-times" aria-hidden="true"></i>
+      <i class="pi pi-trash" aria-hidden="true"></i>
     </button>
   </header>
 
-  <div class="min-h-0 flex-1 overflow-auto p-3">
+  <div class="box-body">
     @if (actionFailed()) {
-      <p role="alert" data-testid="widget-action-error" class="mb-2 text-red-700 dark:text-red-400">
+      <p role="alert" data-testid="widget-action-error" class="flash flash-danger mb-3">
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
         {{ 'widgetHost.actionError' | transloco }}
       </p>
     }
@@ -33,37 +51,44 @@
     @if (s.kind === 'ready') {
       <ng-container *ngComponentOutlet="s.component; injector: s.injector" />
     } @else if (s.kind === 'unknown-type') {
-      <p data-testid="widget-unknown">
-        {{ 'widgetHost.unknownType' | transloco: { type: s.type } }}
-      </p>
+      <div class="empty-state">
+        <i class="pi pi-question-circle" aria-hidden="true"></i>
+        <p data-testid="widget-unknown">
+          {{ 'widgetHost.unknownType' | transloco: { type: s.type } }}
+        </p>
+      </div>
     } @else if (s.kind === 'invalid-config') {
-      <p data-testid="widget-invalid">
-        @if (s.reason === 'future-version') {
-          {{ 'widgetHost.futureVersion' | transloco }}
-        } @else {
-          {{ 'widgetHost.invalidConfig' | transloco }}
+      <div class="flash flash-attention flex-col items-start">
+        <p data-testid="widget-invalid">
+          @if (s.reason === 'future-version') {
+            {{ 'widgetHost.futureVersion' | transloco }}
+          } @else {
+            {{ 'widgetHost.invalidConfig' | transloco }}
+          }
+        </p>
+        @if (s.reason !== 'future-version') {
+          <button
+            type="button"
+            class="btn btn-compact"
+            data-testid="widget-reset"
+            (click)="reset()"
+          >
+            {{ 'widgetHost.resetConfig' | transloco }}
+          </button>
         }
-      </p>
-      @if (s.reason !== 'future-version') {
-        <button
-          type="button"
-          class="mt-2 cursor-pointer rounded border border-slate-400 px-2 py-0.5"
-          data-testid="widget-reset"
-          (click)="reset()"
-        >
-          {{ 'widgetHost.resetConfig' | transloco }}
-        </button>
-      }
+      </div>
     } @else if (s.kind === 'load-error') {
-      <p data-testid="widget-load-error">{{ 'widgetHost.loadError' | transloco }}</p>
-      <button
-        type="button"
-        class="mt-2 cursor-pointer rounded border border-slate-400 px-2 py-0.5"
-        data-testid="widget-retry"
-        (click)="retry()"
-      >
-        {{ 'widgetHost.retry' | transloco }}
-      </button>
+      <div class="flash flash-danger flex-col items-start">
+        <p data-testid="widget-load-error">{{ 'widgetHost.loadError' | transloco }}</p>
+        <button type="button" class="btn btn-compact" data-testid="widget-retry" (click)="retry()">
+          {{ 'widgetHost.retry' | transloco }}
+        </button>
+      </div>
     }
   </div>
+  <span class="sr-only" role="status" aria-live="polite" data-testid="widget-layout-status">{{
+    announcement()
+  }}</span>
 </section>
+
+<p-confirmdialog />

@@ -135,6 +135,9 @@ export function validateDefinition(definition: WidgetDefinition): readonly strin
   }
   if (!definition.titleKey) problems.push('titleKey must not be empty');
   if (!definition.descriptionKey) problems.push('descriptionKey must not be empty');
+  if (definition.removeConfirmKey !== undefined && !definition.removeConfirmKey) {
+    problems.push('removeConfirmKey must not be empty when provided');
+  }
   if (typeof definition.loadComponent !== 'function') {
     problems.push('loadComponent must be a function');
   }

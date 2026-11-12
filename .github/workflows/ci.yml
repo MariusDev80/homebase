@@ -74,6 +74,9 @@ jobs:
       - name: Clippy
         run: npm run rust:lint
 
+      - name: Clippy (release profile)
+        run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --release --all-targets -- -D warnings
+
       - name: Rust tests
         run: npm run rust:test
 
