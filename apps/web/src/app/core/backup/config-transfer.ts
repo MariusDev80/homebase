@@ -1,6 +1,8 @@
 import * as v from 'valibot';
+import { DASHBOARD_ICON_PATTERN, DEFAULT_DASHBOARD_ICON } from '../../data';
 import type { JsonObject, JsonValue } from '../../data';
 import { isValidInstant } from '../time';
+import { DASHBOARD_THEME_SPEC } from '../dashboard/dashboard-theme';
 import { MAX_CONFIG_CHARS, resolveConfig, serializeConfig } from '../widgets';
 import type { WidgetDefinition } from '../widgets';
 import type {
@@ -21,12 +23,17 @@ import { codePointLength, hbTrim } from './hb-trim';
  */
 
 export const CONFIG_FORMAT = 'homebase/dashboard-config';
-export const CONFIG_FORMAT_VERSION = 1;
+export const CONFIG_FORMAT_VERSION = 3;
+/** Versions this build reads: 1 (no icon, no theme), 2 (no theme) and 3. */
+export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3];
 
 /** Same pattern as `SqliteSettingsRepository` (data/ is not touched, so it is repeated here). */
 export const SECRET_KEY_PATTERN = /(secret|token|passw(or)?d|api[-_.]?key|credential)/i;
 export const SETTING_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,127}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Local to this installation: never exported, ignored when found in a file to import. */
+export const EXCLUDED_SETTING_KEYS: readonly string[] = ['dashboard.last'];
 
 /** Limits of spec 4.3, identical in Rust (`config_transfer.rs`). Lengths are in code points. */
 export const CONFIG_LIMITS = {
@@ -42,6 +49,8 @@ export const CONFIG_LIMITS = {
   maxNameChars: 100,
   maxWidgetTypeChars: 64,
   maxJsonChars: 65_536,
+  /** Same as `MAX_DASHBOARD_THEME_CHARS` (data/) and Rust; in code points. */
+  maxThemeChars: 4_096,
 } as const;
 
 /** Problems reported at most (one is enough to refuse the file). */
@@ -69,6 +78,8 @@ export interface ConfigExportDashboard {
   readonly id: string;
   readonly name: string;
   readonly sortOrder: number;
+  readonly icon: string;
+  readonly theme: { readonly version: number; readonly data: JsonObject };
   readonly widgets: readonly ConfigExportWidget[];
 }
 
@@ -87,6 +98,9 @@ export interface ConfigExportInput {
     readonly id: string;
     readonly name: string;
     readonly sortOrder: number;
+    readonly icon: string;
+    readonly theme: JsonObject;
+    readonly themeVersion: number;
     readonly widgets: readonly {
       readonly id: string;
       readonly widgetType: string;
@@ -104,7 +118,7 @@ export interface ConfigExportInput {
  */
 export function buildConfigExport(input: ConfigExportInput): ConfigExportDocument {
   const pairs = [...input.settings.entries()]
-    .filter(([key]) => !SECRET_KEY_PATTERN.test(key))
+    .filter(([key]) => !SECRET_KEY_PATTERN.test(key) && !EXCLUDED_SETTING_KEYS.includes(key))
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return {
     format: CONFIG_FORMAT,
@@ -114,6 +128,8 @@ export function buildConfigExport(input: ConfigExportInput): ConfigExportDocumen
       id: dashboard.id,
       name: dashboard.name,
       sortOrder: dashboard.sortOrder,
+      icon: dashboard.icon,
+      theme: { version: dashboard.themeVersion, data: dashboard.theme },
       widgets: dashboard.widgets.map((widget) => ({
         id: widget.id,
         widgetType: widget.widgetType,
@@ -145,6 +161,8 @@ export interface ParsedConfigImport {
   readonly unknownTypes: readonly string[];
   /** Instances whose config version is newer than this build (kept as is). */
   readonly futureVersions: number;
+  /** The file predates themes (format 1 or 2). */
+  readonly resetsThemes: boolean;
 }
 
 export type ParseConfigImportResult =
@@ -165,6 +183,8 @@ const envelopeSchema = v.strictObject({
       id: v.string(),
       name: v.string(),
       sortOrder: v.number(),
+      icon: v.optional(v.string()),
+      theme: v.optional(v.strictObject({ version: v.number(), data: v.unknown() })),
       widgets: v.array(
         v.strictObject({
           id: v.string(),
@@ -314,6 +334,32 @@ function resolveWidget(
   return null;
 }
 
+interface ThemeOutcome {
+  readonly theme: string;
+  readonly themeVersion: number;
+}
+
+/** Resolves the theme of a format 3 dashboard; `null` when invalid. */
+function resolveTheme(version: number, data: unknown): ThemeOutcome | null {
+  if (!isPlainObject(data)) return null;
+  const stored = data as JsonObject;
+  const resolved = resolveConfig(DASHBOARD_THEME_SPEC, version, stored);
+  let text: string;
+  let themeVersion = version;
+  if (resolved.status === 'ok') {
+    const serialized = serializeConfig(DASHBOARD_THEME_SPEC, resolved.config);
+    if (!serialized.ok) return null;
+    text = JSON.stringify(serialized.config);
+    themeVersion = serialized.version;
+  } else if (resolved.reason === 'future-version') {
+    text = JSON.stringify(stored);
+  } else {
+    return null;
+  }
+  if (codePointLength(text) > CONFIG_LIMITS.maxThemeChars) return null;
+  return { theme: text, themeVersion };
+}
+
 /**
  * Parses and validates an exported file (untrusted). Returns the plan for `config_import_apply`
  * or the list of problems (at most `MAX_REPORTED_ISSUES`).
@@ -353,6 +399,15 @@ function analyse(
   lookup: WidgetLookup,
   issues: IssueCollector,
 ): ParseConfigImportResult {
+  // Read before the strict validation: a future format may add fields this build does not know.
+  if (
+    isPlainObject(root) &&
+    typeof root['formatVersion'] === 'number' &&
+    root['formatVersion'] > CONFIG_FORMAT_VERSION
+  ) {
+    issues.add('unsupported_version', 'formatVersion');
+    return issues.failure();
+  }
   if (isUnrepresentable(root)) {
     issues.add('invalid_value', '');
     return issues.failure();
@@ -366,11 +421,9 @@ function analyse(
   }
   const doc = parsed.output;
 
-  if (doc.formatVersion > CONFIG_FORMAT_VERSION) {
-    issues.add('unsupported_version', 'formatVersion');
-    return issues.failure();
+  if (!SUPPORTED_FORMAT_VERSIONS.includes(doc.formatVersion)) {
+    issues.add('invalid_value', 'formatVersion');
   }
-  if (doc.formatVersion !== CONFIG_FORMAT_VERSION) issues.add('invalid_value', 'formatVersion');
   if (!isValidInstant(doc.exportedAt)) issues.add('invalid_value', 'exportedAt');
 
   if (doc.dashboards.length < CONFIG_LIMITS.minDashboards) issues.add('no_dashboard', 'dashboards');
@@ -402,6 +455,35 @@ function analyse(
     }
     if (!isIntegerIn(dashboard.sortOrder, 0, CONFIG_LIMITS.maxSortOrder)) {
       issues.add('invalid_value', `${dPath}.sortOrder`);
+    }
+    let icon = DEFAULT_DASHBOARD_ICON;
+    if (doc.formatVersion === 1) {
+      if (dashboard.icon !== undefined) issues.add('unknown_field', `${dPath}.icon`);
+    } else if (dashboard.icon === undefined) {
+      issues.add('missing_field', `${dPath}.icon`);
+    } else if (!DASHBOARD_ICON_PATTERN.test(dashboard.icon)) {
+      issues.add('invalid_value', `${dPath}.icon`);
+    } else {
+      icon = dashboard.icon;
+    }
+    let theme = JSON.stringify(DASHBOARD_THEME_SPEC.defaults());
+    let themeVersion = DASHBOARD_THEME_SPEC.version;
+    if (doc.formatVersion === 1 || doc.formatVersion === 2) {
+      if (dashboard.theme !== undefined) issues.add('unknown_field', `${dPath}.theme`);
+    } else if (doc.formatVersion !== 3) {
+      // Unsupported format version: already reported.
+    } else if (dashboard.theme === undefined) {
+      issues.add('missing_field', `${dPath}.theme`);
+    } else if (!isIntegerIn(dashboard.theme.version, 1, CONFIG_LIMITS.maxConfigVersion)) {
+      issues.add('invalid_value', `${dPath}.theme.version`);
+    } else {
+      const outcome = resolveTheme(dashboard.theme.version, dashboard.theme.data);
+      if (outcome === null) {
+        issues.add('invalid_value', `${dPath}.theme`);
+      } else {
+        theme = outcome.theme;
+        themeVersion = outcome.themeVersion;
+      }
     }
     if (dashboard.widgets.length > CONFIG_LIMITS.maxWidgetsPerDashboard) {
       issues.add('too_many', `${dPath}.widgets`);
@@ -463,7 +545,15 @@ function analyse(
         configVersion: outcome.configVersion,
       });
     });
-    dashboards.push({ id: dashboard.id, name, sortOrder: dashboard.sortOrder, widgets });
+    dashboards.push({
+      id: dashboard.id,
+      name,
+      sortOrder: dashboard.sortOrder,
+      icon,
+      theme,
+      themeVersion,
+      widgets,
+    });
   });
 
   const settings: ConfigImportPlanSetting[] = [];
@@ -473,6 +563,7 @@ function analyse(
     const entries = Object.entries(doc.settings);
     if (entries.length > CONFIG_LIMITS.maxSettings) issues.add('too_many', 'settings');
     for (const [key, value] of entries) {
+      if (EXCLUDED_SETTING_KEYS.includes(key)) continue;
       const sPath = DISPLAYABLE_KEY.test(key) ? `settings.${key}` : 'settings';
       if (SECRET_KEY_PATTERN.test(key)) {
         issues.add('secret_setting', sPath);
@@ -498,6 +589,7 @@ function analyse(
       plan: { dashboards, settings },
       unknownTypes: [...unknownTypes].sort(),
       futureVersions,
+      resetsThemes: doc.formatVersion === 1 || doc.formatVersion === 2,
     },
   };
 }
@@ -538,6 +630,7 @@ export function buildImportPreview(
     settings: parsed.plan.settings.length,
     unknownTypes: parsed.unknownTypes,
     futureVersions: parsed.futureVersions,
+    resetsThemes: parsed.resetsThemes,
     removedDashboards: current.dashboards.filter((d) => !fileDashboards.has(d.id)).length,
     removedWidgets,
     replacedWidgets,

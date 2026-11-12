@@ -1,5 +1,8 @@
 import { ApplicationInitStatus, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
+import { DashboardStore } from '../../core/dashboard/dashboard.store';
+import { FakeWidgetInstanceRepository } from '../../core/testing/fake-widget-instance.repository';
 import { provideAppI18n } from '../../core/i18n';
 import { WidgetFocus } from '../../core/dashboard/widget-focus';
 import { UrlOpener } from '../../core/system';
@@ -8,7 +11,12 @@ import { FakeShortcutRepository } from '../../core/testing/fake-shortcut.reposit
 import { FakeTodoRepository } from '../../core/testing/fake-todo.repository';
 import { WIDGET_CONTEXT } from '../../core/widgets';
 import type { WidgetContext } from '../../core/widgets';
-import { NOTE_REPOSITORY, SHORTCUT_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import {
+  NOTE_REPOSITORY,
+  SHORTCUT_REPOSITORY,
+  TODO_REPOSITORY,
+  WIDGET_INSTANCE_REPOSITORY,
+} from '../../data';
 import type { Clock } from '../../data';
 import { SEARCH_DEBOUNCE_MS, SearchComponent } from './search.component';
 import type { SearchConfig } from './search.config';
@@ -19,7 +27,9 @@ async function render(engine: SearchConfig['engine'] = 'duckduckgo') {
   const notes = new FakeNoteRepository();
   const todos = new FakeTodoRepository(clock);
   const open = vi.fn().mockResolvedValue(undefined);
-  const focusInstance = vi.fn<(id: string) => 'focused' | 'not-found'>().mockReturnValue('focused');
+  const focusInstance = vi
+    .fn<(id: string) => Promise<'focused' | 'not-found' | 'unplaced'>>()
+    .mockResolvedValue('focused');
   const config = signal<SearchConfig>({ engine });
   const updateConfig = vi.fn((next: SearchConfig): Promise<void> => {
     config.set(next);
@@ -42,6 +52,17 @@ async function render(engine: SearchConfig['engine'] = 'duckduckgo') {
       { provide: TODO_REPOSITORY, useValue: todos },
       { provide: UrlOpener, useValue: { open } },
       { provide: WidgetFocus, useValue: { focusInstance } },
+      // SearchHotkey dependencies (the Ctrl+K navigation has its own spec).
+      { provide: WIDGET_INSTANCE_REPOSITORY, useValue: new FakeWidgetInstanceRepository() },
+      { provide: Router, useValue: { navigate: vi.fn().mockResolvedValue(false) } },
+      {
+        provide: DashboardStore,
+        useValue: {
+          dashboard: () => null,
+          session: () => 1,
+          whenOpened: () => Promise.resolve('ready'),
+        },
+      },
     ],
   });
   await TestBed.inject(ApplicationInitStatus).donePromise;
@@ -143,6 +164,21 @@ describe('SearchComponent', () => {
     expect(option.textContent).toContain('<img src=x onerror=alert(1)>');
   });
 
+  it('shows a todo description excerpt highlighted, as text only (title matches come first)', async () => {
+    const t = await render();
+    const list = t.todos.seedList('w1');
+    t.todos.seed(list.id, 'Ranger', { description: 'foo <img src=x onerror=alert(1)>' });
+    t.todos.seed(list.id, 'foo sans description');
+    await t.type('foo');
+    await t.settle(SEARCH_DEBOUNCE_MS);
+    const withExcerpt = t.q('search-option-1') as HTMLElement;
+    expect(withExcerpt.querySelector('img')).toBeNull();
+    expect(withExcerpt.querySelector('.text-xs mark')?.textContent).toBe('foo');
+    expect(withExcerpt.textContent).toContain('foo <img src=x onerror=alert(1)>');
+    const without = t.q('search-option-0') as HTMLElement;
+    expect(without.querySelector('.text-xs')).toBeNull();
+  });
+
   it('navigates with arrows (wrapping), tracks aria-activedescendant, Enter activates', async () => {
     const t = await render();
     t.shortcuts.seed('Angular', 'https://angular.dev');
@@ -224,15 +260,52 @@ describe('SearchComponent', () => {
     t.press('ArrowDown');
     t.press('Enter');
     await t.settle();
-    expect(t.q('search-message')?.textContent).toContain('pas sur le tableau de bord');
+    expect(t.q('search-message')?.textContent).toContain("n'existe plus");
 
-    t.focusInstance.mockReturnValue('not-found');
+    t.focusInstance.mockResolvedValue('not-found');
     await t.type('courses');
     await t.settle(SEARCH_DEBOUNCE_MS);
     t.press('ArrowDown');
     t.press('Enter');
     await t.settle();
     expect(t.q('search-message')).not.toBeNull();
+  });
+
+  it('says so when the widget has no room on the grid of its dashboard', async () => {
+    const t = await render();
+    t.focusInstance.mockResolvedValue('unplaced');
+    t.notes.seed({ id: 'n1', title: 'Courses', widgetInstanceId: 'w1' });
+    await t.type('courses');
+    await t.settle(SEARCH_DEBOUNCE_MS);
+    t.press('ArrowDown');
+    t.press('Enter');
+    await t.settle();
+    expect(t.q('search-message')?.textContent).toContain('ne tient pas sur la grille');
+  });
+
+  describe('list placement', () => {
+    const rectOf = (top: number, bottom: number): DOMRect =>
+      ({ top, bottom, left: 10, width: 300, height: bottom - top }) as DOMRect;
+
+    it('opens below the field when there is room', async () => {
+      const t = await render();
+      vi.spyOn(t.input, 'getBoundingClientRect').mockReturnValue(rectOf(100, 130));
+      await t.type('a');
+      const list = t.q('search-listbox') as HTMLElement;
+      expect(list.style.top).toBe('134px');
+      expect(list.style.bottom).toBe('');
+    });
+
+    it('opens above the field when the room below is short and the room above is larger', async () => {
+      const t = await render();
+      const height = window.innerHeight;
+      vi.spyOn(t.input, 'getBoundingClientRect').mockReturnValue(rectOf(height - 100, height - 70));
+      await t.type('a');
+      const list = t.q('search-listbox') as HTMLElement;
+      expect(list.style.top).toBe('');
+      expect(list.style.bottom).toBe('104px');
+      expect(list.style.maxHeight).toBe(`${height - 120}px`);
+    });
   });
 
   it('shows the empty state and a partial error', async () => {
@@ -292,7 +365,7 @@ describe('SearchComponent', () => {
     it('is unregistered when the widget is destroyed', async () => {
       const t = await render();
       t.fixture.destroy();
-      expect(key({ key: 'k', ctrlKey: true }).defaultPrevented).toBe(false);
+      expect(key({ key: '/' }).defaultPrevented).toBe(false);
     });
   });
 });

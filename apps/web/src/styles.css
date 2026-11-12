@@ -28,6 +28,7 @@
 
   --color-accent: var(--hb-accent);
   --color-accent-subtle: var(--hb-accent-subtle);
+  --color-accent-emphasis: var(--hb-accent-emphasis);
   --color-success: var(--hb-success);
   --color-success-emphasis: var(--hb-success-emphasis);
   --color-success-subtle: var(--hb-success-subtle);
@@ -65,9 +66,9 @@
 }
 
 @layer base {
-  /* The vertical scrollbar appearing must not change the page width (and resize the grid). */
+  /* The shell is 100dvh and only main scrolls. */
   html {
-    scrollbar-gutter: stable;
+    overflow: hidden;
   }
 
   body {

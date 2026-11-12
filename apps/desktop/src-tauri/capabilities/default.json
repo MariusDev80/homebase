@@ -18,6 +18,7 @@
     "allow-config-export-save",
     "allow-config-import-pick",
     "allow-config-import-apply",
+    "allow-dashboard-delete",
     "sql:allow-execute",
     "sql:allow-select",
     {

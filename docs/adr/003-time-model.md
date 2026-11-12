@@ -227,6 +227,7 @@ Conséquences : un quotidien à 02:30 sonne **une fois** le 2026-10-25 (00:30Z) 
 - `temporal-polyfill` **^1.0.6**, référencé **uniquement** dans `core/time/temporal.ts`. Tout le reste importe `Temporal` depuis `core/time`, **sans alias**.
   - **Amendement (2026-10-21, validé par Marius) : chargement conditionnel.** La forme initiale (`export { Temporal } from 'temporal-polyfill'`, ponyfill) embarquait ~57 kB de polyfill dans le bundle initial alors que la WebView2 a Temporal natif (code mort en production). `temporal.ts` exporte désormais une liaison vivante `export let Temporal = globalThis.Temporal` (fusionnée avec un espace de noms de types seuls, pour que `Temporal.Instant` serve de type et de valeur) et `installTemporal()`, qui fait `import('temporal-polyfill')` (chunk paresseux) **uniquement** si `globalThis.Temporal` est absent. `main.ts` appelle `installTemporal().then(() => bootstrapApplication(…))` (pas un initialiseur Angular : ils tournent en parallèle, un service racine pourrait utiliser `core/time` trop tôt). Tests : `src/test-setup.ts` (cible `test`, `setupFiles`) charge `temporal-polyfill/global` (Node 24 n'a pas Temporal natif) ; exempté de la règle d'import ESLint, comme `import()` dans `temporal.ts`. Risque R3 inchangé : vecteurs vérifiés sous polyfill, production en natif ; contrôle manuel `typeof globalThis.Temporal === 'object'` dans la WebView2.
 - **Aucune** bibliothèque RRULE : codec strict maison (§3.5), qui ne calcule aucune date ; il appelle `parseLocalDate` de `core/time` pour valider la date d'un `UNTIL`.
+  *Amendement (spec todo-details, 2026-11-10)* : exception unique, `core/time/date-rule.ts` calcule la prochaine échéance d'une tâche répétée (§3.9).
 - Formatage : `TimeDisplay` uniquement (`Intl.DateTimeFormat` avec `timeZone` explicite). `DatePipe`, `formatDate` et `CommonModule` (qui apporte `| date`) interdits.
 - Saisie de dates (phase 1) : `<input type="date">` natif (valeur `YYYY-MM-DD`, validée par `parseLocalDate`). Le `DatePicker` de PrimeNG (qui produit un `Date`) est **interdit** tant qu'un adaptateur `Date` ↔ `LocalDateIso` n'existe pas dans `core/time` (à concevoir s'il devient nécessaire).
 - **Budget** : le build est déjà à ~504 kB pour 500 kB (V17). **Ne pas relever le budget sans l'accord de Marius.** Si `web:build` échoue sur le budget, s'arrêter et rapporter. Piste à lui soumettre : garder Temporal hors du bundle initial (initialiseur de fuseau fondé sur `Intl` seul, Temporal chargé avec les widgets et Réglages paresseux).
@@ -355,6 +356,8 @@ Deux commandes **pures** (aucun accès disque, réseau ni état), **asynchrones*
 - Tri SQL direct sur `due_on`, `NULLS LAST` explicite.
 - **Amendement (2026-10-21, implémentation du widget TODO)** : le widget trie par ordre manuel (`sort_order`, tâches non terminées d'abord, puis terminées par `completed_at` décroissant) et non par échéance ; l'échéance n'est qu'une étiquette. Un tri par `due_on` (`NULLS LAST`) reste possible plus tard comme option d'affichage. Une tâche terminée n'est jamais « en retard ».
 - Une échéance avec heure et rappel arrivera en phase 2 sous forme d'un **rappel** lié (ancre horodatée).
+
+*Amendement (spec todo-details, 2026-11-10)* : une tâche peut se répéter. `todos.rrule` (V6 ; fragment §3.1.3 complété de `due_on IS NOT NULL`) porte une règle canonique du sous-ensemble `FREQ` ∈ {`DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY`}, `INTERVAL` (bornes §3.5.1, omis s'il vaut 1), `BYMONTHDAY=-1` (`MONTHLY` seulement) ; ancre datée = `due_on`. Cocher une tâche répétée avance `due_on` à la première occurrence de la série strictement postérieure à max(échéance, aujourd'hui) (périodes manquées sautées, coche en avance → période suivante ; validé par Marius) ; ni `completed_at` ni historique ; sans occurrence au plus tard le 2199-12-31, la tâche est terminée normalement. Ce calcul est fait **en TypeScript** par `core/time/date-rule.ts` (Temporal), par exception au moteur unique Rust (§2.4) : une tâche est une ancre datée qui ne déclenche jamais de notification (§3.5.5), le sous-ensemble n'a ni `BYDAY`, ni `COUNT`, ni `UNTIL`, et il s'agit d'une seule prochaine occurrence, pas d'une expansion de plage. Les jours inexistants sont ignorés (D2) ; l'interface propose « le dernier jour du mois » quand l'échéance est le dernier jour de son mois. Les vecteurs `dateNext` de `time-vectors.json` font foi pour les deux côtés. Au lot B, `parseDateRule` est réécrit au-dessus du codec complet (codec + restriction au sous-ensemble), sans changer sa signature ni les vecteurs. Toute extension (`BYDAY`, `COUNT`, `UNTIL`) passe par le codec et le moteur du lot B.
 
 ### 3.10 Ce qui reste pour la phase 2 et l'ADR-004
 **Spec planificateur (phase 2, Opus)** : boucle (réveil à intervalle borné, ≤ 30 s, comparé à `Clock::now()` pour survivre à la veille et aux changements d'horloge) ; rattrapage au démarrage (recommandation : une notification pour la **dernière** occurrence manquée par élément, plus un résumé) ; table des déclenchements avec unicité `(élément, clé d'occurrence)` ; cache `next_fire_at` ; accès Rust à la base (ADR-002 O2) ; plugin single-instance ; modèle des timers ; édition « cette occurrence / les suivantes / toutes ».
@@ -731,6 +734,7 @@ Contenu minimal :
 - `startOfDay` : C22 (3 valeurs), `S-SANTIAGO` (C23).
 - `ruleCodec` (lot B) : chaque ligne du §3.5.1 et chaque code du §3.5.2 au moins une fois (sauf `until_before_start`), dont C14, C15, C31, C33 ; `INTERVAL=1` supprimé ; `RRULE:FREQ=DAILY`, `freq=daily` → `syntax` ; `FREQ=YEARLY;BYMONTHDAY=1` → `part_not_allowed` ; `FREQ=MONTHLY;BYDAY=2TU;BYMONTHDAY=1` → `conflicting_parts` ; `FREQ=DAILY;WKST=SU` → `unsupported_part` ; `UNTIL=20261231` avec ancre horodatée → `until_kind_mismatch` ; `UNTIL=20261231T000000Z` avec ancre datée → `until_kind_mismatch` ; `UNTIL=20261231T246000Z` → `invalid_value`.
 - `expand` (lot B, Rust seul) : C2 à C13, C16, C17 (`E-COUNT-WINDOW`), C24, `E-WEEKLY-DTSTART-NOMATCH` (C6), `E-GAP` (C3), une ancre ponctuelle sans règle, une limite qui tronque, C30.
+- `dateNext` (spec todo-details) : `{ id, anchor, rrule, after, expected }` (`expected` : date ou `null`) ; exécutée côté TS par `nextOccurrenceAfter` dès la spec todo-details, côté Rust au lot B.
 
 Les valeurs ont été revérifiées côté TS (V12) : si le Rust diverge, c'est le Rust qui est en cause ; s'arrêter et rapporter sans modifier le vecteur.
 
@@ -941,6 +945,8 @@ export class TauriRecurrenceEngine implements RecurrenceEngine { /* invoke('time
 ```
 `TauriRecurrenceEngine` traduit `{ kind: 'invalid_rule', code, part }` en `TimeError('invalid_rule', …, { rule: code, part })` et les autres `kind` en `TimeError(kind)` ; hors Tauri : `DataError('unavailable')`. Seul `core/` importe `@tauri-apps/api` (ADR-001 R4).
 
+- `core/time/date-rule.ts` (spec todo-details) : `parseDateRule` est réécrit au-dessus de `parseRecurrenceRule` (ancre `date`, puis restriction au sous-ensemble), même signature ; `date-rule.spec.ts` et les vecteurs `dateNext` restent verts.
+
 ### 8.11 Lot B : tests
 - Rust `formats` : formes exactes, troncature des ms, bornes, refus de `+02:00` en forme stockée, de `24:00:00` et de `23:59:60`.
 - Rust `zone` et `formats::parse_time_zone` : sections `timeZoneValidity`, `resolveLocal` (avec `kind`), `toLocal`, `startOfDay`.
@@ -950,6 +956,7 @@ export class TauriRecurrenceEngine implements RecurrenceEngine { /* invoke('time
 - Rust `clock` : `FixedClock`.
 - TS `recurrence.spec.ts` : section `ruleCodec` (mêmes codes que Rust).
 - TS `recurrence-engine.spec.ts` : `invoke` simulé ; traduction des erreurs ; `unavailable` hors Tauri.
+- Rust `expand` : section `dateNext` (première occurrence strictement après `after` d'une ancre datée, par `floating_occurrences` ou des expansions successives) ; un écart avec le TS s'arrête et se rapporte.
 
 ### 8.12 Lot B : critères d'acceptation
 - **CA-B1** `npm run rust:test`, `npm run rust:lint` (clippy `-D warnings` avec `clippy.toml`), `npm run rust:fmt:check` verts.

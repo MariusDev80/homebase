@@ -34,6 +34,7 @@ fn main() {
                 "config_export_save",
                 "config_import_pick",
                 "config_import_apply",
+                "dashboard_delete",
             ])),
     )
     .expect("failed to run tauri-build");

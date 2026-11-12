@@ -1,6 +1,7 @@
 import { JsonObject, JsonValue } from './json';
 import {
   Dashboard,
+  DashboardPatch,
   LayoutItem,
   NewDashboard,
   NewNote,
@@ -35,12 +36,25 @@ export interface DashboardRepository {
   /** ORDER BY sort_order, created_at, id */
   list(): Promise<Dashboard[]>;
   get(id: string): Promise<Dashboard | null>;
-  /** sort_order = max + 1 (or 0), computed in the same INSERT … SELECT. */
+  /** sort_order = max + 1 (or 0), computed in the same INSERT … SELECT. Icon defaults to DEFAULT_DASHBOARD_ICON. Theme defaults to {} / DEFAULT_DASHBOARD_THEME_VERSION, validated like updateTheme. */
   create(input: NewDashboard): Promise<Dashboard>;
-  /** INSERT … SELECT … WHERE NOT EXISTS (SELECT 1 FROM dashboards); true when created. */
+  /**
+   * INSERT … SELECT … WHERE NOT EXISTS (SELECT 1 FROM dashboards); true when created. Same
+   * defaults as create (icon DEFAULT_DASHBOARD_ICON; theme {} and DEFAULT_DASHBOARD_THEME_VERSION),
+   * and the theme is validated like updateTheme even when nothing is inserted (invalid_input).
+   */
   createIfNone(input: NewDashboard): Promise<boolean>;
-  /** not_found when absent. Name trimmed, 1 to 100 characters (invalid_input otherwise). */
-  rename(id: string, name: string): Promise<Dashboard>;
+  /**
+   * Replaces name and icon in one statement. not_found when absent. Name trimmed, 1 to 100
+   * characters; icon matching DASHBOARD_ICON_PATTERN (invalid_input otherwise).
+   */
+  update(id: string, patch: DashboardPatch): Promise<Dashboard>;
+  /**
+   * Replaces theme and theme_version in one statement; returns the updated dashboard. not_found
+   * when absent. invalid_input when the serialized object exceeds MAX_DASHBOARD_THEME_CHARS code
+   * points or when themeVersion is not a safe integer >= 1. The data layer never interprets it.
+   */
+  updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard>;
   /** Cascades to widget_instances. false when already absent. */
   remove(id: string): Promise<boolean>;
 }
@@ -63,6 +77,19 @@ export interface WidgetInstanceRepository {
    * invalid_input before any query.
    */
   updateLayout(dashboardId: string, items: readonly LayoutItem[]): Promise<number>;
+  /**
+   * Single UPDATE … FROM json_each($2) statement moving the listed instances to the target
+   * dashboard with their new rectangles; returns the number of rows changed. Empty batch: 0
+   * without a query. Duplicate ids or invalid values: invalid_input; missing dashboard: constraint.
+   * maxInstances is not enforced here: the target is expected to be a freshly created, empty
+   * dashboard.
+   */
+  moveToDashboard(targetDashboardId: string, items: readonly LayoutItem[]): Promise<number>;
+  /**
+   * First instance of the type, in dashboard order (sort_order, created_at, id) then
+   * listByDashboard order; null when there is none.
+   */
+  findFirstOfType(widgetType: string): Promise<WidgetInstanceRecord | null>;
   remove(id: string): Promise<boolean>;
 }
 
@@ -125,8 +152,23 @@ export interface TodoRepository {
    * sort_order = max + 1 (or 0) within the list. A missing list is DataError('constraint').
    */
   create(input: NewTodo): Promise<Todo>;
-  /** Same validation as create. Omitted fields are kept; dueOn null clears it. not_found when absent. */
+  /**
+   * Omitted fields are kept. Title trimmed, 1 to 500 characters; dueOn a YYYY-MM-DD shape or null;
+   * description at most TODO_DESCRIPTION_MAX UTF-16 units (kept as typed, not trimmed); rrule null or
+   * 10 to 256 characters starting with 'FREQ=' (invalid_input otherwise). rrule non-null together
+   * with dueOn null: invalid_input before any query. dueOn null without rrule also clears the rule.
+   * A rule written on a todo without due date (dueOn omitted): DataError('constraint').
+   * not_found when absent. One statement.
+   */
   update(id: string, changes: TodoChanges): Promise<Todo>;
+  /**
+   * Compare-and-set of the due date of a repeating, active todo: writes `toDueOn` only if the row
+   * still has due_on = `fromDueOn`, a rule, and no completed_at (one statement). Otherwise conflict,
+   * or not_found when absent. Both dates must have the YYYY-MM-DD shape (invalid_input); a well-formed but impossible date
+   * (e.g. 2026-02-30) is DataError('constraint'). Used to
+   * advance a repeating todo when it is checked, and to undo that. Keeps sort_order.
+   */
+  shiftRepeatDue(id: string, fromDueOn: string, toDueOn: string): Promise<Todo>;
   /** completed = true sets completed_at to the Clock's now (kept if already set); false sets NULL
    * and moves a previously completed todo to the end of the active ones (sort_order = max + 1).
    * not_found when absent. */

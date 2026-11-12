@@ -1,0 +1,204 @@
+<nav [attr.aria-label]="'layout.mainNav' | transloco" class="flex min-h-0 flex-1 flex-col">
+  <span id="sidebar-bubble-hint" class="sr-only">{{ 'dashboards.bubbleHint' | transloco }}</span>
+
+  <ul
+    #scrollArea
+    class="sidebar-group sidebar-group-scroll"
+    [attr.aria-label]="'layout.dashboardsNav' | transloco"
+    (scroll)="onListScroll()"
+  >
+    @for (d of dashboards(); track d.id) {
+      <li>
+        <a
+          [routerLink]="['/dashboards', d.id]"
+          routerLinkActive=""
+          ariaCurrentWhenActive="page"
+          class="sidebar-bubble"
+          data-testid="sidebar-dashboard"
+          aria-describedby="sidebar-bubble-hint"
+          [attr.aria-label]="d.name"
+          [attr.data-dashboard-id]="d.id"
+          (mouseenter)="showLabel($event, d.name, false)"
+          (mouseleave)="hideLabel()"
+          (focusin)="showLabel($event, d.name, false)"
+          (focusout)="hideLabel()"
+          (contextmenu)="openMenu($event, d)"
+          (keydown)="onBubbleKeydown($event, d)"
+        >
+          <i [class]="iconClass(d.icon)" aria-hidden="true"></i>
+        </a>
+      </li>
+    }
+  </ul>
+
+  <ul class="sidebar-group">
+    <li>
+      <button
+        type="button"
+        class="sidebar-bubble"
+        data-testid="sidebar-add-dashboard"
+        aria-haspopup="dialog"
+        [attr.aria-disabled]="list.canCreate() ? null : 'true'"
+        [attr.aria-label]="addLabelKey() | transloco"
+        (click)="openCreate($event)"
+        (mouseenter)="showLabel($event, addLabelKey())"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, addLabelKey())"
+        (focusout)="hideLabel()"
+      >
+        <i class="pi pi-plus" aria-hidden="true"></i>
+      </button>
+    </li>
+  </ul>
+
+  <div class="sidebar-spacer"></div>
+
+  <ul class="sidebar-group">
+    <li>
+      <button
+        #themeButton
+        type="button"
+        class="sidebar-bubble"
+        data-testid="dashboard-theme"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="themeFlow.phase() === 'editing' ? 'true' : null"
+        [attr.aria-disabled]="themeFlow.phase() === 'unavailable' ? 'true' : null"
+        [attr.aria-label]="themeLabelKey() | transloco"
+        (click)="onThemeButton()"
+        (mouseenter)="showLabel($event, themeLabelKey())"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, themeLabelKey())"
+        (focusout)="hideLabel()"
+      >
+        <i class="pi pi-palette" aria-hidden="true"></i>
+      </button>
+    </li>
+    <li>
+      <button
+        #addWidgetButton
+        type="button"
+        class="sidebar-bubble"
+        [class.sidebar-bubble-add]="flow.phase() !== 'confirming'"
+        [class.sidebar-bubble-done]="flow.phase() === 'confirming'"
+        data-testid="add-widget"
+        [attr.aria-haspopup]="
+          flow.phase() === 'idle' || flow.phase() === 'choosing' ? 'dialog' : null
+        "
+        [attr.aria-expanded]="flow.phase() === 'choosing' ? 'true' : null"
+        [attr.aria-disabled]="flow.phase() === 'unavailable' ? 'true' : null"
+        [attr.aria-label]="widgetLabelKey() | transloco"
+        (click)="onWidgetButton()"
+        (keydown.escape)="onWidgetEscape($event)"
+        (mouseenter)="showLabel($event, widgetLabelKey())"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, widgetLabelKey())"
+        (focusout)="hideLabel()"
+      >
+        <i
+          [class]="flow.phase() === 'confirming' ? 'pi pi-check' : 'pi pi-plus'"
+          aria-hidden="true"
+        ></i>
+      </button>
+    </li>
+    <li>
+      <a
+        routerLink="/settings"
+        routerLinkActive=""
+        ariaCurrentWhenActive="page"
+        class="sidebar-bubble"
+        data-testid="sidebar-settings"
+        [attr.aria-label]="'nav.settings' | transloco"
+        (mouseenter)="showLabel($event, 'nav.settings')"
+        (mouseleave)="hideLabel()"
+        (focusin)="showLabel($event, 'nav.settings')"
+        (focusout)="hideLabel()"
+      >
+        <i class="pi pi-cog" aria-hidden="true"></i>
+      </a>
+    </li>
+  </ul>
+</nav>
+
+@if (label(); as l) {
+  <div
+    class="sidebar-label"
+    aria-hidden="true"
+    data-testid="sidebar-label"
+    [style.top.px]="l.top"
+    [style.left.px]="l.left"
+  >
+    <span>{{ l.text }}</span>
+  </div>
+}
+
+@if (menu(); as m) {
+  <ul
+    #menuRoot
+    role="menu"
+    tabindex="-1"
+    class="menu sidebar-menu"
+    data-testid="sidebar-menu"
+    [attr.aria-label]="'dashboards.menu.label' | transloco: { name: m.dashboard.name }"
+    [style.top.px]="m.top"
+    [style.left.px]="m.left"
+    (keydown)="onMenuKeydown($event)"
+    (contextmenu)="$event.preventDefault()"
+  >
+    <li role="none">
+      <button
+        type="button"
+        role="menuitem"
+        tabindex="-1"
+        class="menu-item"
+        data-testid="sidebar-menu-edit"
+        (click)="openEdit()"
+      >
+        <i class="pi pi-pencil" aria-hidden="true"></i>
+        {{ 'dashboards.menu.edit' | transloco }}
+      </button>
+    </li>
+    <li role="none">
+      <button
+        type="button"
+        role="menuitem"
+        tabindex="-1"
+        class="menu-item"
+        data-testid="sidebar-menu-remove"
+        [disabled]="!list.canRemove()"
+        aria-haspopup="dialog"
+        (click)="openRemove()"
+      >
+        <i class="pi pi-trash" aria-hidden="true"></i>
+        {{
+          (list.canRemove() ? 'dashboards.menu.remove' : 'dashboards.menu.removeLast') | transloco
+        }}
+      </button>
+    </li>
+  </ul>
+}
+
+<div role="status" class="sr-only" data-testid="sidebar-status">{{ announcement() }}</div>
+
+@if (form(); as f) {
+  @defer (on immediate) {
+    <app-dashboard-form-dialog [dashboard]="f.dashboard" (closed)="onFormClosed($event)" />
+  }
+}
+
+@if (flow.phase() === 'choosing') {
+  @defer (on immediate) {
+    <app-widget-picker-dialog />
+  }
+}
+
+@if (themeFlow.phase() === 'editing') {
+  @defer (on immediate) {
+    <app-dashboard-theme-dialog />
+  }
+}
+
+@if (removal(); as r) {
+  @defer (on immediate) {
+    <app-dashboard-delete-dialog [dashboard]="r.dashboard" (closed)="onRemovalClosed($event)" />
+  }
+}

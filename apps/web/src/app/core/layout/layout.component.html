@@ -1,44 +1,10 @@
-<div class="flex min-h-screen flex-col bg-page text-fg">
-  <header class="topbar" [attr.inert]="lock.isLocked() ? '' : null">
-    <span class="font-semibold">{{ 'app.name' | transloco }}</span>
+<div class="flex h-dvh bg-page text-fg">
+  <app-sidebar [attr.inert]="lock.isLocked() ? '' : null" />
 
-    <nav [attr.aria-label]="'layout.mainNav' | transloco" class="underline-nav">
-      <a
-        routerLink="/"
-        routerLinkActive="is-active"
-        ariaCurrentWhenActive="page"
-        [routerLinkActiveOptions]="{ exact: true }"
-        class="underline-nav-item"
-      >
-        <i class="pi pi-th-large mr-2 text-fg-muted" aria-hidden="true"></i>
-        {{ 'nav.dashboard' | transloco }}
-      </a>
-      <a
-        routerLink="/settings"
-        routerLinkActive="is-active"
-        ariaCurrentWhenActive="page"
-        class="underline-nav-item"
-      >
-        <i class="pi pi-cog mr-2 text-fg-muted" aria-hidden="true"></i>
-        {{ 'nav.settings' | transloco }}
-      </a>
-    </nav>
-
-    <button
-      type="button"
-      data-testid="theme-toggle"
-      (click)="theme.cycle()"
-      [attr.aria-label]="
-        'theme.toggle' | transloco: { mode: 'theme.mode.' + theme.mode() | transloco }
-      "
-      class="btn btn-invisible"
-    >
-      <i [class]="themeIcon()" class="text-fg-muted" aria-hidden="true"></i>
-      {{ 'theme.mode.' + theme.mode() | transloco }}
-    </button>
-  </header>
-
-  <main class="flex-1 p-4 md:p-6" [attr.inert]="lock.isLocked() ? '' : null">
+  <main
+    class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto py-4 pr-4 pl-2"
+    [attr.inert]="lock.isLocked() ? '' : null"
+  >
     <ng-container #alertHost />
     <router-outlet />
   </main>

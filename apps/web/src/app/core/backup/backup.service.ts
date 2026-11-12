@@ -23,6 +23,7 @@ const rustErrorSchema = v.variant('kind', [
   v.object({ kind: v.literal('busy') }),
   v.object({ kind: v.literal('restart_pending') }),
   v.object({ kind: v.literal('not_found') }),
+  v.object({ kind: v.literal('last_dashboard') }),
   v.object({ kind: v.literal('invalid_id') }),
   v.object({ kind: v.literal('no_database') }),
   v.object({ kind: v.literal('too_large') }),
@@ -172,6 +173,11 @@ export class BackupService {
         ? { kind: 'internal', id: source.id }
         : { kind: 'external', token: source.token };
     await this.call('backup_restore', { source: payload }, voidSchema);
+  }
+
+  /** Backs up (pre-delete) then deletes; refused for the last dashboard. */
+  async deleteDashboard(id: string): Promise<void> {
+    await this.call('dashboard_delete', { id }, voidSchema);
   }
 
   async acknowledge(): Promise<void> {

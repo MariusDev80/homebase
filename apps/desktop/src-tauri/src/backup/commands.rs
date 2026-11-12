@@ -5,6 +5,7 @@ use super::config_transfer::{
     write_config_to, ConfigImportPlan, ImportOutcome,
 };
 use super::create::{blocking, create_backup};
+use super::dashboard_delete::delete_dashboard;
 use super::dialogs;
 use super::error::BackupError;
 use super::external::{export_archive_to, import_external, ArchiveSummary};
@@ -212,6 +213,17 @@ pub async fn config_import_apply(
 ) -> Result<ImportOutcome, BackupError> {
     let _guard = state.try_acquire()?;
     apply_config_import(&state.root, state.clock.as_ref(), &plan).await
+}
+
+/// Deletes a dashboard after a `pre-delete` backup (spec dashboards-sidebar 4.8). Takes the backup
+/// lock; refuses an absent id (`not_found`), a malformed one (`invalid_id`) and the last dashboard
+/// (`last_dashboard`) before any archive is created.
+#[tauri::command]
+pub async fn dashboard_delete(
+    state: tauri::State<'_, BackupState>,
+    id: String,
+) -> Result<(), BackupError> {
+    delete_dashboard(&state, &id).await
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 export type {
   Dashboard,
+  DashboardPatch,
   GridRect,
   LayoutItem,
   NewDashboard,
@@ -20,6 +21,17 @@ export type {
 } from './models';
 export type { JsonObject, JsonPrimitive, JsonValue } from './json';
 export { parseJsonObject, parseJsonValue } from './json';
+export {
+  DASHBOARD_ICON_PATTERN,
+  DEFAULT_DASHBOARD_ICON,
+  DEFAULT_DASHBOARD_THEME_VERSION,
+  MAX_DASHBOARD_THEME_CHARS,
+  TODO_DESCRIPTION_MAX,
+  TODO_RRULE_MAX,
+  TODO_RRULE_MIN,
+  TODO_TITLE_MAX,
+} from './models';
+export { validTheme } from './dashboard-theme-input';
 export { DataError } from './data-error';
 export type { DataErrorKind } from './data-error';
 export { randomUuid } from './clock';

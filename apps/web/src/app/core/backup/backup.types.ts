@@ -9,6 +9,7 @@ export const BACKUP_KINDS = [
   'pre-migration',
   'pre-restore',
   'pre-import',
+  'pre-delete',
 ] as const;
 export type BackupKind = (typeof BACKUP_KINDS)[number];
 
@@ -105,6 +106,8 @@ export const IMPORT_PROBLEMS = [
   'invalid_id',
   'duplicate_id',
   'invalid_name',
+  'invalid_icon',
+  'invalid_theme',
   'invalid_widget_type',
   'invalid_grid',
   'invalid_sort_order',
@@ -126,6 +129,7 @@ export type BackupErrorDto =
   | { readonly kind: 'busy' }
   | { readonly kind: 'restart_pending' }
   | { readonly kind: 'not_found' }
+  | { readonly kind: 'last_dashboard' }
   | { readonly kind: 'invalid_id' }
   | { readonly kind: 'no_database' }
   | { readonly kind: 'too_large' }
@@ -150,6 +154,10 @@ export interface ConfigImportPlanDashboard {
   readonly id: string;
   readonly name: string;
   readonly sortOrder: number;
+  readonly icon: string;
+  /** Serialized JSON object (opaque for Rust, validated by the front). */
+  readonly theme: string;
+  readonly themeVersion: number;
   readonly widgets: readonly ConfigImportPlanWidget[];
 }
 
@@ -182,6 +190,8 @@ export interface ImportPreview {
   readonly settings: number;
   readonly unknownTypes: readonly string[];
   readonly futureVersions: number;
+  /** The file predates themes (format 1 or 2): every dashboard gets the default theme. */
+  readonly resetsThemes: boolean;
   /** Current dashboards absent from the file. */
   readonly removedDashboards: number;
   /** Current instances absent from the file (including those of removed dashboards). */

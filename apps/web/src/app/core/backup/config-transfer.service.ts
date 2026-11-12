@@ -58,6 +58,9 @@ export class ConfigTransferService {
         id: dashboard.id,
         name: dashboard.name,
         sortOrder: dashboard.sortOrder,
+        icon: dashboard.icon,
+        theme: dashboard.theme,
+        themeVersion: dashboard.themeVersion,
         widgets: (await this.widgets.listByDashboard(dashboard.id)).map((widget) => ({
           id: widget.id,
           widgetType: widget.widgetType,

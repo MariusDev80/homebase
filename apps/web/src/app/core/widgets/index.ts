@@ -1,4 +1,4 @@
-export { GRID_COLUMNS, GRID_MAX_ROWS, clampGrid, nextFreePosition } from './grid';
+export { GRID_COLUMNS, GRID_ROWS, clampGrid, nextFreePosition, rectsOverlap } from './grid';
 export { MAX_CONFIG_CHARS, resolveConfig, serializeConfig, validateSync } from './widget-config';
 export type {
   ConfigErrorReason,

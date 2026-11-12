@@ -1,10 +1,22 @@
-import { DataError } from '../../data';
-import type { Dashboard, DashboardRepository, NewDashboard } from '../../data';
+import {
+  DEFAULT_DASHBOARD_ICON,
+  DEFAULT_DASHBOARD_THEME_VERSION,
+  DataError,
+  validTheme,
+} from '../../data';
+import type {
+  Dashboard,
+  DashboardPatch,
+  DashboardRepository,
+  JsonObject,
+  NewDashboard,
+} from '../../data';
 
 /** In-memory DashboardRepository with deterministic ids and timestamps (specs only). */
 export class FakeDashboardRepository implements DashboardRepository {
   readonly items: Dashboard[] = [];
   private counter = 0;
+  private writes = 0;
   private nextFailure: unknown;
 
   /** The next call rejects with `error`. */
@@ -21,7 +33,15 @@ export class FakeDashboardRepository implements DashboardRepository {
     return Promise.resolve();
   }
 
+  /** Every write gets a later updatedAt than any creation, like the real repository. */
+  private tick(): string {
+    this.writes++;
+    return new Date(Date.UTC(2026, 0, 1, 1, 0, this.writes)).toISOString();
+  }
+
   private build(input: NewDashboard): Dashboard {
+    const themeVersion = input.themeVersion ?? DEFAULT_DASHBOARD_THEME_VERSION;
+    const theme = JSON.parse(validTheme(input.theme ?? {}, themeVersion)) as JsonObject;
     this.counter++;
     const stamp = new Date(Date.UTC(2026, 0, 1, 0, 0, this.counter)).toISOString();
     const sortOrder = this.items.reduce((max, d) => Math.max(max, d.sortOrder), -1) + 1;
@@ -29,6 +49,9 @@ export class FakeDashboardRepository implements DashboardRepository {
       id: input.id ?? `dashboard-${this.counter}`,
       name: input.name,
       sortOrder,
+      icon: input.icon ?? DEFAULT_DASHBOARD_ICON,
+      theme,
+      themeVersion,
       createdAt: stamp,
       updatedAt: stamp,
     };
@@ -63,12 +86,33 @@ export class FakeDashboardRepository implements DashboardRepository {
     return true;
   }
 
-  async rename(id: string, name: string): Promise<Dashboard> {
+  async update(id: string, patch: DashboardPatch): Promise<Dashboard> {
     await this.check();
     const index = this.items.findIndex((d) => d.id === id);
     const current = this.items[index];
     if (!current) throw new DataError('not_found', `Dashboard ${id} not found`);
-    const updated: Dashboard = { ...current, name: name.trim() };
+    const updated: Dashboard = {
+      ...current,
+      name: patch.name.trim(),
+      icon: patch.icon,
+      updatedAt: this.tick(),
+    };
+    this.items[index] = updated;
+    return updated;
+  }
+
+  async updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard> {
+    await this.check();
+    const serialized = validTheme(theme, themeVersion);
+    const index = this.items.findIndex((d) => d.id === id);
+    const current = this.items[index];
+    if (!current) throw new DataError('not_found', `Dashboard ${id} not found`);
+    const updated: Dashboard = {
+      ...current,
+      theme: JSON.parse(serialized) as JsonObject,
+      themeVersion,
+      updatedAt: this.tick(),
+    };
     this.items[index] = updated;
     return updated;
   }

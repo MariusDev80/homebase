@@ -1,4 +1,6 @@
 import { ARCHIVE_PROBLEMS, IMPORT_ISSUE_CODES, IMPORT_PROBLEMS } from '../backup/backup.types';
+import { DASHBOARD_ICONS } from '../dashboard/dashboard-icons';
+import { CARD_TINTS } from '../dashboard/dashboard-theme';
 import fr from './fr.json';
 
 function lookup(path: string): unknown {
@@ -18,9 +20,48 @@ const SHELL_KEYS = [
   'pages.dashboard.title',
   'pages.settings.title',
   'layout.mainNav',
-  'nav.dashboard',
+  'layout.dashboardsNav',
+  'layout.current',
+  'dashboards.add',
+  'dashboards.limit',
+  'dashboards.bubbleHint',
+  'dashboards.form.titleCreate',
+  'dashboards.form.titleEdit',
+  'dashboards.form.name',
+  'dashboards.form.nameInvalid',
+  'dashboards.form.icon',
+  'dashboards.form.create',
+  'dashboards.form.save',
+  'dashboards.form.cancel',
+  'dashboards.form.error',
+  'dashboards.menu.label',
+  'dashboards.menu.edit',
+  'dashboards.menu.remove',
+  'dashboards.menu.removeLast',
+  ...[
+    'open',
+    'unavailable',
+    'title',
+    'body',
+    'header',
+    'default',
+    'headerDefault',
+    'unknownTint',
+    'preview',
+    'previewText',
+    'previewMuted',
+    'previewLink',
+    'save',
+    'cancel',
+    'close',
+    'error',
+    'future',
+    'invalid',
+  ].map((k) => `dashboardTheme.${k}`),
+  'dashboard.moveUnplaced',
+  'dashboard.moveUnplacedError',
+  'dashboard.overflowName',
   'nav.settings',
-  'theme.toggle',
   'theme.mode.system',
   'theme.mode.light',
   'theme.mode.dark',
@@ -43,6 +84,63 @@ const WIDGET_KEYS = [
   'widgets.todo.title',
   'widgets.todo.removeConfirm',
   'widgets.todo.empty',
+  ...['details', 'important', 'dueShortOverdue', 'hasDescription', 'gone'].map(
+    (k) => `widgets.todo.${k}`,
+  ),
+  ...['repeating', 'advanced', 'undoAdvance'].map((k) => `widgets.todo.${k}`),
+  ...[
+    'label',
+    'none',
+    'daily',
+    'weekly',
+    'monthly',
+    'yearly',
+    'other',
+    'needsDue',
+    'intervalLabel',
+    'intervalError',
+    'unit.DAILY',
+    'unit.WEEKLY',
+    'unit.MONTHLY',
+    'unit.YEARLY',
+    'monthDayGroup',
+    'monthDay',
+    'lastDay',
+    'skipMonths',
+    'skipYears',
+    'hint',
+    'summarySentence',
+    'summary.DAILY_one',
+    'summary.DAILY_many',
+    'summary.WEEKLY_one',
+    'summary.WEEKLY_many',
+    'summary.MONTHLY_one',
+    'summary.MONTHLY_many',
+    'summary.MONTHLY_LAST_one',
+    'summary.MONTHLY_LAST_many',
+    'summary.YEARLY_one',
+    'summary.YEARLY_many',
+    'summary.other',
+  ].map((k) => `widgets.todo.repeat.${k}`),
+  ...[
+    'group',
+    'back',
+    'titleLabel',
+    'importantLabel',
+    'descriptionLabel',
+    'descriptionPlaceholder',
+    'dueLabel',
+    'clearDue',
+    'dueAndRepeatCleared',
+    'created',
+    'completed',
+    'saving',
+    'saved',
+    'saveError',
+    'saveErrorChoice',
+    'remove',
+    'confirmRemove',
+  ].map((k) => `widgets.todo.detail.${k}`),
   'widgets.search.title',
   'widgets.search.webSearch',
   'widgets.search.partialError',
@@ -56,6 +154,12 @@ const WIDGET_KEYS = [
   'dashboard.defaultName',
   'dashboard.loadError',
   'dashboard.addWidget',
+  'dashboard.addWidgetUnavailable',
+  'dashboard.finishAdd',
+  'dashboard.widgetAdded',
+  'dashboard.picker.cancel',
+  'dashboard.picker.limitReached',
+  'dashboard.picker.noRoom',
   'dashboard.empty',
   'widgetHost.remove',
   'widgetHost.unknownType',
@@ -84,13 +188,15 @@ const BACKUP_KEYS = [
   'backup.errors.token_mismatch',
   'configTransfer.title',
   'configTransfer.removedWidgets',
+  'configTransfer.themesReset',
   'configTransfer.confirm',
 ];
-const KINDS = ['manual', 'daily', 'pre-migration', 'pre-restore', 'pre-import'];
+const KINDS = ['manual', 'daily', 'pre-migration', 'pre-restore', 'pre-import', 'pre-delete'];
 const ERROR_KINDS = [
   'busy',
   'restart_pending',
   'not_found',
+  'last_dashboard',
   'invalid_id',
   'no_database',
   'too_large',
@@ -125,9 +231,23 @@ describe('fr.json', () => {
     expect((value as string).length).toBeGreaterThan(0);
   });
 
+  it.each(['edit', 'editLabel', 'save', 'cancel', 'dueLabel', 'clearDue'])(
+    'no longer defines widgets.todo.%s',
+    (key) => {
+      expect(lookup(`widgets.todo.${key}`)).toBeUndefined();
+    },
+  );
+
+  it.each([...DASHBOARD_ICONS])('has a label for the dashboard icon %s', (icon) => {
+    expect(typeof lookup(`dashboards.icons.${icon}`)).toBe('string');
+  });
+
+  it.each([...CARD_TINTS])('has a label for the dashboard tint %s', (tint) => {
+    expect(typeof lookup(`dashboardTheme.tints.${tint}`)).toBe('string');
+  });
+
   it('uses Transloco interpolation for parameters', () => {
     expect(lookup('widgets.hello.greeting')).toContain('{{ name }}');
     expect(lookup('widgetHost.unknownType')).toContain('{{ type }}');
-    expect(lookup('theme.toggle')).toContain('{{ mode }}');
   });
 });

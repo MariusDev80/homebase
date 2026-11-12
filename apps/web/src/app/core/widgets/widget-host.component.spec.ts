@@ -1,8 +1,10 @@
 import { ApplicationInitStatus, Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { DASHBOARD_REPOSITORY, WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import type { WidgetInstanceRecord } from '../../data';
 import { DashboardStore } from '../dashboard/dashboard.store';
+import { WidgetAddFlow } from '../dashboard/widget-add-flow';
 import { WidgetFocus } from '../dashboard/widget-focus';
 import { provideAppI18n } from '../i18n';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
@@ -26,6 +28,7 @@ async function setup(definition: WidgetDefinition = fixtureDefinition() as Widge
   TestBed.configureTestingModule({
     providers: [
       provideAppI18n(),
+      provideRouter([]),
       provideWidget(definition),
       { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
       { provide: WIDGET_INSTANCE_REPOSITORY, useValue: instances },
@@ -33,12 +36,12 @@ async function setup(definition: WidgetDefinition = fixtureDefinition() as Widge
   });
   await TestBed.inject(ApplicationInitStatus).donePromise;
   const store = TestBed.inject(DashboardStore);
-  await store.load('Accueil');
+  await store.open(null, 'Accueil');
   const dashboardId = store.dashboard()?.id as string;
 
   async function render(partial: Partial<WidgetInstanceRecord>) {
     const record = instances.seed({ dashboardId, widgetType: 'fixture', ...partial });
-    await store.load('Accueil');
+    await store.open(null, 'Accueil');
     const fixture = TestBed.createComponent(TestHostComponent);
     fixture.componentInstance.instance = record;
     fixture.detectChanges();
@@ -84,6 +87,18 @@ describe('WidgetHostComponent', () => {
     );
   });
 
+  it('always renders the drag handle, placeholder included, outside the remove button', async () => {
+    const { render } = await setup();
+    for (const type of ['fixture', 'ghost']) {
+      const { el } = await render({ widgetType: type, config: {} });
+      const handle = el.querySelector('[data-testid="widget-drag-handle"]');
+      expect(handle?.classList.contains('widget-drag-handle')).toBe(true);
+      expect(
+        el.querySelector('[data-testid="widget-remove"]')?.closest('.widget-drag-handle'),
+      ).toBeNull();
+    }
+  });
+
   it('shows an invalid config placeholder and resets it', async () => {
     const { render, store } = await setup();
     const reset = vi.spyOn(store, 'resetConfig');
@@ -121,6 +136,47 @@ describe('WidgetHostComponent', () => {
     expect(remove).not.toHaveBeenCalled();
     (await confirmDialogButton(fixture, 'Supprimer')).click();
     await vi.waitFor(() => expect(remove).toHaveBeenCalledWith(record.id));
+  });
+
+  it('gives the focus to the add button trigger after a removal, not after a failure', async () => {
+    const { render, instances } = await setup();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const focus = vi.fn();
+    TestBed.inject(WidgetAddFlow).registerTrigger(focus);
+    const { fixture, el } = await render({ config: { label: 'x' } });
+    instances.failNext(new Error('db down'));
+    (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    (await confirmDialogButton(fixture, 'Supprimer')).click();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="widget-action-error"]')).not.toBeNull();
+    });
+    expect(focus).not.toHaveBeenCalled();
+    (el.querySelector('[data-testid="widget-remove"]') as HTMLButtonElement).click();
+    (await confirmDialogButton(fixture, 'Supprimer')).click();
+    await vi.waitFor(() => expect(focus).toHaveBeenCalledTimes(1));
+  });
+
+  it('highlights the widget just added (isNew) until the add is finished', async () => {
+    const { render, store } = await setup();
+    const flow = TestBed.inject(WidgetAddFlow);
+    const { el: otherEl } = await render({ config: { label: 'x' } });
+    flow.open();
+    await flow.pick('fixture');
+    const added = store.instances().find((i) => i.id === flow.newInstanceId());
+    expect(added).toBeDefined();
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.instance = added as WidgetInstanceRecord;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const card = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="widget-card"]',
+    ) as HTMLElement;
+    expect(card.classList.contains('is-highlighted')).toBe(true);
+    expect(otherEl.querySelector('.is-highlighted')).toBeNull();
+    flow.finish();
+    fixture.detectChanges();
+    expect(card.classList.contains('is-highlighted')).toBe(false);
   });
 
   it('uses the definition removeConfirmKey as confirmation message', async () => {
@@ -189,7 +245,7 @@ describe('WidgetHostComponent', () => {
 describe('WidgetHostComponent focus request', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('scrolls to, focuses and briefly highlights the requested instance only', async () => {
+  it('focuses and briefly highlights the requested instance only, without scrolling', async () => {
     const { render, store } = await setup();
     const { fixture, el, record } = await render({ config: { label: 'x' } });
     const scroll = vi.fn();
@@ -198,22 +254,60 @@ describe('WidgetHostComponent focus request', () => {
     const card = el.querySelector('[data-testid="widget-card"]') as HTMLElement;
     const focus = TestBed.inject(WidgetFocus);
 
-    expect(focus.focusInstance('ghost')).toBe('not-found');
+    expect(await focus.focusInstance('ghost')).toBe('not-found');
     fixture.detectChanges();
     expect(card.classList.contains('is-highlighted')).toBe(false);
 
     vi.useFakeTimers();
-    expect(focus.focusInstance(record.id)).toBe('focused');
+    expect(await focus.focusInstance(record.id)).toBe('focused');
     expect(store.instances().some((i) => i.id === record.id)).toBe(true);
     fixture.detectChanges();
     await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
-    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(card);
     expect(card.classList.contains('is-highlighted')).toBe(true);
 
     await vi.advanceTimersByTimeAsync(2100);
     fixture.detectChanges();
     expect(card.classList.contains('is-highlighted')).toBe(false);
+  });
+
+  async function requestThenRender(closeFirst: boolean) {
+    const { store, instances } = await setup();
+    const record = instances.seed({
+      dashboardId: store.dashboard()?.id as string,
+      widgetType: 'fixture',
+      config: { label: 'x' },
+    });
+    await store.open(null, 'Accueil');
+    const focus = TestBed.inject(WidgetFocus);
+    expect(await focus.focusInstance(record.id)).toBe('focused');
+    const request = focus.request();
+    if (closeFirst) store.close();
+    // The host is created after the request.
+    const fixture = TestBed.createComponent(TestHostComponent);
+    fixture.componentInstance.instance = record;
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const card = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="widget-card"]',
+    ) as HTMLElement;
+    return { focus, request, card, fixture };
+  }
+
+  it('consumes a request made before the host existed, once', async () => {
+    const { focus, request, card } = await requestThenRender(false);
+    expect(card.classList.contains('is-highlighted')).toBe(true);
+    expect(document.activeElement).toBe(card);
+    expect(focus.claim(request as NonNullable<typeof request>)).toBe(false);
+  });
+
+  it('ignores a request from another session', async () => {
+    const { focus, request, card } = await requestThenRender(true);
+    expect(card.classList.contains('is-highlighted')).toBe(false);
+    expect(focus.claim(request as NonNullable<typeof request>)).toBe(false);
   });
 });

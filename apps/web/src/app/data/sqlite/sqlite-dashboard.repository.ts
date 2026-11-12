@@ -1,6 +1,15 @@
 import { Clock, IdGenerator } from '../clock';
 import { DataError } from '../data-error';
-import { Dashboard, NewDashboard } from '../models';
+import {
+  DASHBOARD_ICON_PATTERN,
+  DEFAULT_DASHBOARD_THEME_VERSION,
+  DEFAULT_DASHBOARD_ICON,
+  Dashboard,
+  DashboardPatch,
+  NewDashboard,
+} from '../models';
+import { JsonObject } from '../json';
+import { validTheme } from '../dashboard-theme-input';
 import { DashboardRepository } from '../repositories';
 import { SqlExecutor } from '../sql-executor';
 import { DASHBOARD_COLUMNS, DashboardRow, toDashboard } from './row-mappers';
@@ -11,6 +20,13 @@ function validName(name: string): string {
     throw new DataError('invalid_input', 'Dashboard name must be 1 to 100 characters');
   }
   return trimmed;
+}
+
+function validIcon(icon: string): string {
+  if (!DASHBOARD_ICON_PATTERN.test(icon)) {
+    throw new DataError('invalid_input', 'Dashboard icon has an invalid format');
+  }
+  return icon;
 }
 
 export class SqliteDashboardRepository implements DashboardRepository {
@@ -38,10 +54,13 @@ export class SqliteDashboardRepository implements DashboardRepository {
   async create(input: NewDashboard): Promise<Dashboard> {
     const id = input.id ?? this.newId();
     const name = validName(input.name);
+    const icon = validIcon(input.icon ?? DEFAULT_DASHBOARD_ICON);
+    const themeVersion = input.themeVersion ?? DEFAULT_DASHBOARD_THEME_VERSION;
+    const theme = validTheme(input.theme ?? {}, themeVersion);
     await this.executor.execute(
-      `INSERT INTO dashboards (id, name, sort_order, created_at, updated_at)
-       SELECT $1, $2, COALESCE(MAX(sort_order) + 1, 0), $3, $3 FROM dashboards`,
-      [id, name, this.clock.nowIso()],
+      `INSERT INTO dashboards (id, name, sort_order, icon, theme, theme_version, created_at, updated_at)
+       SELECT $1, $2, COALESCE(MAX(sort_order) + 1, 0), $4, $5, $6, $3, $3 FROM dashboards`,
+      [id, name, this.clock.nowIso(), icon, theme, themeVersion],
     );
     return this.mustGet(id);
   }
@@ -49,19 +68,35 @@ export class SqliteDashboardRepository implements DashboardRepository {
   async createIfNone(input: NewDashboard): Promise<boolean> {
     const id = input.id ?? this.newId();
     const name = validName(input.name);
+    const icon = validIcon(input.icon ?? DEFAULT_DASHBOARD_ICON);
+    const themeVersion = input.themeVersion ?? DEFAULT_DASHBOARD_THEME_VERSION;
+    const theme = validTheme(input.theme ?? {}, themeVersion);
     const result = await this.executor.execute(
-      `INSERT INTO dashboards (id, name, sort_order, created_at, updated_at)
-       SELECT $1, $2, 0, $3, $3 WHERE NOT EXISTS (SELECT 1 FROM dashboards)`,
-      [id, name, this.clock.nowIso()],
+      `INSERT INTO dashboards (id, name, sort_order, icon, theme, theme_version, created_at, updated_at)
+       SELECT $1, $2, 0, $4, $5, $6, $3, $3 WHERE NOT EXISTS (SELECT 1 FROM dashboards)`,
+      [id, name, this.clock.nowIso(), icon, theme, themeVersion],
     );
     return result.rowsAffected > 0;
   }
 
-  async rename(id: string, name: string): Promise<Dashboard> {
-    const trimmed = validName(name);
+  async update(id: string, patch: DashboardPatch): Promise<Dashboard> {
+    const name = validName(patch.name);
+    const icon = validIcon(patch.icon);
     const result = await this.executor.execute(
-      'UPDATE dashboards SET name = $2, updated_at = $3 WHERE id = $1',
-      [id, trimmed, this.clock.nowIso()],
+      'UPDATE dashboards SET name = $2, icon = $3, updated_at = $4 WHERE id = $1',
+      [id, name, icon, this.clock.nowIso()],
+    );
+    if (result.rowsAffected === 0) {
+      throw new DataError('not_found', 'Dashboard not found');
+    }
+    return this.mustGet(id);
+  }
+
+  async updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard> {
+    const serialized = validTheme(theme, themeVersion);
+    const result = await this.executor.execute(
+      'UPDATE dashboards SET theme = $2, theme_version = $3, updated_at = $4 WHERE id = $1',
+      [id, serialized, themeVersion, this.clock.nowIso()],
     );
     if (result.rowsAffected === 0) {
       throw new DataError('not_found', 'Dashboard not found');

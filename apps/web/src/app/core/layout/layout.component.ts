@@ -8,35 +8,30 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { RouterOutlet } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
 import { isTauriRuntime } from '../../tauri-runtime';
+import { DashboardListStore } from '../dashboard/dashboard-list.store';
 import { AppLock } from '../lock';
 import type { AppLockKind } from '../lock';
-import { ThemeMode, ThemeService } from '../theme';
-
-const THEME_ICONS: Record<ThemeMode, string> = {
-  system: 'pi pi-desktop',
-  light: 'pi pi-sun',
-  dark: 'pi pi-moon',
-};
+import { SidebarComponent } from './sidebar.component';
 
 const LOCK_TEXT: Record<AppLockKind, string> = {
   restore: 'backup.restore.inProgress',
   import: 'configTransfer.working',
+  delete: 'dashboards.remove.inProgress',
 };
 
 @Component({
   selector: 'app-layout',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, TranslocoPipe],
+  imports: [RouterOutlet, SidebarComponent],
   templateUrl: './layout.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LayoutComponent {
-  protected readonly theme = inject(ThemeService);
   protected readonly lock = inject(AppLock);
   private readonly transloco = inject(TranslocoService);
-  protected readonly themeIcon = computed(() => THEME_ICONS[this.theme.mode()]);
+  private readonly dashboards = inject(DashboardListStore);
   /** Text of the freeze overlay (null: nothing is running). */
   protected readonly lockText = computed(() => {
     const kind = this.lock.locked();
@@ -48,6 +43,7 @@ export class LayoutComponent {
   private readonly alertHost = viewChild.required('alertHost', { read: ViewContainerRef });
 
   constructor() {
+    void this.dashboards.load(this.transloco.translate('dashboard.defaultName'));
     if (isTauriRuntime()) {
       effect(() => {
         const host = this.alertHost();

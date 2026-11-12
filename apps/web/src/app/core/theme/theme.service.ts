@@ -56,12 +56,6 @@ export class ThemeService {
     });
   }
 
-  /** system -> light -> dark -> system */
-  cycle(): void {
-    const index = THEME_MODES.indexOf(this.modeState());
-    this.setMode(THEME_MODES[(index + 1) % THEME_MODES.length]);
-  }
-
   private readMirror(): ThemeMode | null {
     try {
       const value = this.document.defaultView?.localStorage.getItem(THEME_MIRROR_KEY);

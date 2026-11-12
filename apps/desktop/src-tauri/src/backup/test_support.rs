@@ -1,10 +1,13 @@
 //! Test helpers shared by the backup modules (`#[cfg(test)]` only).
 
 use sha2::{Digest, Sha384};
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
-use sqlx::{Connection, SqliteConnection};
+use sqlx::error::BoxDynError;
+use sqlx::migrate::{Migration, MigrationSource, MigrationType, Migrator};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::{Connection, SqliteConnection, SqlitePool};
 use std::future::Future;
 use std::path::Path;
+use std::pin::Pin;
 
 /// Runs a future to completion on the Tauri async runtime (S3).
 pub fn run<F: Future>(future: F) -> F::Output {
@@ -58,6 +61,66 @@ pub fn make_database(path: &Path, up_to: i64, with_sample_rows: bool) {
                 .expect("dashboard");
         }
         conn.close().await.expect("close");
+    });
+}
+
+/// Same shape as the private `MigrationList` of `tauri-plugin-sql`.
+#[derive(Debug)]
+struct Source(Vec<Migration>);
+
+impl MigrationSource<'static> for Source {
+    fn resolve(self) -> Pin<Box<dyn Future<Output = Result<Vec<Migration>, BoxDynError>> + Send>> {
+        Box::pin(async move { Ok(self.0) })
+    }
+}
+
+/// Applies `db::migrations()` with the real sqlx migrator, built like `tauri-plugin-sql` does (S7).
+pub async fn migrate_with_real_migrator(pool: &SqlitePool) {
+    let migrations: Vec<Migration> = crate::db::migrations()
+        .into_iter()
+        .map(|m| {
+            Migration::new(
+                m.version,
+                m.description.into(),
+                MigrationType::ReversibleUp,
+                m.sql.into(),
+                false,
+            )
+        })
+        .collect();
+    let migrator = Migrator::new(Source(migrations)).await.expect("migrator");
+    migrator.run(pool).await.expect("migrate");
+}
+
+/// Same as `make_database` at the supported version, but migrated by the real
+/// `sqlx::migrate::Migrator`, built from `db::migrations()` the way `tauri-plugin-sql` does (S7):
+/// `Migration::new(.., ReversibleUp, .., false)`, `Migrator::new`, `run` on a pool.
+pub fn make_database_with_migrator(path: &Path, with_sample_rows: bool) {
+    run(async {
+        let options = SqliteConnectOptions::new()
+            .filename(path)
+            .create_if_missing(true)
+            .journal_mode(SqliteJournalMode::Wal);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .expect("open");
+        migrate_with_real_migrator(&pool).await;
+        if with_sample_rows {
+            let at = "2026-10-21T08:15:00.123Z";
+            sqlx::query("INSERT INTO settings (key, value, created_at, updated_at) VALUES ('theme', '\"dark\"', ?1, ?1)")
+                .bind(at)
+                .execute(&pool)
+                .await
+                .expect("setting");
+            sqlx::query("INSERT INTO dashboards (id, name, sort_order, created_at, updated_at) VALUES ('3f0c2a5e-8f0b-4c55-9a43-0d2a1d6c9b11', 'Home', 0, ?1, ?1)")
+                .bind(at)
+                .execute(&pool)
+                .await
+                .expect("dashboard");
+        }
+        pool.close().await;
     });
 }
 

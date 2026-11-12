@@ -25,6 +25,8 @@ interface TestDashboard {
   id: string;
   name: string;
   sortOrder: number;
+  icon?: string;
+  theme?: { version: number; data: unknown };
   widgets: TestWidget[];
   [key: string]: unknown;
 }
@@ -38,6 +40,10 @@ interface TestDoc {
 }
 
 const uuid = (n: number): string => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
+const defaultTheme = () => ({
+  version: 1,
+  data: { cardBody: 'default', cardHeader: 'default' },
+});
 const DASH = uuid(1);
 const DASH2 = uuid(2);
 
@@ -53,13 +59,15 @@ function widget(n: number, type = 'fixture', data: JsonValue = { label: 'x' }): 
 function validDoc(): TestDoc {
   return {
     format: CONFIG_FORMAT,
-    formatVersion: 1,
+    formatVersion: 3,
     exportedAt: '2026-10-22T08:00:00.000Z',
     dashboards: [
       {
         id: DASH,
         name: 'Accueil',
         sortOrder: 0,
+        icon: 'star',
+        theme: defaultTheme(),
         widgets: [widget(1), widget(2, 'migrated', { label: 'm' })],
       },
     ],
@@ -103,6 +111,9 @@ describe('buildConfigExport', () => {
         id: DASH,
         name: 'Accueil',
         sortOrder: 0,
+        icon: 'star',
+        theme: { cardBody: 'default', cardHeader: 'default' },
+        themeVersion: 1,
         widgets: [
           {
             id: uuid(101),
@@ -133,7 +144,12 @@ describe('buildConfigExport', () => {
       'settings',
     ]);
     expect(doc.format).toBe('homebase/dashboard-config');
-    expect(doc.formatVersion).toBe(1);
+    expect(doc.formatVersion).toBe(3);
+    expect(doc.dashboards[0].icon).toBe('star');
+    expect(doc.dashboards[0].theme).toEqual({
+      version: 1,
+      data: { cardBody: 'default', cardHeader: 'default' },
+    });
     expect(doc.dashboards[0].widgets[0]).toEqual({
       id: uuid(101),
       widgetType: 'fixture',
@@ -146,6 +162,17 @@ describe('buildConfigExport', () => {
     const doc = buildConfigExport(input);
     expect(Object.keys(doc.settings)).toEqual(['a.setting', 'theme']);
     expect(JSON.stringify(doc)).not.toMatch(/ghp_secret|apiKey|Password/);
+  });
+
+  it('never exports dashboard.last', () => {
+    const doc = buildConfigExport({
+      ...input,
+      settings: new Map<string, JsonValue>([
+        ['dashboard.last', 'abc'],
+        ['theme', 'dark'],
+      ]),
+    });
+    expect(Object.keys(doc.settings)).toEqual(['theme']);
   });
 
   it('serializes with two-space indentation', () => {
@@ -196,6 +223,9 @@ describe('parseConfigImport: accepted files', () => {
       id: DASH,
       name: 'Accueil',
       sortOrder: 0,
+      icon: 'star',
+      theme: '{"cardBody":"default","cardHeader":"default"}',
+      themeVersion: 1,
       widgets: [
         {
           id: uuid(101),
@@ -227,12 +257,23 @@ describe('parseConfigImport: accepted files', () => {
           id: DASH,
           name: 'Accueil',
           sortOrder: 0,
+          icon: 'star',
+          theme: { cardBody: 'default', cardHeader: 'default' },
+          themeVersion: 1,
           widgets: [
             { ...widget(1), config: { label: 'x' }, configVersion: 1 },
             { ...widget(2, 'migrated'), config: { label: 'm' }, configVersion: 3 },
           ],
         },
-        { id: DASH2, name: 'Second', sortOrder: 1, widgets: [] },
+        {
+          id: DASH2,
+          name: 'Second',
+          sortOrder: 1,
+          icon: 'star',
+          theme: { cardBody: 'default', cardHeader: 'default' },
+          themeVersion: 1,
+          widgets: [],
+        },
       ],
       settings: new Map<string, JsonValue>([['theme', 'dark']]),
     });
@@ -286,11 +327,21 @@ describe('parseConfigImport: accepted files', () => {
       id: uuid(1000 + i),
       name: `D${i}`,
       sortOrder: i,
+      icon: 'star',
+      theme: defaultTheme(),
       widgets: [],
     }));
     doc.dashboards[0].widgets = Array.from({ length: 200 }, (_, i) => widget(i));
     doc.settings = Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`k${i}`, i]));
     expect(parse(doc).ok).toBe(true);
+  });
+
+  it('ignores dashboard.last without error', () => {
+    const result = mutated((d) => (d.settings = { 'dashboard.last': 'abc', theme: 'dark' }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.plan.settings).toEqual([{ key: 'theme', value: '"dark"' }]);
+    }
   });
 
   it('accepts an empty settings object', () => {
@@ -342,11 +393,122 @@ describe('parseConfigImport: names (HB_TRIM and code points)', () => {
   });
 });
 
+describe('parseConfigImport: dashboard themes (format 3)', () => {
+  const setTheme = (d: TestDoc, theme: unknown): void => {
+    d.dashboards[0].theme = theme as TestDashboard['theme'];
+  };
+  const themed = (theme: unknown) => mutated((d) => setTheme(d, theme));
+  const DEFAULTS = '{"cardBody":"default","cardHeader":"default"}';
+
+  it('keeps a valid theme and its version, and does not reset themes', () => {
+    const value = expectOk(
+      themed({ version: 1, data: { cardBody: 'lavender', cardHeader: 'default' } }),
+    );
+    expect(value.plan.dashboards[0].theme).toBe('{"cardBody":"lavender","cardHeader":"default"}');
+    expect(value.plan.dashboards[0].themeVersion).toBe(1);
+    expect(value.resetsThemes).toBe(false);
+  });
+
+  it('normalizes an empty object and keeps an unknown tint as is', () => {
+    expect(expectOk(themed({ version: 1, data: {} })).plan.dashboards[0].theme).toBe(DEFAULTS);
+    const coral = expectOk(themed({ version: 1, data: { cardBody: 'coral' } }));
+    expect(coral.plan.dashboards[0].theme).toBe('{"cardBody":"coral","cardHeader":"default"}');
+  });
+
+  it('keeps the raw object of a future version, with its version', () => {
+    const value = expectOk(themed({ version: 2, data: { shape: 'round', n: [1] } }));
+    expect(value.plan.dashboards[0].theme).toBe('{"shape":"round","n":[1]}');
+    expect(value.plan.dashboards[0].themeVersion).toBe(2);
+  });
+
+  it('gives formats 1 and 2 the default theme and announces it', () => {
+    for (const format of [1, 2]) {
+      const value = expectOk(
+        mutated((d) => {
+          d.formatVersion = format;
+          Reflect.deleteProperty(d.dashboards[0], 'theme');
+          if (format === 1) Reflect.deleteProperty(d.dashboards[0], 'icon');
+        }),
+      );
+      expect(value.plan.dashboards[0].theme, String(format)).toBe(DEFAULTS);
+      expect(value.plan.dashboards[0].themeVersion).toBe(1);
+      expect(value.resetsThemes).toBe(true);
+    }
+  });
+
+  it('refuses a theme in formats 1 and 2', () => {
+    expect(
+      issuesOf(
+        mutated((d) => {
+          d.formatVersion = 2;
+        }),
+      ),
+    ).toEqual(['unknown_field@dashboards[0].theme']);
+  });
+
+  it('refuses a missing theme in format 3', () => {
+    expect(issuesOf(mutated((d) => Reflect.deleteProperty(d.dashboards[0], 'theme')))).toEqual([
+      'missing_field@dashboards[0].theme',
+    ]);
+  });
+
+  it('refuses a version outside the integers 1..10000', () => {
+    for (const version of [0, 1.5, 10_001, -1]) {
+      expect(issuesOf(themed({ version, data: {} })), String(version)).toEqual([
+        'invalid_value@dashboards[0].theme.version',
+      ]);
+    }
+  });
+
+  it('refuses data that is not an object', () => {
+    for (const data of [[], 'x', null, 1]) {
+      expect(issuesOf(themed({ version: 1, data })), JSON.stringify(data)).toEqual([
+        'invalid_value@dashboards[0].theme',
+      ]);
+    }
+  });
+
+  it('refuses a malformed tint or an extra key', () => {
+    expect(issuesOf(themed({ version: 1, data: { cardBody: 'Rose' } }))).toEqual([
+      'invalid_value@dashboards[0].theme',
+    ]);
+    expect(issuesOf(themed({ version: 1, data: { extra: 'x' } }))).toEqual([
+      'invalid_value@dashboards[0].theme',
+    ]);
+  });
+
+  it('refuses an unknown field of the theme envelope', () => {
+    expect(issuesOf(themed({ version: 1, data: {}, x: 1 }))).toEqual([
+      'unknown_field@dashboards[0].theme.x',
+    ]);
+  });
+
+  it('counts the theme length in code points (C27)', () => {
+    // {"k":"..."} is 8 characters around the payload.
+    const raw = (chars: number) => ({ k: '😀'.repeat(chars - 8) });
+    const ok = expectOk(themed({ version: 2, data: raw(4_096) }));
+    expect([...ok.plan.dashboards[0].theme]).toHaveLength(4_096);
+    expect(ok.plan.dashboards[0].theme.length).toBeGreaterThan(4_096);
+    expect(issuesOf(themed({ version: 2, data: raw(4_097) }))).toEqual([
+      'invalid_value@dashboards[0].theme',
+    ]);
+  });
+});
+
 describe('parseConfigImport: refused files', () => {
-  it('refuses a version above 1', () => {
-    expect(issuesOf(mutated((d) => (d.formatVersion = 2)))).toEqual([
+  it('refuses a version above 3, and only reports that for a future format', () => {
+    expect(issuesOf(mutated((d) => (d.formatVersion = 4)))).toEqual([
       'unsupported_version@formatVersion',
     ]);
+    expect(
+      issuesOf(
+        mutated((d) => {
+          d.formatVersion = 4;
+          d['futureField'] = 1;
+          d.dashboards[0]['other'] = 2;
+        }),
+      ),
+    ).toEqual(['unsupported_version@formatVersion']);
   });
 
   it('refuses other invalid versions and a wrong format', () => {
@@ -354,7 +516,7 @@ describe('parseConfigImport: refused files', () => {
       'invalid_value@formatVersion',
     ]);
     expect(issuesOf(mutated((d) => (d.formatVersion = 1.5)))).toEqual([
-      'unsupported_version@formatVersion',
+      'invalid_value@formatVersion',
     ]);
     expect(issuesOf(mutated((d) => (d.formatVersion = '1' as unknown as number)))).toEqual([
       'invalid_value@formatVersion',
@@ -402,6 +564,36 @@ describe('parseConfigImport: refused files', () => {
     ).toEqual(['unknown_field@dashboards[0].widgets[0].config.x']);
   });
 
+  it('reads icons by format version', () => {
+    const v1 = (change: (d: TestDoc) => void = () => undefined) =>
+      mutated((d) => {
+        d.formatVersion = 1;
+        Reflect.deleteProperty(d.dashboards[0], 'icon');
+        Reflect.deleteProperty(d.dashboards[0], 'theme');
+        change(d);
+      });
+    expect(expectOk(v1()).plan.dashboards[0].icon).toBe('th-large');
+    expect(issuesOf(v1((d) => (d.dashboards[0].icon = 'star')))).toEqual([
+      'unknown_field@dashboards[0].icon',
+    ]);
+    expect(issuesOf(mutated((d) => Reflect.deleteProperty(d.dashboards[0], 'icon')))).toEqual([
+      'missing_field@dashboards[0].icon',
+    ]);
+    for (const bad of ['pi pi-x', 'A', 'a'.repeat(33), '', '1a', 'a\n']) {
+      expect(issuesOf(mutated((d) => (d.dashboards[0].icon = bad))), bad).toEqual([
+        'invalid_value@dashboards[0].icon',
+      ]);
+    }
+    expect(
+      issuesOf(mutated((d) => ((d.dashboards[0] as Record<string, unknown>)['icon'] = 1))),
+    ).toEqual(['invalid_value@dashboards[0].icon']);
+  });
+
+  it('accepts a well-formed icon outside the closed list and keeps it', () => {
+    const value = expectOk(mutated((d) => (d.dashboards[0].icon = 'not-in-the-list')));
+    expect(value.plan.dashboards[0].icon).toBe('not-in-the-list');
+  });
+
   it('refuses a malformed exportedAt', () => {
     for (const value of [
       'yesterday',
@@ -432,13 +624,29 @@ describe('parseConfigImport: refused files', () => {
     ]);
     expect(
       issuesOf(
-        mutated((d) => d.dashboards.push({ id: DASH, name: 'Autre', sortOrder: 1, widgets: [] })),
+        mutated((d) =>
+          d.dashboards.push({
+            id: DASH,
+            name: 'Autre',
+            sortOrder: 1,
+            icon: 'star',
+            theme: defaultTheme(),
+            widgets: [],
+          }),
+        ),
       ),
     ).toEqual(['duplicate_id@dashboards[1].id']);
     expect(
       issuesOf(
         mutated((d) =>
-          d.dashboards.push({ id: DASH2, name: 'Autre', sortOrder: 1, widgets: [widget(1)] }),
+          d.dashboards.push({
+            id: DASH2,
+            name: 'Autre',
+            sortOrder: 1,
+            icon: 'star',
+            theme: defaultTheme(),
+            widgets: [widget(1)],
+          }),
         ),
       ),
     ).toEqual(['duplicate_id@dashboards[1].widgets[0].id']);
@@ -453,6 +661,8 @@ describe('parseConfigImport: refused files', () => {
             id: uuid(1000 + i),
             name: 'D',
             sortOrder: i,
+            icon: 'star',
+            theme: defaultTheme(),
             widgets: [],
           }));
         }),
@@ -472,6 +682,8 @@ describe('parseConfigImport: refused files', () => {
             id: uuid(1000 + i),
             name: 'D',
             sortOrder: i,
+            icon: 'star',
+            theme: defaultTheme(),
             widgets: Array.from({ length: 200 }, (_, j) => widget(i * 200 + j)),
           }));
         }),
@@ -559,7 +771,14 @@ describe('parseConfigImport: refused files', () => {
     expect(
       mutated((d) => {
         d.dashboards[0].widgets.push(widget(3, 'single'));
-        d.dashboards.push({ id: DASH2, name: 'B', sortOrder: 1, widgets: [widget(4, 'single')] });
+        d.dashboards.push({
+          id: DASH2,
+          name: 'B',
+          sortOrder: 1,
+          icon: 'star',
+          theme: defaultTheme(),
+          widgets: [widget(4, 'single')],
+        });
       }).ok,
     ).toBe(true);
   });
@@ -745,6 +964,9 @@ describe('buildImportPreview', () => {
           id: d.id,
           name: `D${i}`,
           sortOrder: i,
+          icon: 'star',
+          theme: '{"cardBody":"default","cardHeader":"default"}',
+          themeVersion: 1,
           widgets: d.widgets.map((w) => ({
             id: w.id,
             widgetType: w.type,
@@ -757,6 +979,7 @@ describe('buildImportPreview', () => {
       },
       unknownTypes: ['mystery'],
       futureVersions: 2,
+      resetsThemes: true,
     };
   }
 
@@ -788,6 +1011,7 @@ describe('buildImportPreview', () => {
       settings: 3,
       unknownTypes: ['mystery'],
       futureVersions: 2,
+      resetsThemes: true,
       removedDashboards: 0,
       removedWidgets: 0,
       replacedWidgets: 0,

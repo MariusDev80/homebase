@@ -53,7 +53,7 @@ describe('validateDefinition', () => {
   });
 
   it('rejects max.h above the grid rows', () => {
-    const size = { min: { w: 1, h: 1 }, default: { w: 1, h: 1 }, max: { w: 4, h: 25 } };
+    const size = { min: { w: 1, h: 1 }, default: { w: 1, h: 1 }, max: { w: 4, h: 9 } };
     expect(problemsOf({ size }).join()).toContain('size.max.h');
   });
 

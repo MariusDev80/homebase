@@ -1,4 +1,13 @@
-import { DataError } from '../../data';
+import {
+  DataError,
+  TODO_DESCRIPTION_MAX,
+  TODO_RRULE_MAX,
+  TODO_RRULE_MIN,
+  TODO_TITLE_MAX,
+  hasLocalDateShape,
+} from '../../data';
+import { excerptAround, validSearch } from '../../data/search';
+import { isValidLocalDate } from '../time';
 import type {
   Clock,
   NewTodo,
@@ -74,7 +83,7 @@ export class FakeTodoRepository implements TodoRepository {
   async create(input: NewTodo): Promise<Todo> {
     this.record('create');
     const title = input.title.trim();
-    if (title.length < 1 || title.length > 500) {
+    if (title.length < 1 || title.length > TODO_TITLE_MAX) {
       throw new DataError('invalid_input', 'Todo title must be 1 to 500 characters');
     }
     const todo = this.build(input.listId, title, input.dueOn ?? null);
@@ -84,11 +93,70 @@ export class FakeTodoRepository implements TodoRepository {
 
   async update(id: string, changes: TodoChanges): Promise<Todo> {
     this.record(`update:${id}`);
-    return this.replace(id, (t) => ({
-      ...t,
-      title: changes.title === undefined ? t.title : changes.title.trim(),
-      dueOn: changes.dueOn === undefined ? t.dueOn : changes.dueOn,
-    }));
+    if (changes.title !== undefined) {
+      const title = changes.title.trim();
+      if (title.length < 1 || title.length > TODO_TITLE_MAX) {
+        throw new DataError('invalid_input', 'Todo title must be 1 to 500 characters');
+      }
+    }
+    if (changes.description !== undefined && changes.description.length > TODO_DESCRIPTION_MAX) {
+      throw new DataError('invalid_input', 'Todo description is too long');
+    }
+    if (
+      changes.dueOn !== undefined &&
+      changes.dueOn !== null &&
+      !hasLocalDateShape(changes.dueOn)
+    ) {
+      throw new DataError('invalid_input', 'Todo due date must be a YYYY-MM-DD date');
+    }
+    const rule = changes.rrule;
+    if (rule !== undefined && rule !== null) {
+      if (
+        rule.length < TODO_RRULE_MIN ||
+        rule.length > TODO_RRULE_MAX ||
+        !rule.startsWith('FREQ=')
+      ) {
+        throw new DataError('invalid_input', 'Todo rule is invalid');
+      }
+      if (changes.dueOn === null) {
+        throw new DataError('invalid_input', 'A repetition rule needs a due date');
+      }
+    }
+    return this.replace(id, (t) => {
+      const dueOn = changes.dueOn === undefined ? t.dueOn : changes.dueOn;
+      const rrule = rule !== undefined ? rule : changes.dueOn === null ? null : t.rrule;
+      if (rrule !== null && dueOn === null) {
+        throw new DataError('constraint', 'A repetition rule needs a due date');
+      }
+      if (dueOn !== null && !isValidLocalDate(dueOn)) {
+        throw new DataError('constraint', 'Todo due date is not a calendar date');
+      }
+      return {
+        ...t,
+        updatedAt: this.clock.nowIso(),
+        title: changes.title === undefined ? t.title : changes.title.trim(),
+        dueOn,
+        description: changes.description === undefined ? t.description : changes.description,
+        rrule,
+        important: changes.important === undefined ? t.important : changes.important,
+      };
+    });
+  }
+
+  async shiftRepeatDue(id: string, fromDueOn: string, toDueOn: string): Promise<Todo> {
+    this.record(`shiftRepeatDue:${id}:${fromDueOn}:${toDueOn}`);
+    if (!hasLocalDateShape(fromDueOn) || !hasLocalDateShape(toDueOn)) {
+      throw new DataError('invalid_input', 'Todo due date must be a YYYY-MM-DD date');
+    }
+    return this.replace(id, (t) => {
+      if (t.dueOn !== fromDueOn || t.rrule === null || t.completedAt !== null) {
+        throw new DataError('conflict', 'Todo changed since it was read');
+      }
+      if (!isValidLocalDate(toDueOn)) {
+        throw new DataError('constraint', 'Todo due date is not a calendar date');
+      }
+      return { ...t, dueOn: toDueOn, updatedAt: this.clock.nowIso() };
+    });
   }
 
   async setCompleted(id: string, completed: boolean): Promise<Todo> {
@@ -128,9 +196,19 @@ export class FakeTodoRepository implements TodoRepository {
 
   async search(query: string, limit: number): Promise<TodoSearchHit[]> {
     this.record(`search:${query}`);
-    const q = query.trim().toLowerCase();
+    const term = validSearch(query, limit);
+    const q = term.toLowerCase();
+    const titleMatch = (t: Todo) => t.title.toLowerCase().includes(q);
+    // Same order as the SQL: active first, title matches, most recently updated, then id.
     return this.items
-      .filter((t) => t.title.toLowerCase().includes(q))
+      .filter((t) => titleMatch(t) || t.description.toLowerCase().includes(q))
+      .sort(
+        (x, y) =>
+          Number(x.completedAt !== null) - Number(y.completedAt !== null) ||
+          Number(titleMatch(y)) - Number(titleMatch(x)) ||
+          (x.updatedAt < y.updatedAt ? 1 : x.updatedAt > y.updatedAt ? -1 : 0) ||
+          (x.id < y.id ? -1 : x.id > y.id ? 1 : 0),
+      )
       .slice(0, limit)
       .map((t) => ({
         id: t.id,
@@ -138,6 +216,7 @@ export class FakeTodoRepository implements TodoRepository {
         listId: t.listId,
         widgetInstanceId: this.lists.get(t.listId)?.widgetInstanceId ?? null,
         completedAt: t.completedAt,
+        excerpt: excerptAround(t.description, term),
       }));
   }
 
@@ -157,7 +236,10 @@ export class FakeTodoRepository implements TodoRepository {
       id: `todo-${this.counter}`,
       listId,
       title,
+      description: '',
       dueOn,
+      rrule: null,
+      important: false,
       completedAt: null,
       sortOrder: this.counter,
       createdAt: '2026-01-01T00:00:00.000Z',

@@ -59,6 +59,9 @@ const plan: ConfigImportPlan = {
       id: '00000000-0000-4000-8000-000000000001',
       name: 'Accueil',
       sortOrder: 0,
+      icon: 'th-large',
+      theme: '{}',
+      themeVersion: 1,
       widgets: [
         {
           id: '00000000-0000-4000-8000-000000000002',
@@ -164,6 +167,14 @@ describe('BackupService', () => {
       run: (s) => s.acknowledge(),
       command: 'backup_acknowledge',
       args: undefined,
+      answer: null,
+      result: undefined,
+    },
+    {
+      name: 'deleteDashboard',
+      run: (s) => s.deleteDashboard('11111111-8f0b-4c55-9a43-0d2a1d6c9b11'),
+      command: 'dashboard_delete',
+      args: { id: '11111111-8f0b-4c55-9a43-0d2a1d6c9b11' },
       answer: null,
       result: undefined,
     },

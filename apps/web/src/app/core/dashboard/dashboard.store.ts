@@ -1,4 +1,4 @@
-import { Injectable, Signal, inject, signal } from '@angular/core';
+import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import {
   DASHBOARD_REPOSITORY,
   DataError,
@@ -10,11 +10,11 @@ import {
   type WidgetInstanceRecord,
 } from '../../data';
 import { nextFreePosition } from '../widgets/grid';
-import { boundGrid, fallbackConstraints } from './grid-adapter';
-import { applyNudge, sameRect } from './grid-layout';
-import type { LayoutDelta } from './grid-layout';
+import { fallbackConstraints } from './grid-adapter';
+import { applyNudge, fitLayout, sameRect } from './grid-layout';
+import type { FittedLayout, LayoutDelta } from './grid-layout';
 import type { WidgetConfigWriter } from '../widgets/widget-context';
-import type { WidgetTypeId } from '../widgets/widget-definition';
+import type { WidgetSizeConstraints, WidgetTypeId } from '../widgets/widget-definition';
 import { PendingWrites } from '../widgets/pending-writes';
 import { WidgetRegistry } from '../widgets/widget-registry';
 
@@ -40,7 +40,20 @@ export class UnknownWidgetTypeError extends Error {
   }
 }
 
-export type DashboardStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type AddBlockReason = 'limit' | 'full';
+
+export class GridFullError extends Error {
+  readonly widgetType: string;
+
+  constructor(widgetType: string) {
+    super(`No room on the grid for widget "${widgetType}"`);
+    this.name = 'GridFullError';
+    this.widgetType = widgetType;
+  }
+}
+
+export type DashboardStatus = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
+export type OpenOutcome = 'ready' | 'not-found' | 'error' | 'superseded';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardStore implements WidgetConfigWriter {
@@ -52,11 +65,28 @@ export class DashboardStore implements WidgetConfigWriter {
   private readonly instancesState = signal<readonly WidgetInstanceRecord[]>([]);
   private readonly statusState = signal<DashboardStatus>('idle');
   private readonly errorState = signal<DataError | null>(null);
+  private readonly sessionState = signal(0);
+  private token = 0;
+  private lastOpen: Promise<OpenOutcome> = Promise.resolve('not-found');
+  private readonly pendingWrites = inject(PendingWrites);
 
   readonly dashboard: Signal<Dashboard | null> = this.dashboardState.asReadonly();
   readonly instances: Signal<readonly WidgetInstanceRecord[]> = this.instancesState.asReadonly();
   readonly status: Signal<DashboardStatus> = this.statusState.asReadonly();
   readonly error: Signal<DataError | null> = this.errorState.asReadonly();
+  /** +1 on every open and close. */
+  readonly session: Signal<number> = this.sessionState.asReadonly();
+
+  /** Displayed rects (fitLayout of the stored ones): nothing is written by computing them. */
+  readonly layout: Signal<FittedLayout> = computed(() =>
+    fitLayout(
+      this.instancesState().map((i) => ({
+        id: i.id,
+        grid: i.grid,
+        constraints: this.constraintsOf(i),
+      })),
+    ),
+  );
 
   private readonly layoutErrorState = signal(false);
   /** The last layout write failed and the layout went back to the persisted one. */
@@ -70,41 +100,99 @@ export class DashboardStore implements WidgetConfigWriter {
 
   constructor() {
     // The store is a singleton: the registration lasts as long as the application.
-    inject(PendingWrites).register(() => this.layoutDrained);
+    this.pendingWrites.register(() => this.layoutDrained);
   }
 
-  /** createIfNone({ name }) then list()[0] then listByDashboard(id). */
-  async load(defaultDashboardName: string): Promise<void> {
+  /**
+   * Opens a dashboard (id null: createIfNone then the first one). Every `open` and `close` bumps
+   * the token: after each await a changed token means 'superseded', and the state is left alone.
+   */
+  open(id: string | null, defaultDashboardName: string): Promise<OpenOutcome> {
+    const run = this.doOpen(id, defaultDashboardName);
+    this.lastOpen = run;
+    return run;
+  }
+
+  /** Outcome of the last open launched ('not-found' if none ever was). */
+  whenOpened(): Promise<OpenOutcome> {
+    return this.lastOpen;
+  }
+
+  /** No current dashboard. Does not empty `layoutPending`: the write in flight finishes by itself. */
+  close(): void {
+    this.token++;
+    this.sessionState.update((n) => n + 1);
+    this.clearCurrent();
+    this.statusState.set('idle');
+    this.errorState.set(null);
+  }
+
+  private clearCurrent(): void {
+    this.dashboardState.set(null);
+    this.instancesState.set([]);
+    this.persistedGrids.clear();
+  }
+
+  private async doOpen(id: string | null, defaultDashboardName: string): Promise<OpenOutcome> {
+    const token = ++this.token;
+    this.sessionState.update((n) => n + 1);
     this.statusState.set('loading');
     this.errorState.set(null);
+    this.clearCurrent();
+    await this.pendingWrites.flushAll();
+    if (token !== this.token) return 'superseded';
+    this.layoutErrorState.set(false);
     try {
-      await this.dashboards.createIfNone({ name: defaultDashboardName });
-      const [first] = await this.dashboards.list();
-      if (!first) {
-        throw new DataError('not_found', 'No dashboard available after createIfNone');
+      let dashboard: Dashboard | null | undefined;
+      if (id === null) {
+        await this.dashboards.createIfNone({ name: defaultDashboardName });
+        if (token !== this.token) return 'superseded';
+        [dashboard] = await this.dashboards.list();
+        if (token !== this.token) return 'superseded';
+        if (!dashboard) {
+          throw new DataError('not_found', 'No dashboard available after createIfNone');
+        }
+      } else {
+        dashboard = await this.dashboards.get(id);
+        if (token !== this.token) return 'superseded';
+        if (!dashboard) {
+          this.statusState.set('not-found');
+          return 'not-found';
+        }
       }
-      const instances = await this.instanceRepository.listByDashboard(first.id);
-      this.dashboardState.set(first);
+      const instances = await this.instanceRepository.listByDashboard(dashboard.id);
+      if (token !== this.token) return 'superseded';
+      this.dashboardState.set(dashboard);
       this.instancesState.set(instances);
       this.persistedGrids.clear();
       for (const i of instances) this.persistedGrids.set(i.id, { ...i.grid });
-      this.layoutPending.clear();
       this.statusState.set('ready');
+      return 'ready';
     } catch (error) {
+      if (token !== this.token) return 'superseded';
       this.errorState.set(
         error instanceof DataError
           ? error
           : new DataError('unknown', 'Dashboard load failed', { cause: error }),
       );
       this.statusState.set('error');
+      return 'error';
     }
   }
 
-  /** Dashboard loaded, type known, maxInstances not reached. */
+  /** Why the type cannot be added right now (limit of instances, no room), or null. */
+  addBlockReason(type: WidgetTypeId): AddBlockReason | null {
+    const definition = this.registry.get(type);
+    if (!this.dashboardState() || !definition) return null;
+    if (this.limitReached(type, definition.maxInstances)) return 'limit';
+    return this.findRoom(definition.size) === null ? 'full' : null;
+  }
+
+  /** Dashboard loaded, type known, maxInstances not reached, room on the grid. */
   canAdd(type: WidgetTypeId): boolean {
     const definition = this.registry.get(type);
     if (!this.dashboardState() || !definition) return false;
-    return !this.limitReached(type, definition.maxInstances);
+    return this.addBlockReason(type) === null;
   }
 
   async add(type: WidgetTypeId): Promise<WidgetInstanceRecord> {
@@ -115,26 +203,35 @@ export class DashboardStore implements WidgetConfigWriter {
     if (this.limitReached(type, definition.maxInstances)) {
       throw new WidgetLimitError(type, definition.maxInstances as number);
     }
+    const displayed = new Map(this.layout().placed);
+    const grid = this.findRoom(definition.size);
+    if (!grid) throw new GridFullError(type);
+    const token = this.token;
     const record = await this.instanceRepository.create({
       dashboardId: dashboard.id,
       widgetType: type,
-      grid: nextFreePosition(
-        this.instancesState().map((i) => i.grid),
-        definition.size.default,
-      ),
+      grid,
       config: definition.config.defaults(),
       configVersion: definition.config.version,
     });
+    // Another dashboard was opened meanwhile: the row is saved, but not shown on the new one.
+    if (token !== this.token) return record;
     this.persistedGrids.set(record.id, { ...record.grid });
-    this.instancesState.update((list) => [...list, record].sort(compareInstances));
+    // The repositioned widgets are written with the displayed rects (D3).
+    displayed.set(record.id, { ...record.grid });
+    this.applyDisplayed(displayed, record);
     return record;
   }
 
   async remove(id: string): Promise<void> {
+    // The displayed layout is read before the removal: the others must not move (D3).
+    const displayed = new Map(this.layout().placed);
     await this.instanceRepository.remove(id);
     this.persistedGrids.delete(id);
     this.layoutPending.delete(id);
+    displayed.delete(id);
     this.instancesState.update((list) => list.filter((i) => i.id !== id));
+    this.applyDisplayed(displayed);
   }
 
   async resetConfig(id: string): Promise<void> {
@@ -166,26 +263,51 @@ export class DashboardStore implements WidgetConfigWriter {
   changeLayout(items: readonly LayoutItem[]): Promise<void> {
     const dashboard = this.dashboardState();
     if (!dashboard) return Promise.resolve();
-    const current = new Map(this.instancesState().map((i) => [i.id, i.grid]));
-    const changed = new Map<string, GridRect>();
+    const displayed = new Map(this.layout().placed);
+    let really = false;
     for (const item of items) {
-      const grid = current.get(item.id);
-      if (grid && !sameRect(grid, item.grid)) changed.set(item.id, { ...item.grid });
+      const grid = displayed.get(item.id);
+      if (grid && !sameRect(grid, item.grid)) {
+        displayed.set(item.id, { ...item.grid });
+        really = true;
+      }
     }
-    if (changed.size === 0) return this.layoutDrained;
+    if (!really) return this.layoutDrained;
+    // One batch: the changed widgets and every widget whose stored rect differs from the displayed one.
+    this.applyDisplayed(displayed);
+    return this.layoutDrained;
+  }
 
+  /**
+   * Sets the local state to `target` (rect by id; `added` is a record just created) and queues the
+   * write of every placed widget whose stored rect differs. Widgets without room keep their rect.
+   */
+  private applyDisplayed(
+    target: ReadonlyMap<string, GridRect>,
+    added?: WidgetInstanceRecord,
+  ): void {
+    const dashboard = this.dashboardState();
+    if (!dashboard) return;
+    const changed = new Map<string, GridRect>();
+    const base = added ? [...this.instancesState(), added] : this.instancesState();
+    for (const instance of base) {
+      const grid = target.get(instance.id);
+      if (grid && !sameRect(grid, instance.grid)) changed.set(instance.id, { ...grid });
+    }
+    if (changed.size > 0 || added) {
+      this.instancesState.set(
+        base
+          .map((i) => {
+            const grid = changed.get(i.id);
+            return grid ? { ...i, grid } : i;
+          })
+          .sort(compareInstances),
+      );
+    }
+    if (changed.size === 0) return;
     this.layoutErrorState.set(false);
-    this.instancesState.update((list) =>
-      list
-        .map((i) => {
-          const grid = changed.get(i.id);
-          return grid ? { ...i, grid } : i;
-        })
-        .sort(compareInstances),
-    );
     for (const [id, grid] of changed) this.layoutPending.set(id, grid);
     if (!this.layoutWriting) this.layoutDrained = this.drainLayout(dashboard.id);
-    return this.layoutDrained;
   }
 
   /**
@@ -193,9 +315,10 @@ export class DashboardStore implements WidgetConfigWriter {
    * widgets are pushed down. Returns the new displayed rect, or null when nothing changed.
    */
   nudge(id: string, delta: LayoutDelta): GridRect | null {
-    const entries = this.instancesState().map((i) => {
-      const constraints = this.registry.get(i.widgetType)?.size ?? fallbackConstraints(i.grid);
-      return { id: i.id, grid: boundGrid(i.grid, constraints), constraints };
+    const placed = this.layout().placed;
+    const entries = this.instancesState().flatMap((i) => {
+      const grid = placed.get(i.id);
+      return grid ? [{ id: i.id, grid, constraints: this.constraintsOf(i) }] : [];
     });
     const items = applyNudge(entries, id, delta);
     if (items.length === 0) return null;
@@ -232,6 +355,38 @@ export class DashboardStore implements WidgetConfigWriter {
     } finally {
       this.layoutWriting = false;
     }
+  }
+
+  /** Places the widgets without room on an empty dashboard; returns how many were moved. */
+  async moveUnplacedTo(targetDashboardId: string): Promise<number> {
+    const unplaced = new Set(this.layout().unplaced);
+    const candidates = this.instancesState().filter((i) => unplaced.has(i.id));
+    if (candidates.length === 0) return 0;
+    const fitted = fitLayout(
+      candidates.map((i) => ({ id: i.id, grid: i.grid, constraints: this.constraintsOf(i) })),
+    );
+    const items: LayoutItem[] = [...fitted.placed].map(([id, grid]) => ({ id, grid }));
+    if (items.length === 0) return 0;
+    const token = this.token;
+    const moved = await this.instanceRepository.moveToDashboard(targetDashboardId, items);
+    if (token === this.token) {
+      const ids = new Set(items.map((i) => i.id));
+      for (const id of ids) {
+        this.persistedGrids.delete(id);
+        this.layoutPending.delete(id);
+      }
+      this.instancesState.update((list) => list.filter((i) => !ids.has(i.id)));
+    }
+    return moved;
+  }
+
+  private constraintsOf(instance: WidgetInstanceRecord): WidgetSizeConstraints {
+    return this.registry.get(instance.widgetType)?.size ?? fallbackConstraints(instance.grid);
+  }
+
+  /** First free rect among the displayed ones for a new widget of this size, or null. */
+  private findRoom(size: WidgetSizeConstraints): GridRect | null {
+    return nextFreePosition([...this.layout().placed.values()], size.default, size.min);
   }
 
   private limitReached(type: WidgetTypeId, max: number | undefined): boolean {

@@ -1,4 +1,4 @@
-import { clampGrid, nextFreePosition } from './grid';
+import { GRID_ROWS, clampGrid, nextFreePosition, rectsOverlap } from './grid';
 import type { WidgetSizeConstraints } from './widget-definition';
 
 const constraints: WidgetSizeConstraints = {
@@ -52,16 +52,58 @@ describe('clampGrid', () => {
   });
 });
 
+describe('clampGrid rows', () => {
+  it('bounds y so the widget stays within GRID_ROWS', () => {
+    expect(clampGrid({ x: 0, y: 20, w: 3, h: 2 }, constraints).y).toBe(GRID_ROWS - 2);
+  });
+
+  it('never lets h exceed GRID_ROWS, even when the definition allows more', () => {
+    const tall = { ...constraints, max: { w: 6, h: 12 } };
+    expect(clampGrid({ x: 0, y: 0, w: 3, h: 12 }, tall)).toMatchObject({ y: 0, h: 8 });
+  });
+});
+
+describe('rectsOverlap', () => {
+  it('detects overlap and treats shared edges as free', () => {
+    const a = { x: 0, y: 0, w: 2, h: 2 };
+    expect(rectsOverlap(a, { x: 1, y: 1, w: 2, h: 2 })).toBe(true);
+    expect(rectsOverlap(a, { x: 2, y: 0, w: 2, h: 2 })).toBe(false);
+    expect(rectsOverlap(a, { x: 0, y: 2, w: 2, h: 2 })).toBe(false);
+  });
+});
+
 describe('nextFreePosition', () => {
   it('starts at 0,0 when empty', () => {
     expect(nextFreePosition([], { w: 3, h: 2 })).toEqual({ x: 0, y: 0, w: 3, h: 2 });
   });
 
-  it('goes below the lowest existing rect', () => {
+  it('scans rows then columns', () => {
+    const existing = [{ x: 0, y: 0, w: 2, h: 2 }];
+    expect(nextFreePosition(existing, { w: 2, h: 2 })).toEqual({ x: 2, y: 0, w: 2, h: 2 });
+  });
+
+  it('reuses a hole', () => {
     const existing = [
-      { x: 0, y: 0, w: 3, h: 2 },
-      { x: 4, y: 1, w: 3, h: 4 },
+      { x: 0, y: 0, w: 12, h: 2 },
+      { x: 0, y: 2, w: 4, h: 2 },
+      { x: 8, y: 2, w: 4, h: 2 },
     ];
-    expect(nextFreePosition(existing, { w: 3, h: 2 })).toEqual({ x: 0, y: 5, w: 3, h: 2 });
+    expect(nextFreePosition(existing, { w: 4, h: 2 })).toEqual({ x: 4, y: 2, w: 4, h: 2 });
+  });
+
+  it('shrinks w then h down to the minimum when the preferred size does not fit', () => {
+    const existing = [{ x: 0, y: 0, w: 10, h: 8 }];
+    expect(nextFreePosition(existing, { w: 6, h: 4 }, { w: 2, h: 2 })).toEqual({
+      x: 10,
+      y: 0,
+      w: 2,
+      h: 4,
+    });
+  });
+
+  it('returns null when nothing fits', () => {
+    const existing = [{ x: 0, y: 0, w: 12, h: 8 }];
+    expect(nextFreePosition(existing, { w: 2, h: 2 })).toBeNull();
+    expect(nextFreePosition([{ x: 0, y: 0, w: 11, h: 8 }], { w: 2, h: 2 })).toBeNull();
   });
 });

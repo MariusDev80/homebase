@@ -6,7 +6,8 @@ use super::error::{ArchiveProblem, BackupError};
 use super::manifest::{Manifest, ManifestFile, MANIFEST_FORMAT, MANIFEST_VERSION};
 use super::names::BackupKind;
 use super::paths::DataRoot;
-use super::test_support::{make_database, run};
+use super::sqlite::supported_schema_version;
+use super::test_support::{make_database, make_database_with_migrator, run};
 use super::validate::*;
 use crate::time::clock::FixedClock;
 use crate::time::formats::parse_instant;
@@ -625,19 +626,19 @@ fn contiguous_history_beyond_the_supported_version_is_schema_too_new() {
         try_extract(&path).expect_err("refused"),
         BackupError::SchemaTooNew {
             archive: 99,
-            supported: 3
+            supported: 6
         }
     );
     // A schema that also differs from ours stays "too new" (R4).
     let dir = TempDir::new().expect("tmp");
     let path = db_archive(
         &dir,
-        3,
-        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (4, 'x', 1, X'00', 0); CREATE TABLE future (a)",
+        6,
+        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (7, 'x', 1, X'00', 0); CREATE TABLE future (a)",
     );
     assert!(matches!(
         try_extract(&path).expect_err("refused"),
-        BackupError::SchemaTooNew { archive: 4, .. }
+        BackupError::SchemaTooNew { archive: 7, .. }
     ));
 }
 
@@ -840,4 +841,411 @@ fn expected_schema_of_version_3_matches_a_real_database() {
     }
     assert!(names.iter().any(|n| n.starts_with("sqlite_autoindex_")));
     assert!(run(expected_schema(1)).expect("v1").len() < expected.len());
+}
+
+/// `sqlite_schema` of the database at `path`, read-only.
+fn schema_of(path: &Path) -> Vec<SchemaRow> {
+    use sqlx::Row;
+    run(async {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let rows =
+            sqlx::query("SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name")
+                .fetch_all(&mut conn)
+                .await
+                .expect("rows");
+        conn.close().await.expect("close");
+        rows.iter()
+            .map(|r| (r.get(0), r.get(1), r.get(2), r.get(3)))
+            .collect()
+    })
+}
+
+/// One text column of the first `dashboards` row.
+fn dashboard_value(path: &Path, column: &str) -> String {
+    use sqlx::Row;
+    run(async {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let sql = format!("SELECT {column} FROM dashboards ORDER BY id LIMIT 1");
+        let row = sqlx::query(&sql).fetch_one(&mut conn).await.expect("row");
+        conn.close().await.expect("close");
+        row.get(0)
+    })
+}
+
+#[test]
+fn expected_schema_of_version_4_matches_a_real_database() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 4, false);
+    let expected = run(expected_schema(4)).expect("expected");
+    assert_eq!(schema_of(&path), expected);
+    let dashboards = expected
+        .iter()
+        .find(|r| r.1 == "dashboards")
+        .and_then(|r| r.3.clone())
+        .expect("dashboards sql");
+    // Frozen text: SQLite rewrites the CREATE TABLE on ADD COLUMN (column appended before the
+    // closing parenthesis). A change in the bundled SQLite would turn this red.
+    let frozen = "CREATE TABLE dashboards (
+  id          TEXT    NOT NULL PRIMARY KEY
+              CHECK (length(id) = 36 AND id NOT GLOB '*[^0-9a-f-]*'),
+  name        TEXT    NOT NULL
+              CHECK (length(trim(name)) >= 1 AND length(name) <= 100),
+  sort_order  INTEGER NOT NULL CHECK (sort_order >= 0),
+  created_at  TEXT    NOT NULL
+              CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z'),
+  updated_at  TEXT    NOT NULL
+              CHECK (updated_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z')
+, icon TEXT NOT NULL DEFAULT 'th-large'
+  CHECK (length(icon) BETWEEN 1 AND 32
+         AND icon GLOB '[a-z]*'
+         AND icon NOT GLOB '*[^a-z0-9-]*')) STRICT";
+    assert_eq!(dashboards, frozen);
+
+    assert_ne!(expected, run(expected_schema(3)).expect("v3"));
+}
+
+/// One integer column of the first `dashboards` row.
+fn dashboard_int(path: &Path, column: &str) -> i64 {
+    use sqlx::Row;
+    run(async {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let sql = format!("SELECT {column} FROM dashboards ORDER BY id LIMIT 1");
+        let row = sqlx::query(&sql).fetch_one(&mut conn).await.expect("row");
+        conn.close().await.expect("close");
+        row.get(0)
+    })
+}
+
+/// Applies the remaining migrations with the real sqlx migrator (the path of a real database).
+fn migrate_for_real(path: &Path) {
+    run(async {
+        let options = SqliteConnectOptions::new()
+            .filename(path)
+            .journal_mode(SqliteJournalMode::Wal);
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .expect("open");
+        super::test_support::migrate_with_real_migrator(&pool).await;
+        pool.close().await;
+    });
+}
+
+#[test]
+fn expected_schema_of_version_5_matches_a_real_database() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 5, false);
+    let expected = run(expected_schema(5)).expect("expected");
+    assert_eq!(schema_of(&path), expected);
+    let dashboards = expected
+        .iter()
+        .find(|r| r.1 == "dashboards")
+        .and_then(|r| r.3.clone())
+        .expect("dashboards sql");
+    // Frozen text (see the V4 test): the two ADD COLUMN of V5 are appended before the closing
+    // parenthesis, each after the previous column.
+    let frozen = "CREATE TABLE dashboards (
+  id          TEXT    NOT NULL PRIMARY KEY
+              CHECK (length(id) = 36 AND id NOT GLOB '*[^0-9a-f-]*'),
+  name        TEXT    NOT NULL
+              CHECK (length(trim(name)) >= 1 AND length(name) <= 100),
+  sort_order  INTEGER NOT NULL CHECK (sort_order >= 0),
+  created_at  TEXT    NOT NULL
+              CHECK (created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z'),
+  updated_at  TEXT    NOT NULL
+              CHECK (updated_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z')
+, icon TEXT NOT NULL DEFAULT 'th-large'
+  CHECK (length(icon) BETWEEN 1 AND 32
+         AND icon GLOB '[a-z]*'
+         AND icon NOT GLOB '*[^a-z0-9-]*'), theme TEXT NOT NULL DEFAULT '{}'
+  CHECK (json_valid(theme) AND json_type(theme) = 'object' AND length(theme) <= 4096), theme_version INTEGER NOT NULL DEFAULT 1
+  CHECK (theme_version >= 1)) STRICT";
+    assert_eq!(dashboards, frozen);
+
+    assert_ne!(expected, run(expected_schema(4)).expect("v4"));
+}
+
+#[test]
+fn v3_database_migrated_to_the_supported_version_has_its_schema_and_defaults() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 3, true);
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(3)).expect("expected v3")
+    );
+    migrate_for_real(&path);
+    assert_eq!(dashboard_value(&path, "icon"), "th-large");
+    assert_eq!(dashboard_value(&path, "theme"), "{}");
+    assert_eq!(dashboard_int(&path, "theme_version"), 1);
+    assert_eq!(
+        dashboard_value(&path, "updated_at"),
+        "2026-10-21T08:15:00.123Z"
+    );
+    // ALTER TABLE ADD COLUMN rewrites the CREATE TABLE text, so compare to a fresh database at the
+    // supported version, not to the v3 text.
+    let fresh = dir.path().join("fresh.db");
+    make_database(&fresh, supported_schema_version(), false);
+    assert_eq!(schema_of(&path), schema_of(&fresh));
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(supported_schema_version())).expect("expected supported")
+    );
+}
+
+#[test]
+fn v4_database_migrated_to_the_supported_version_keeps_the_icon_and_gets_the_default_theme() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 4, true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(&path);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        sqlx::query("UPDATE dashboards SET icon = 'briefcase'")
+            .execute(&mut conn)
+            .await
+            .expect("icon");
+        conn.close().await.expect("close");
+    });
+    migrate_for_real(&path);
+    assert_eq!(dashboard_value(&path, "icon"), "briefcase");
+    assert_eq!(dashboard_value(&path, "theme"), "{}");
+    assert_eq!(dashboard_int(&path, "theme_version"), 1);
+    assert_eq!(
+        dashboard_value(&path, "updated_at"),
+        "2026-10-21T08:15:00.123Z"
+    );
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(supported_schema_version())).expect("supported")
+    );
+}
+
+const TODO_ID: &str = "a0000000-0000-4000-8000-000000000003";
+const TODO_AT: &str = "2026-10-21T08:15:00.123Z";
+
+/// Frozen tail of `CREATE TABLE todos` before and after V6 (spec todo-details 4.1, S2).
+const TODOS_TAIL_V5: &str = "  updated_at  TEXT    NOT NULL
+              CHECK (updated_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z')
+) STRICT";
+const TODOS_TAIL_V6: &str = "  updated_at  TEXT    NOT NULL
+              CHECK (updated_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]Z')
+, description TEXT NOT NULL DEFAULT ''
+  CHECK (length(description) <= 10000 AND length(CAST(description AS BLOB)) <= 40000), rrule TEXT NULL
+  CHECK (rrule IS NULL OR (length(rrule) BETWEEN 10 AND 256 AND rrule GLOB 'FREQ=*'
+         AND due_on IS NOT NULL)), important INTEGER NOT NULL DEFAULT 0
+  CHECK (important IN (0, 1))) STRICT";
+
+/// Inserts an instance, a list and one todo (due date, completed) on the first dashboard,
+/// using only the columns that exist since V3.
+async fn seed_todo(conn: &mut SqliteConnection) {
+    for sql in [
+        "INSERT INTO widget_instances (id, dashboard_id, widget_type, grid_x, grid_y, grid_w, grid_h, config, config_version, created_at, updated_at) SELECT 'a0000000-0000-4000-8000-000000000001', id, 'todo', 0, 0, 3, 3, '{}', 1, '2026-10-21T08:15:00.123Z', '2026-10-21T08:15:00.123Z' FROM dashboards LIMIT 1",
+        "INSERT INTO todo_lists (id, widget_instance_id, name, created_at, updated_at) VALUES ('a0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001', 'L', '2026-10-21T08:15:00.123Z', '2026-10-21T08:15:00.123Z')",
+        "INSERT INTO todos (id, list_id, title, due_on, completed_at, sort_order, created_at, updated_at) VALUES ('a0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000002', 'x', '2026-11-02', '2026-10-30T10:00:00.000Z', 0, '2026-10-21T08:15:00.123Z', '2026-10-21T08:15:00.123Z')",
+    ] {
+        sqlx::query(sql).execute(&mut *conn).await.expect("seed");
+    }
+}
+
+/// Sets the V6 columns of the seeded todo (database already at V6).
+async fn set_v6_columns(conn: &mut SqliteConnection) {
+    sqlx::query("UPDATE todos SET description = 'Détails' || char(10) || 'de la tâche', rrule = 'FREQ=WEEKLY', important = 1 WHERE id = ?1")
+        .bind(TODO_ID)
+        .execute(&mut *conn)
+        .await
+        .expect("v6 columns");
+}
+
+/// One column of the seeded todo as text (NULL -> None), read-only.
+fn todo_value(path: &Path, column: &str) -> Option<String> {
+    use sqlx::Row;
+    run(async {
+        let options = SqliteConnectOptions::new().filename(path).read_only(true);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        let sql = format!("SELECT CAST({column} AS TEXT) FROM todos WHERE id = ?1");
+        let row = sqlx::query(&sql)
+            .bind(TODO_ID)
+            .fetch_one(&mut conn)
+            .await
+            .expect("row");
+        conn.close().await.expect("close");
+        row.get(0)
+    })
+}
+
+fn todos_sql(rows: &[SchemaRow]) -> String {
+    rows.iter()
+        .find(|r| r.1 == "todos")
+        .and_then(|r| r.3.clone())
+        .expect("todos sql")
+}
+
+#[test]
+fn expected_schema_of_version_6_matches_a_real_database() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 6, false);
+    let expected = run(expected_schema(6)).expect("expected");
+    assert_eq!(schema_of(&path), expected);
+    let v5 = run(expected_schema(5)).expect("v5");
+    // Frozen text: the three ADD COLUMN of V6 are appended before the closing parenthesis, each
+    // after the previous column; the text before the tail is the one of V3.
+    let before = todos_sql(&v5);
+    assert!(before.ends_with(TODOS_TAIL_V5));
+    let frozen = format!(
+        "{}{}",
+        &before[..before.len() - TODOS_TAIL_V5.len()],
+        TODOS_TAIL_V6
+    );
+    assert_eq!(todos_sql(&expected), frozen);
+    assert_ne!(expected, v5);
+}
+
+#[test]
+fn v5_database_migrated_to_v6_keeps_todos_and_gets_defaults() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 5, true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(&path);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        seed_todo(&mut conn).await;
+        conn.close().await.expect("close");
+    });
+    migrate_for_real(&path);
+    assert_eq!(todo_value(&path, "description").as_deref(), Some(""));
+    assert_eq!(todo_value(&path, "rrule"), None);
+    assert_eq!(todo_value(&path, "important").as_deref(), Some("0"));
+    assert_eq!(todo_value(&path, "due_on").as_deref(), Some("2026-11-02"));
+    assert_eq!(
+        todo_value(&path, "completed_at").as_deref(),
+        Some("2026-10-30T10:00:00.000Z")
+    );
+    assert_eq!(todo_value(&path, "updated_at").as_deref(), Some(TODO_AT));
+    assert_eq!(schema_of(&path), run(expected_schema(6)).expect("v6"));
+}
+
+#[test]
+fn v3_database_with_a_todo_migrated_for_real_gets_the_v6_defaults() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 3, true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(&path);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        seed_todo(&mut conn).await;
+        conn.close().await.expect("close");
+    });
+    migrate_for_real(&path);
+    assert_eq!(todo_value(&path, "description").as_deref(), Some(""));
+    assert_eq!(todo_value(&path, "rrule"), None);
+    assert_eq!(todo_value(&path, "important").as_deref(), Some("0"));
+    assert_eq!(todo_value(&path, "due_on").as_deref(), Some("2026-11-02"));
+    assert_eq!(
+        todo_value(&path, "completed_at").as_deref(),
+        Some("2026-10-30T10:00:00.000Z")
+    );
+    assert_eq!(todo_value(&path, "updated_at").as_deref(), Some(TODO_AT));
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(supported_schema_version())).expect("supported")
+    );
+}
+
+#[test]
+fn archive_of_version_5_is_still_accepted() {
+    let dir = TempDir::new().expect("tmp");
+    let path = db_archive(&dir, 5, "");
+    let dest = dir.path().join("dest");
+    let manifest = run(extract_validated(&path, &dest)).expect("accepted");
+    assert_eq!(manifest.schema_version, 5);
+    assert!(supported_schema_version() > 5);
+}
+
+#[test]
+fn archive_of_version_3_is_still_accepted() {
+    let dir = TempDir::new().expect("tmp");
+    let path = db_archive(&dir, 3, "");
+    let dest = dir.path().join("dest");
+    let manifest = run(extract_validated(&path, &dest)).expect("accepted");
+    assert_eq!(manifest.schema_version, 3);
+    assert!(supported_schema_version() > 3);
+}
+
+#[test]
+fn archive_of_version_4_is_still_accepted() {
+    let dir = TempDir::new().expect("tmp");
+    let path = db_archive(&dir, 4, "");
+    let dest = dir.path().join("dest");
+    let manifest = run(extract_validated(&path, &dest)).expect("accepted");
+    assert_eq!(manifest.schema_version, 4);
+    assert!(supported_schema_version() > 4);
+}
+
+#[test]
+fn archive_at_the_supported_version_made_by_the_real_migrator_is_accepted() {
+    let dir = TempDir::new().expect("tmp");
+    let root = DataRoot::new(dir.path().join("data"));
+    fs::create_dir_all(root.images()).expect("images");
+    make_database_with_migrator(&root.db(), true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(root.db());
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        sqlx::query("UPDATE dashboards SET icon = 'briefcase', theme = '{\"cardBody\":\"rose\",\"cardHeader\":\"default\"}'")
+            .execute(&mut conn)
+            .await
+            .expect("icon");
+        seed_todo(&mut conn).await;
+        set_v6_columns(&mut conn).await;
+        conn.close().await.expect("close");
+    });
+    let clock = FixedClock::new(parse_instant("2026-10-21T08:15:00.123Z").expect("instant"));
+    let info = run(create_backup(&root, &clock, BackupKind::Manual, &[])).expect("create");
+    let archive = root.backups().join(&info.id);
+
+    let dest = dir.path().join("restored");
+    let manifest = run(extract_validated(&archive, &dest)).expect("accepted");
+    assert_eq!(manifest.schema_version, supported_schema_version());
+    let restored = dest.join("homebase.db");
+    assert_eq!(
+        todo_value(&restored, "description").as_deref(),
+        Some("Détails\nde la tâche")
+    );
+    assert_eq!(
+        todo_value(&restored, "rrule").as_deref(),
+        Some("FREQ=WEEKLY")
+    );
+    assert_eq!(todo_value(&restored, "important").as_deref(), Some("1"));
+    assert_eq!(
+        dashboard_value(&dest.join("homebase.db"), "icon"),
+        "briefcase"
+    );
+    assert_eq!(
+        dashboard_value(&dest.join("homebase.db"), "theme"),
+        "{\"cardBody\":\"rose\",\"cardHeader\":\"default\"}"
+    );
+    assert_eq!(dashboard_int(&dest.join("homebase.db"), "theme_version"), 1);
 }

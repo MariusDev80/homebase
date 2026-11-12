@@ -31,10 +31,13 @@ export function listMigrationFiles(): MigrationFile[] {
     .sort((a, b) => a.version - b.version);
 }
 
-/** In-memory database with every migration applied, each in a transaction like sqlx. */
-export function createTestDatabase(): NodeSqliteExecutor {
+/**
+ * In-memory database with the migrations up to `upToVersion` (default: all) applied, each in a
+ * transaction like sqlx.
+ */
+export function createTestDatabase(upToVersion = Number.POSITIVE_INFINITY): NodeSqliteExecutor {
   const executor = new NodeSqliteExecutor();
-  for (const migration of listMigrationFiles()) {
+  for (const migration of listMigrationFiles().filter((m) => m.version <= upToVersion)) {
     executor.exec('BEGIN');
     try {
       executor.exec(migration.sql);

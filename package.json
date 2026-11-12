@@ -8,7 +8,7 @@
     "apps/web"
   ],
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "tauri dev --config apps/desktop/src-tauri/tauri.dev.conf.json",
     "build": "tauri build",
     "tauri": "tauri",
     "web:start": "npm run start --workspace=web",

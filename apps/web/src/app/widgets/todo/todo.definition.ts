@@ -7,7 +7,7 @@ export const todoWidget = defineWidget<TodoConfig>({
   descriptionKey: 'widgets.todo.description',
   icon: 'pi pi-check-square',
   loadComponent: () => import('./todo.component').then((m) => m.TodoComponent),
-  size: { min: { w: 2, h: 2 }, default: { w: 4, h: 4 }, max: { w: 12, h: 12 } },
+  size: { min: { w: 2, h: 2 }, default: { w: 4, h: 4 }, max: { w: 12, h: 8 } },
   config: {
     version: TODO_CONFIG_VERSION,
     schema: todoConfigSchema,

@@ -56,17 +56,6 @@ describe('ThemeService', () => {
     delete (window as unknown as Record<string, unknown>)['matchMedia'];
   });
 
-  it('cycles system -> light -> dark -> system', () => {
-    const service = setup(false);
-    expect(service.mode()).toBe('system');
-    service.cycle();
-    expect(service.mode()).toBe('light');
-    service.cycle();
-    expect(service.mode()).toBe('dark');
-    service.cycle();
-    expect(service.mode()).toBe('system');
-  });
-
   it('follows prefers-color-scheme in system mode and reacts to changes', () => {
     const service = setup(true);
     expect(service.effectiveTheme()).toBe('dark');
@@ -103,8 +92,8 @@ describe('ThemeService', () => {
 
   it('calls the store on every change', () => {
     const service = setup(false);
-    service.cycle();
-    service.cycle();
+    service.setMode('light');
+    service.setMode('dark');
     expect(store.save).toHaveBeenCalledTimes(2);
     expect(store.save).toHaveBeenNthCalledWith(1, 'light');
     expect(store.save).toHaveBeenNthCalledWith(2, 'dark');

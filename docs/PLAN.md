@@ -24,11 +24,11 @@ Ce que Tauri complique :
 | Shell desktop | Tauri 2 (Rust) | Léger, notifications natives, tray, autostart, lancement d'apps |
 | Front | Angular 21 (zoneless, signals, Vitest) | Stack déjà maîtrisée |
 | UI | Tailwind 4 + PrimeNG, direction visuelle inspirée de GitHub (Primer) | Composants prêts, thèmes clair/sombre ; tokens `--hb-*`, preset PrimeNG maison, patterns : voir `docs/DESIGN.md` (décidé le 20/10/2026) |
-| Grille | angular-gridster2 **21.0.1 épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Intégré en phase 1 derrière `core/dashboard/grid-adapter.ts`, tests verts en zoneless ; comportement réel à confirmer à la main (issue #916) |
+| Grille | angular-gridster2 **21.0.1 épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Intégré en phase 1 derrière `core/dashboard/grid-adapter.ts`, tests verts en zoneless ; comportement réel à confirmer à la main (issue #916). Mode `fit` : 12 × 8 fixes (spec dashboards-sidebar). |
 | Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR) |
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
-| Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003 |
+| Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003. Exception : la prochaine échéance d'une TODO répétée (date sans heure, sans notification) est calculée par `core/time/date-rule.ts` (ADR-003 §3.9, spec todo-details). |
 | Timers | Web Worker (UI) + horloge Rust (rappels) | Fiable même fenêtre réduite |
 | Notifications | `tauri-plugin-notification`, tray, `autostart` | Natif Windows |
 | HTTP sortant | `reqwest` 0.13.5 (`default-features = false`, feature `native-tls` : TLS de Windows), module Rust `net`, appelé uniquement par des commandes dédiées | Pas de `tauri-plugin-http` ni de réseau depuis le front (CSP inchangée) ; rustls par défaut écarté (aws-lc exige NASM sous Windows). Voir `docs/specs/weather-widget.md` (décidé le 21/10/2026) |
@@ -59,6 +59,8 @@ repo/
 ```
 Front : `core/` (thème, grille, notifications), `data/` (repositories), `widgets/<nom>/` (un dossier par widget).
 
+Navigation : barre verticale à gauche, plusieurs tableaux de bord (`/dashboards/:id`) d'une grille de 12 × 8 cellules qui ne défile jamais (`docs/specs/dashboards-sidebar.md`). `npm run dev` utilise l'identifiant `fr.mariusdev.homebase.dev` et le nom « Homebase Dev » (base, sauvegardes et démarrage automatique séparés) ; `npm run tauri dev` et `cargo tauri dev` sont proscrits. Chaque tableau a un thème de cartes (fond et en-tête, palette pastel fermée de douze teintes), stocké en JSON versionné dans `dashboards.theme` (V5) et exporté (`formatVersion` 3) (`docs/specs/dashboard-theme.md`).
+
 ### Contrat Widget
 Chaque widget déclare : `id`, `title`, `icon`, composant principal, tailles min/défaut, schéma de configuration (typé), éventuelle entrée calendrier (`CalendarSource`), ses permissions (réseau, notifications, lancement d'apps). Chargement en lazy-loading. Aucun widget n'en importe un autre ; ils communiquent via des services du `core/`.
 
@@ -66,6 +68,7 @@ Chaque widget déclare : `id`, `title`, `icon`, composant principal, tailles min
 UTC + fuseau IANA ; récurrence en RRULE ; planificateur Rust qui recalcule la prochaine échéance au démarrage (rattrapage des rappels manqués pendant que le PC était éteint) ; tests obligatoires sur changements d'heure.
 
 ## 5. Widgets : notes de conception
+- **TODO** : ligne compacte (case, marqueur « Important », titre, échéance relative, indicateurs, bouton de détail) qui s'adapte à la largeur de la carte ; fiche dans le widget (titre, « Important », description, échéance, répétition) enregistrée au fil de l'eau ; cocher une tâche répétée avance son échéance, sans historique (`docs/specs/todo-details.md`).
 - **Calendrier** : agrège les `CalendarSource` (rappels, TODO datées, habits, objectifs).
 - **Timers/pomodoro** : session « en cours depuis X » cliquable (détail + historique) ; historique en base ; reprise correcte après fermeture.
 - **Habits** : distinct de la TODO ; inclut des rappels de mise à jour périodique (ex. solde des comptes).

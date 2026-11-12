@@ -3,13 +3,21 @@
  * --hb-* tokens only (docs/DESIGN.md): borders instead of shadows, light and dark via the tokens.
  * Selectors are prefixed with app-dashboard to win over the library rules.
  */
+app-dashboard .dashboard-grid-area {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
 app-dashboard gridster.dashboard-grid {
-  /*
-   * With setGridSize, gridster writes an inline width of (offsetWidth + 2 * margin) at each layout,
-   * so the grid grew by 32px on every move and overflowed the window. Stays the container's width;
-   * the 12 columns then fit exactly: 12 * ((width + margin) / 12) - margin = width.
-   */
-  width: 100% !important;
+  /* Absolute: its size never depends on a percentage of a flex item. */
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  /* clip: unlike hidden, cannot be scrolled by a script; the margin keeps a sub-pixel border. */
+  overflow: clip;
+  overflow-clip-margin: 2px;
   background: transparent;
   user-select: none;
 }
@@ -36,11 +44,6 @@ app-dashboard gridster-item.gridster-item-resizing .box {
   background: var(--hb-bg-subtle);
 }
 
-/* While editing, the dashed frame tells that the widgets can be moved. */
-app-dashboard .dashboard-grid-editing gridster-item .box {
-  border-style: dashed;
-}
-
 /* Drop placeholder */
 app-dashboard gridster-preview {
   border: 1px dashed var(--hb-accent);
@@ -48,18 +51,54 @@ app-dashboard gridster-preview {
   background: var(--hb-accent-subtle);
 }
 
-/* Resize handles: a visible corner grip, invisible edge strips. */
-app-dashboard .gridster-item-resizable-handler.handle-se,
-app-dashboard gridster-item:hover .gridster-item-resizable-handler.handle-se {
+/* Header: the type icon gives way to the drag handle on hover and keyboard focus. */
+app-dashboard gridster-item .widget-header-icon {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+app-dashboard gridster-item .widget-type-icon {
+  color: var(--hb-fg-muted);
+  font-size: 16px;
+  transition: opacity var(--hb-transition);
+}
+app-dashboard gridster-item .widget-drag-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  cursor: move;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity var(--hb-transition);
+}
+app-dashboard gridster-item .box-header:hover .widget-drag-handle,
+app-dashboard gridster-item .box-header:focus-within .widget-drag-handle {
+  opacity: 1;
+}
+app-dashboard gridster-item .box-header:hover .widget-type-icon,
+app-dashboard gridster-item .box-header:focus-within .widget-type-icon {
+  opacity: 0;
+}
+
+/* Resize: south-east corner only (14 x 14 px), visible on hover of the card. */
+app-dashboard .gridster-item-resizable-handler.handle-se {
   width: 0;
   height: 0;
   border-width: 0 0 14px 14px;
-  border-color: transparent transparent var(--hb-fg-muted);
+  border-color: transparent;
+}
+app-dashboard gridster-item:hover .gridster-item-resizable-handler.handle-se {
+  border-color: transparent transparent var(--hb-card-body-muted);
 }
 app-dashboard .gridster-item-resizable-handler.handle-se:hover {
   border-color: transparent transparent var(--hb-accent);
 }
 
-app-dashboard .widget-drag-handle {
-  cursor: move;
+/* A focused card keeps its ring inside: the grid clips what overflows its edge. */
+app-dashboard .box:focus-visible {
+  outline-offset: -2px;
 }

@@ -30,6 +30,8 @@ export interface TodoResult {
   readonly id: string;
   readonly title: string;
   readonly completed: boolean;
+  /** Short plain-text excerpt of the description; absent when empty. */
+  readonly subtitle?: string;
   readonly widgetInstanceId: string | null;
 }
 
@@ -112,6 +114,7 @@ export class SearchService {
           id: t.id,
           title: t.title,
           completed: t.completedAt !== null,
+          ...(t.excerpt === '' ? {} : { subtitle: t.excerpt }),
           widgetInstanceId: t.widgetInstanceId,
         })),
       );

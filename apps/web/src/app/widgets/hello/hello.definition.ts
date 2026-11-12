@@ -12,7 +12,7 @@ export const helloWidget = defineWidget<HelloConfig>({
   descriptionKey: 'widgets.hello.description',
   icon: 'pi pi-star',
   loadComponent: () => import('./hello.component').then((m) => m.HelloComponent),
-  size: { min: { w: 2, h: 1 }, default: { w: 3, h: 2 }, max: { w: 6, h: 4 } },
+  size: { min: { w: 2, h: 2 }, default: { w: 3, h: 2 }, max: { w: 6, h: 4 } },
   config: {
     version: HELLO_CONFIG_VERSION,
     schema: helloConfigSchema,

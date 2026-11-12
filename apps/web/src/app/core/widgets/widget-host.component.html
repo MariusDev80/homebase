@@ -3,13 +3,19 @@
   class="box h-full"
   tabindex="-1"
   data-testid="widget-card"
-  [class.is-highlighted]="highlighted()"
+  [class.is-highlighted]="highlighted() || isNew()"
 >
   <header class="box-header">
-    @if (editing()) {
+    @let def = definition();
+    <span class="widget-header-icon">
+      <i
+        [class]="def?.icon ?? 'pi pi-question-circle'"
+        class="widget-type-icon"
+        aria-hidden="true"
+      ></i>
       <button
         type="button"
-        class="btn btn-invisible btn-icon btn-compact cursor-move {{ dragHandleClass }}"
+        class="btn btn-invisible btn-icon btn-compact {{ dragHandleClass }}"
         data-testid="widget-drag-handle"
         [attr.aria-label]="'widgetHost.layout.handle' | transloco"
         [attr.title]="'widgetHost.layout.handle' | transloco"
@@ -18,15 +24,8 @@
       >
         <i class="pi pi-arrows-alt" aria-hidden="true"></i>
       </button>
-    }
-    @let def = definition();
-    @if (def) {
-      <i [class]="def.icon" aria-hidden="true"></i>
-      <h2 class="flex-1 truncate">{{ def.titleKey | transloco }}</h2>
-    } @else {
-      <i class="pi pi-question-circle" aria-hidden="true"></i>
-      <h2 class="flex-1 truncate">{{ instance().widgetType }}</h2>
-    }
+    </span>
+    <h2 class="flex-1 truncate">{{ def ? (def.titleKey | transloco) : instance().widgetType }}</h2>
     <button
       type="button"
       #removeButton

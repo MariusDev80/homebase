@@ -51,6 +51,19 @@ describe('SearchService', () => {
     });
   });
 
+  it('gives a todo a subtitle only when its description excerpt is not empty', async () => {
+    const { service, todos } = setup();
+    const list = todos.seedList(null);
+    todos.seed(list.id, 'Ranger', { description: 'le mot rare est ici' });
+    todos.seed(list.id, 'rare titre');
+    const results = (await service.search('rare')).groups[0].results;
+    const withText = results.find((r) => r.title === 'Ranger');
+    const without = results.find((r) => r.title === 'rare titre');
+    expect(withText).toMatchObject({ kind: 'todo', subtitle: 'le mot rare est ici' });
+    expect(without).toBeDefined();
+    expect(without && 'subtitle' in without).toBe(false);
+  });
+
   it('omits empty groups and flags completed todos', async () => {
     const { service, todos } = setup();
     const list = todos.seedList(null);

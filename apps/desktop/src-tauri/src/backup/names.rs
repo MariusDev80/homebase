@@ -12,6 +12,7 @@ pub enum BackupKind {
     PreMigration,
     PreRestore,
     PreImport,
+    PreDelete,
 }
 
 /// Retention reserve (spec D3).
@@ -24,12 +25,13 @@ pub enum Pool {
 }
 
 impl BackupKind {
-    pub const ALL: [BackupKind; 5] = [
+    pub const ALL: [BackupKind; 6] = [
         BackupKind::Manual,
         BackupKind::Daily,
         BackupKind::PreMigration,
         BackupKind::PreRestore,
         BackupKind::PreImport,
+        BackupKind::PreDelete,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -39,6 +41,7 @@ impl BackupKind {
             BackupKind::PreMigration => "pre-migration",
             BackupKind::PreRestore => "pre-restore",
             BackupKind::PreImport => "pre-import",
+            BackupKind::PreDelete => "pre-delete",
         }
     }
 
@@ -50,14 +53,17 @@ impl BackupKind {
         match self {
             BackupKind::Manual => Pool::Manual,
             BackupKind::Daily => Pool::Daily,
-            BackupKind::PreRestore | BackupKind::PreImport => Pool::Safety,
+            BackupKind::PreRestore | BackupKind::PreImport | BackupKind::PreDelete => Pool::Safety,
             BackupKind::PreMigration => Pool::Migration,
         }
     }
 
-    /// `pre-migration` and `pre-import` contain the database only.
+    /// `pre-migration`, `pre-import` and `pre-delete` contain the database only.
     pub fn includes_images(self) -> bool {
-        !matches!(self, BackupKind::PreMigration | BackupKind::PreImport)
+        !matches!(
+            self,
+            BackupKind::PreMigration | BackupKind::PreImport | BackupKind::PreDelete
+        )
     }
 }
 
@@ -231,8 +237,10 @@ mod tests {
         assert!(BackupKind::PreRestore.includes_images());
         assert!(!BackupKind::PreMigration.includes_images());
         assert!(!BackupKind::PreImport.includes_images());
+        assert!(!BackupKind::PreDelete.includes_images());
         assert_eq!(BackupKind::PreRestore.pool(), Pool::Safety);
         assert_eq!(BackupKind::PreImport.pool(), Pool::Safety);
+        assert_eq!(BackupKind::PreDelete.pool(), Pool::Safety);
         assert_eq!(BackupKind::PreMigration.pool(), Pool::Migration);
         assert_eq!(BackupKind::Manual.pool(), Pool::Manual);
         assert_eq!(BackupKind::Daily.pool(), Pool::Daily);
@@ -243,6 +251,20 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&BackupKind::PreMigration).expect("json"),
             "\"pre-migration\""
+        );
+    }
+
+    #[test]
+    fn pre_delete_name_round_trip() {
+        let n = BackupName::new(ts("2026-10-21T08:15:00.123Z"), BackupKind::PreDelete);
+        assert_eq!(
+            n.file_name(),
+            "homebase-20261021T081500.123Z-pre-delete.zip"
+        );
+        assert_eq!(BackupName::parse(&n.file_name()), Some(n));
+        assert_eq!(
+            serde_json::to_string(&BackupKind::PreDelete).expect("json"),
+            "\"pre-delete\""
         );
     }
 

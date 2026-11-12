@@ -30,10 +30,13 @@ const MAX_SETTINGS: usize = 200;
 const MAX_NAME_CHARS: usize = 100;
 const MAX_WIDGET_TYPE_CHARS: usize = 64;
 const MAX_JSON_CHARS: usize = 65_536;
+/// Same as `MAX_DASHBOARD_THEME_CHARS` on the front and the `CHECK` of V5 (code points).
+const MAX_THEME_CHARS: usize = 4_096;
 const MAX_GRID: i64 = 10_000;
 const MAX_SORT_ORDER: i64 = 1_000_000;
 const MAX_CONFIG_VERSION: i64 = 10_000;
 const MAX_SETTING_KEY_CHARS: usize = 128;
+const MAX_ICON_CHARS: usize = 32;
 /// How long the write transaction waits for another writer (the SQL plugin pool of the front).
 const WRITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -50,6 +53,10 @@ pub struct PlanDashboard {
     pub id: String,
     pub name: String,
     pub sort_order: i64,
+    pub icon: String,
+    /// Serialized JSON object (opaque: the front validates it).
+    pub theme: String,
+    pub theme_version: i64,
     pub widgets: Vec<PlanWidget>,
 }
 
@@ -98,6 +105,9 @@ fn char_count(s: &str) -> usize {
     s.chars().count()
 }
 
+/// Setting never written by an import (defence in depth: the front already drops it).
+const EXCLUDED_SETTING_KEY: &str = "dashboard.last";
+
 /// Same as the front's `SECRET_KEY_PATTERN`, written by hand (no `regex`): a key is secret when it
 /// contains one of the markers, case-insensitively.
 pub fn is_secret_setting_key(key: &str) -> bool {
@@ -116,6 +126,19 @@ pub fn is_secret_setting_key(key: &str) -> bool {
     MARKERS.iter().any(|m| lower.contains(m))
 }
 
+/// `^[a-z][a-z0-9-]{0,31}$`, checked on bytes (a NUL or any non-ASCII byte is refused).
+fn is_dashboard_icon_shape(icon: &str) -> bool {
+    let bytes = icon.as_bytes();
+    let Some((first, rest)) = bytes.split_first() else {
+        return false;
+    };
+    first.is_ascii_lowercase()
+        && bytes.len() <= MAX_ICON_CHARS
+        && rest
+            .iter()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
+}
+
 /// `^[a-z][a-z0-9._-]{0,127}$`
 fn is_setting_key_shape(key: &str) -> bool {
     let mut chars = key.chars();
@@ -128,8 +151,8 @@ fn is_setting_key_shape(key: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
 }
 
-fn json_within_limit(text: &str) -> Option<Value> {
-    if char_count(text) > MAX_JSON_CHARS {
+fn json_within(text: &str, max_chars: usize) -> Option<Value> {
+    if char_count(text) > max_chars {
         return None;
     }
     serde_json::from_str(text).ok()
@@ -167,6 +190,17 @@ pub fn validate_plan(plan: &ConfigImportPlan) -> Result<(), BackupError> {
         {
             return Err(problem(ImportProblem::InvalidName));
         }
+        if !is_dashboard_icon_shape(&dashboard.icon) {
+            return Err(problem(ImportProblem::InvalidIcon));
+        }
+        if !(1..=MAX_CONFIG_VERSION).contains(&dashboard.theme_version)
+            || !matches!(
+                json_within(&dashboard.theme, MAX_THEME_CHARS),
+                Some(Value::Object(_))
+            )
+        {
+            return Err(problem(ImportProblem::InvalidTheme));
+        }
         if !(0..=MAX_SORT_ORDER).contains(&dashboard.sort_order) {
             return Err(problem(ImportProblem::InvalidSortOrder));
         }
@@ -196,7 +230,7 @@ pub fn validate_plan(plan: &ConfigImportPlan) -> Result<(), BackupError> {
             if !(1..=MAX_CONFIG_VERSION).contains(&widget.config_version) {
                 return Err(problem(ImportProblem::InvalidConfigVersion));
             }
-            match json_within_limit(&widget.config) {
+            match json_within(&widget.config, MAX_JSON_CHARS) {
                 Some(Value::Object(_)) => {}
                 _ => return Err(problem(ImportProblem::InvalidConfig)),
             }
@@ -216,7 +250,7 @@ pub fn validate_plan(plan: &ConfigImportPlan) -> Result<(), BackupError> {
         if !keys.insert(setting.key.as_str()) {
             return Err(problem(ImportProblem::DuplicateId));
         }
-        if json_within_limit(&setting.value).is_none() {
+        if json_within(&setting.value, MAX_JSON_CHARS).is_none() {
             return Err(problem(ImportProblem::InvalidSettingValue));
         }
     }
@@ -237,8 +271,8 @@ fn map_write_error(e: sqlx::Error) -> BackupError {
     e.into()
 }
 
-const UPSERT_DASHBOARD: &str = "INSERT INTO dashboards (id, name, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4) \
-ON CONFLICT (id) DO UPDATE SET name = excluded.name, sort_order = excluded.sort_order, updated_at = excluded.updated_at";
+const UPSERT_DASHBOARD: &str = "INSERT INTO dashboards (id, name, sort_order, icon, theme, theme_version, created_at, updated_at) VALUES (?1, ?2, ?3, ?5, ?6, ?7, ?4, ?4) \
+ON CONFLICT (id) DO UPDATE SET name = excluded.name, sort_order = excluded.sort_order, icon = excluded.icon, theme = excluded.theme, theme_version = excluded.theme_version, updated_at = excluded.updated_at";
 const DELETE_OTHER_TYPE: &str = "DELETE FROM widget_instances WHERE id = ?1 AND widget_type <> ?2";
 const UPSERT_WIDGET: &str = "INSERT INTO widget_instances (id, dashboard_id, widget_type, grid_x, grid_y, grid_w, grid_h, config, config_version, created_at, updated_at) \
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10) \
@@ -333,6 +367,9 @@ async fn run_statements(
             .bind(&dashboard.name)
             .bind(dashboard.sort_order)
             .bind(now)
+            .bind(&dashboard.icon)
+            .bind(&dashboard.theme)
+            .bind(dashboard.theme_version)
             .execute(&mut *conn)
             .await
             .map_err(map_write_error)?;
@@ -383,6 +420,10 @@ async fn run_statements(
         .await
         .map_err(map_write_error)?;
     for setting in &plan.settings {
+        // The last opened dashboard is local to this installation: never written by an import.
+        if setting.key == EXCLUDED_SETTING_KEY {
+            continue;
+        }
         let done = sqlx::query(UPSERT_SETTING)
             .bind(&setting.key)
             .bind(&setting.value)

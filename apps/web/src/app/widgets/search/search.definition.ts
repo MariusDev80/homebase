@@ -12,7 +12,7 @@ export const searchWidget = defineWidget<SearchConfig>({
   descriptionKey: 'widgets.search.description',
   icon: 'pi pi-search',
   loadComponent: () => import('./search.component').then((m) => m.SearchComponent),
-  size: { min: { w: 3, h: 1 }, default: { w: 6, h: 1 }, max: { w: 12, h: 6 } },
+  size: { min: { w: 3, h: 2 }, default: { w: 6, h: 2 }, max: { w: 12, h: 6 } },
   config: {
     version: SEARCH_CONFIG_VERSION,
     schema: searchConfigSchema,

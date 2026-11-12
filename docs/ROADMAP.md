@@ -23,14 +23,41 @@ Légende modèle : **H** = Haiku, **S** = Sonnet (`implementer`), **O** = Opus (
 - [x] (S) ADR-003 lot A : fondations temps (`data/time-formats.ts`, `core/time`, fuseau utilisateur, affichage, règle ESLint, vecteurs sans récurrence). **Avant le widget TODO** (revu ; vérification manuelle CA-A8 dans Réglages à faire par Marius)
 - [x] (S) Widgets : TODO, notes, raccourcis (liens), recherche (`UrlOpener` + opener restreint ; recherche insensible à la casse ASCII seulement, pas aux accents)
 - [x] (S) Widget météo Open-Meteo (+ géocodage) (`docs/specs/weather-widget.md` ; commandes Rust `weather_*` sur le module `net` ; vérifications manuelles CA-W1-M et CA-M* à faire par Marius)
-- [x] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration (spec `docs/specs/backup-restore.md`, lots B1a à B6, chaque lot revu ; vérifications manuelles M1 à M9 et M11 à faire par Marius ; M10 (sauvegarde avant migration) à vérifier à la première migration V4, en phase 2)
+- [x] (S) Sauvegarde/restauration : archive de la base et des images, export JSON de la configuration (spec `docs/specs/backup-restore.md`, lots B1a à B6, chaque lot revu ; vérifications manuelles M1 à M9 et M11 à faire par Marius ; M10 (sauvegarde avant migration) à vérifier à la première migration V4 (spec dashboards-sidebar, M10))
 - [x] (O) ADR-003 : modèle de temps (UTC + IANA + RRULE) (`docs/adr/003-time-model.md`, accepté ; décisions D1 à D3 validées par Marius)
 - [x] (S) Instance unique : `tauri-plugin-single-instance` 2.5.4 enregistré en premier, avant le plugin de sauvegarde ; relancer Homebase remet au premier plan la fenêtre existante (revue de fin de phase 1, I2 ; vérification manuelle à faire par Marius)
 - [x] (O) Revue de fin de phase 1 (jalon atteint sous réserve des vérifications manuelles de Marius ; ADR-001 à 003 acceptés)
 **Sortie** : tableau de bord utilisable au quotidien. **Jalon MVP.**
 
+## Phase 1 bis : navigation et grille
+Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (et MT1 à MT9 de `docs/specs/dashboard-theme.md`, MD1 à MD9 de `docs/specs/todo-details.md`) à faire par Marius (M1 à M17, MT1 à MT9 et MD8 à MD9 sur l'exe release et la vraie base, juste avant la fusion ; MD1 à MD7 sur l'app de dev, `npm run dev`).
+- [x] (S) Lot 0 : base et démarrage automatique de développement séparés (`tauri.dev.conf.json`, « Homebase Dev »)
+- [x] (S) Lot A : grille de 12 × 8 qui s'adapte à la fenêtre, repositionnement à l'affichage
+- [x] (S) Lot B : barre verticale à bulles, retrait du H1, du nom de l'app et du bouton de thème
+- [x] (S) Lot C1 : migration V4 `dashboards.icon`, couche de données
+- [x] (S) Lot C2a : plusieurs tableaux de bord (stores, garde, routes `/dashboards/:id`, page)
+- [x] (S) Lot C2b : recherche inter-tableaux, `Ctrl+K`, exclusion de `dashboard.last`
+- [x] (S) Lot C3a : bulles de tableaux, création, modification
+- [x] (S) Lot C3b : suppression d'un tableau (sauvegarde `pre-delete`, verrou)
+- [x] (S) Lot D : `+` vert et V bleu d'ajout de widget
+- [x] (S) Lot E : déplacement toujours actif depuis la poignée de l'en-tête
+- [x] (S) Lot F : export et import (`formatVersion` 2)
+- [x] (S) Lot T1 (spec `dashboard-theme.md`) : palette de douze teintes, tokens clair et sombre, `check-contrast` étendu et ses fixtures
+- [x] (S) Lot T2 : migration V5 `dashboards.theme` / `theme_version`, couche de données (texte de V5 figé à la revue ; pas de `npm run dev` avant)
+- [x] (S) Lot T3 : application du thème aux cartes (`.card-theme`), flux d'édition, thème hérité par le tableau « (suite) »
+- [x] (S) Lot T4 : bouton palette et panneau avec aperçu en direct
+- [x] (S) Lot T5 : export et import (`formatVersion` 3) ; vérifications manuelles MT1 à MT5 à faire par Marius
+- [x] (S) Lot TD1a (spec `todo-details.md`) : migration V6 `todos.description` / `rrule` / `important`, couche de données (texte de V6 figé à la revue ; pas de `npm run dev` avant)
+- [x] (S) Lot TD1b : prochaine échéance d'une tâche répétée (`core/time/date-rule.ts`, vecteurs `dateNext`)
+- [x] (S) Lot TD2a : fiche de tâche (titre, « Important », description, échéance, suppression), non branchée
+- [x] (S) Lot TD2b : ligne de tâche sur une ligne (bouton [i], échéance sur la ligne, requêtes de conteneur) et branchement de la fiche (vérifications manuelles MD1 à MD4 et MD6 à faire par Marius)
+- [x] (S) Lot TD3 : répétition des tâches (cocher avance l'échéance, « Annuler ») (vérification manuelle MD5 à faire par Marius)
+- [x] (S) Lot TD4 : recherche dans les descriptions de tâches (vérification manuelle MD7 à faire par Marius)
+- [ ] (O) Revue de fin de phase (thème et détail des tâches compris) ; vérifications manuelles M1 à M17, MT1 à MT9 et MD1 à MD9 à faire par Marius, juste avant la fusion (M10 en premier : V4, V5 et V6 appliquées ensemble)
+- [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius)
+
 ## Phase 2 : Temps
-- [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource`
+- [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec
 - [ ] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage)
 - [ ] (S) Timers/alarmes, pomodoro, session « en cours depuis X » + historique
 - [ ] (S) Rappels datés/récurrents (rrule) + notifications natives + zone de notification + démarrage automatique

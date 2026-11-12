@@ -9,8 +9,7 @@
   outline-offset: 2px;
 }
 .box :where(:focus-visible),
-.menu :where(:focus-visible),
-.underline-nav-item:focus-visible {
+.menu :where(:focus-visible) {
   outline-offset: -2px;
 }
 
@@ -210,39 +209,219 @@
   border-bottom: 0;
 }
 
-/* Top bar and underline navigation (3). */
-.topbar {
+/* Card theme of a dashboard (spec dashboard-theme 4.5). The scope declares one slot per themable
+   color, defaulting to the current Box rendering; the dashboard overrides the slots of its tints
+   inline (var(--hb-tint-<id>-<role>)). Everything inside a card follows through the tokens.
+   Never put .card-theme on a .box itself: the slots would refer to the tokens they redefine. */
+.card-theme {
+  --hb-card-body-bg: var(--hb-bg);
+  --hb-card-body-muted: var(--hb-fg-muted);
+  --hb-card-body-border: var(--hb-border);
+  --hb-card-body-accent: var(--hb-accent);
+  --hb-card-body-danger: var(--hb-danger);
+  --hb-card-body-success: var(--hb-success);
+  --hb-card-body-attention: var(--hb-attention);
+  --hb-card-header-bg: var(--hb-bg-subtle);
+  --hb-card-header-muted: var(--hb-fg-muted);
+  --hb-card-header-border: var(--hb-border);
+}
+.card-theme .box {
+  --hb-bg: var(--hb-card-body-bg);
+  --hb-fg-muted: var(--hb-card-body-muted);
+  --hb-border: var(--hb-card-body-border);
+  --hb-accent: var(--hb-card-body-accent);
+  --hb-danger: var(--hb-card-body-danger);
+  --hb-success: var(--hb-card-body-success);
+  --hb-attention: var(--hb-card-body-attention);
+}
+.card-theme .box-header {
+  --hb-bg-subtle: var(--hb-card-header-bg);
+  --hb-fg-muted: var(--hb-card-header-muted);
+  --hb-border: var(--hb-card-header-border);
+}
+
+/* Vertical bar (3, 4.5 of the dashboards spec). No background nor border of its own: the bar is
+   part of the page. The text bubble is a single fixed element placed by the component. */
+.sidebar {
+  position: relative;
+  z-index: 10;
   display: flex;
-  height: var(--hb-topbar-height);
+  width: 56px;
   flex: none;
-  align-items: center;
-  gap: var(--hb-space-6);
-  padding: 0 var(--hb-space-4);
-  border-bottom: 1px solid var(--hb-border);
-  background: var(--hb-bg-subtle);
+  flex-direction: column;
+  min-height: 0;
+  padding-block: var(--hb-space-4);
 }
-.underline-nav {
+.sidebar-group {
   display: flex;
-  height: 100%;
-  flex: 1;
-  align-items: stretch;
+  flex-direction: column;
+  align-items: center;
   gap: var(--hb-space-2);
+  padding-inline: var(--hb-space-2);
 }
-.underline-nav-item {
+.sidebar-group-scroll {
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-block: var(--hb-space-1);
+}
+.sidebar-spacer {
+  flex: 1 1 auto;
+  min-height: var(--hb-space-2);
+}
+.sidebar-bubble {
   display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius-full);
+  background: var(--hb-bg);
+  color: var(--hb-fg-muted);
+  transition:
+    background-color var(--hb-transition),
+    border-color var(--hb-transition),
+    color var(--hb-transition);
+}
+.sidebar-bubble:hover {
+  background: color-mix(in srgb, var(--hb-fg) 8%, var(--hb-bg));
+  color: var(--hb-fg);
+}
+.sidebar-bubble[aria-current='page'] {
+  border-color: var(--hb-accent);
+  background: var(--hb-accent-subtle);
+  color: var(--hb-accent);
+}
+.sidebar-bubble[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.sidebar-bubble-add {
+  border-color: transparent;
+  background: var(--hb-success-emphasis);
+  color: var(--hb-fg-on-emphasis);
+}
+.sidebar-bubble-add:hover {
+  background: color-mix(in srgb, black 12%, var(--hb-success-emphasis));
+  color: var(--hb-fg-on-emphasis);
+}
+.sidebar-bubble-done,
+.sidebar-bubble-done:hover {
+  border-color: transparent;
+  background: var(--hb-accent-emphasis);
+  color: var(--hb-fg-on-emphasis);
+}
+.sidebar-label {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  max-width: 20rem;
+  height: 32px;
   align-items: center;
   padding: 0 var(--hb-space-3);
-  border-bottom: 2px solid transparent;
-  color: var(--hb-fg-muted);
-  transition: color var(--hb-transition);
-}
-.underline-nav-item:hover {
-  color: var(--hb-fg);
-}
-.underline-nav-item.is-active {
-  border-bottom-color: var(--hb-accent);
-  color: var(--hb-fg);
+  border-radius: var(--hb-radius-full);
+  background: var(--hb-bg-emphasis);
+  box-shadow: var(--hb-shadow-floating);
+  color: var(--hb-fg-on-emphasis);
   font-weight: var(--hb-weight-semibold);
+  pointer-events: none;
+}
+.sidebar-label > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Context menu of a dashboard bubble: fixed, outside the scrolling list. */
+.sidebar-menu {
+  position: fixed;
+  z-index: 20;
+  margin-top: 0;
+}
+
+/* Icon choice of the dashboard form: native radio hidden, the label is the target. */
+.icon-choice {
+  position: relative;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  background: var(--hb-bg);
+  color: var(--hb-fg-muted);
+  transition:
+    background-color var(--hb-transition),
+    border-color var(--hb-transition),
+    color var(--hb-transition);
+}
+.icon-choice:hover {
+  background: var(--hb-hover);
+  color: var(--hb-fg);
+}
+.icon-choice:has(input:checked) {
+  border-color: var(--hb-accent);
+  background: var(--hb-accent-subtle);
+  color: var(--hb-accent);
+}
+.icon-choice:has(:focus-visible) {
+  outline: 2px solid var(--hb-focus);
+  outline-offset: 1px;
+}
+.icon-choice:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Tint choice of the dashboard theme panel: native radio hidden, the label is the target. The
+   swatch shows the header color on top of the body color (inline --hb-swatch-*, closed list of
+   tints). Selection: 2 px accent border and a check mark, never the color alone; the outline is
+   reserved to the keyboard focus. */
+.tint-choice {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hb-swatch-border, var(--hb-border));
+  border-radius: var(--hb-radius);
+  background: linear-gradient(
+    var(--hb-swatch-top, var(--hb-bg-subtle)) 0 40%,
+    var(--hb-swatch-fill, var(--hb-bg)) 40% 100%
+  );
+  color: var(--hb-swatch-ink, var(--hb-fg-muted));
+}
+.tint-choice > i {
+  visibility: hidden;
+  font-size: 14px;
+}
+.tint-choice:has(input:checked) {
+  border: 2px solid var(--hb-accent);
+}
+.tint-choice:has(input:checked) > i {
+  visibility: visible;
+}
+.tint-choice:has(input:focus-visible) {
+  outline: 2px solid var(--hb-focus);
+  outline-offset: 2px;
+}
+.tint-choice:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Theme panel: the mask stays modal but does not dim the live preview of the grid (S3). */
+.dialog-mask-clear {
+  --p-mask-background: transparent;
+  background: transparent;
 }
 
 /* Page header (3). */
