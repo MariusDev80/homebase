@@ -184,9 +184,10 @@ export interface TodoRepository {
   /** Deletes the completed todos of the list; returns how many. */
   clearCompleted(listId: string): Promise<number>;
   /**
-   * Todos (active and completed) whose title contains `query` (same matching and limits as
-   * NoteRepository.search), joined to their list for `widgetInstanceId`. Active first, then
-   * most recently updated.
+   * Todos (active and completed) whose title or description contains `query` (same matching and
+   * limits as NoteRepository.search), joined to their list for `widgetInstanceId`. Order: active
+   * first, then title matches before description-only matches, then most recently updated.
+   * `excerpt` is the description around the first match (`excerptAround`; empty when none).
    */
   search(query: string, limit: number): Promise<TodoSearchHit[]>;
 }

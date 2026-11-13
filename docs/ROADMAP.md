@@ -53,10 +53,12 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot TD2b : ligne de tâche sur une ligne (bouton [i], échéance sur la ligne, requêtes de conteneur) et branchement de la fiche (vérifications manuelles MD1 à MD4 et MD6 à faire par Marius)
 - [x] (S) Lot TD3 : répétition des tâches (cocher avance l'échéance, « Annuler ») (vérification manuelle MD5 à faire par Marius)
 - [x] (S) Lot TD4 : recherche dans les descriptions de tâches (vérification manuelle MD7 à faire par Marius)
-- [ ] (O) Revue de fin de phase (thème et détail des tâches compris) ; vérifications manuelles M1 à M17, MT1 à MT9 et MD1 à MD9 à faire par Marius, juste avant la fusion (M10 en premier : V4, V5 et V6 appliquées ensemble)
-- [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius)
+- [x] (O) Revue de fin de phase (thème et détail des tâches compris) ; vérifications manuelles M1 à M17, MT1 à MT9 et MD1 à MD9 faites par Marius, OK (phase fusionnée dans `main` par la PR #12 le 2026-11-12 ; revue faite après la fusion le 2026-11-13 : OK avec suivis, aucun point bloquant ni important)
+- [x] (S) Suivis mineurs de la revue : l'aperçu d'import d'un fichier v1 annonce la remise des icônes par défaut (`resetsIcons`, M17) ; contrat `TodoRepository.search` mis à jour (titre ou description, ordre, `excerpt`) ; faute dans un message d'erreur de `dashboard-theme-input.ts`
+- [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius) ; y inclure `Ctrl+K` vers un autre tableau, le clic sur un résultat de recherche d'un autre tableau, la suppression du tableau courant, une tâche répétée cochée puis annulée
 
 ## Phase 2 : Temps
+- [ ] (S) Audit des dépendances au vert (job CI rouge depuis le 2026-11-12) : `tokio` 1.54.1 (RUSTSEC-2026-0384, PR Dependabot #13) ; `libsqlite3-sys` 0.30.1 (RUSTSEC-2026-0459, imposé par `sqlx` 0.8 via `tauri-plugin-sql` 2.6 : évaluer l'exposition de Homebase, puis exception justifiée en attendant le plugin) ; `rsa` 0.9.10 (RUSTSEC-2023-0071, absent du build Windows : exception justifiée)
 - [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec
 - [ ] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage)
 - [ ] (S) Timers/alarmes, pomodoro, session « en cours depuis X » + historique
@@ -67,7 +69,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.
 
 ## Phase 3 : Données externes et applications locales
-- [ ] (O→S) **Avant tout contenu externe** : O3 de l'ADR-002, remplacer `sql:allow-execute`/`sql:allow-select` par des commandes Rust typées (un XSS ne doit plus donner d'accès SQL complet ni d'écriture de fichier via `ATTACH`/`VACUUM INTO`) ; durcir les tests de capabilities (CSP comparée en chaîne exacte, liste exacte de `debug.json`)
+- [ ] (O→S) **Avant tout contenu externe** : O3 de l'ADR-002, remplacer `sql:allow-execute`/`sql:allow-select` par des commandes Rust typées (un XSS ne doit plus donner d'accès SQL complet ni d'écriture de fichier via `ATTACH`/`VACUUM INTO`) ; durcir les tests de capabilities (CSP comparée en chaîne exacte, liste exacte de `debug.json`) ; toute suppression de tableau passe alors par `dashboard_delete` (aujourd'hui `DashboardRepository.remove`, utilisé par `discardEmpty`, supprime sans sauvegarde `pre-delete`)
 - [ ] (H, scout) Lister les flux RSS des sources de Marius
 - [ ] (O) Spec du client HTTP sortant en Rust (liste d'hôtes, anti-SSRF, exception NAS)
 - [ ] (S) Widget RSS
@@ -94,7 +96,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [ ] (S) GitHub stats (jeton dans le coffre du système), ressources système (basse priorité)
 - [ ] (S) Accessibilité, raccourcis clavier, tests E2E des parcours critiques
 - [ ] (O) Audit sécurité global (capacités Tauri, CSP, dépendances Rust et npm)
-- [ ] (S) Sauvegardes automatiques (base + images, copie vers le NAS ; rétention configurable, emplacement secondaire, écran d'erreur natif complet), documentation d'utilisation
+- [ ] (S) Sauvegardes automatiques (base + images, copie vers le NAS ; rétention configurable, emplacement secondaire, écran d'erreur natif complet), documentation d'utilisation (y rappeler que la réserve de sécurité de 5 archives, `pre-delete` comprises, évince les plus anciennes)
 
 ## Hors périmètre (volontairement)
 Serveur, Spring Boot, PostgreSQL/Flyway, Docker, synchronisation multi-appareils, mobile : l'application n'est utilisée que sur le PC de Marius. À rouvrir uniquement si ce besoin change (ADR dédié).

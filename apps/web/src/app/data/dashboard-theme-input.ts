@@ -46,7 +46,7 @@ export function validTheme(theme: JsonObject, version: number): string {
     throw new DataError('invalid_input', 'Dashboard theme must be a plain object');
   }
   if (!Number.isSafeInteger(version) || version < 1) {
-    throw new DataError('invalid_input', 'Dashboard theme version must be an safe integer >= 1');
+    throw new DataError('invalid_input', 'Dashboard theme version must be a safe integer >= 1');
   }
   let serialized: string | undefined;
   try {

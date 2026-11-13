@@ -636,6 +636,7 @@
     "unknownTypes": "Types de widgets inconnus (conservés tels quels) : {{ types }}",
     "futureVersions": "{{ count }} configuration(s) créée(s) par une version plus récente (conservées telles quelles).",
     "themesReset": "Ce fichier vient d'une version plus ancienne de Homebase : les thèmes des tableaux seront remis par défaut.",
+    "iconsReset": "Ce fichier vient d'une version plus ancienne de Homebase : les icônes des tableaux seront remises par défaut.",
     "confirmMessage": "La configuration actuelle sera remplacée. Les données des widgets supprimés seront perdues. Une sauvegarde de sécurité est faite avant, puis Homebase se recharge.",
     "confirm": "Importer",
     "cancel": "Annuler",
