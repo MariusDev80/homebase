@@ -183,6 +183,12 @@ type InvalidAnalysis = Extract<ConfigImportAnalysis, { ok: false }>;
                     {{ 'configTransfer.themesReset' | transloco }}
                   </li>
                 }
+                @if (analysis.preview.resetsIcons) {
+                  <li class="flash" data-testid="info-icons-reset">
+                    <i class="pi pi-info-circle" aria-hidden="true"></i>
+                    {{ 'configTransfer.iconsReset' | transloco }}
+                  </li>
+                }
               </ul>
               <p class="text-fg-muted">{{ 'configTransfer.safetyBackup' | transloco }}</p>
               <p>{{ 'configTransfer.confirmMessage' | transloco }}</p>

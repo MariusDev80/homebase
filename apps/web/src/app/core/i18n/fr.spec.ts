@@ -189,6 +189,7 @@ const BACKUP_KEYS = [
   'configTransfer.title',
   'configTransfer.removedWidgets',
   'configTransfer.themesReset',
+  'configTransfer.iconsReset',
   'configTransfer.confirm',
 ];
 const KINDS = ['manual', 'daily', 'pre-migration', 'pre-restore', 'pre-import', 'pre-delete'];
