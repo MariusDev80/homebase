@@ -49,3 +49,7 @@ export type {
   RecurrenceSpec,
   ScheduleAnchor,
 } from './recurrence-engine';
+export { createNowSignal } from './now-signal';
+export { durationParts, formatClock } from './duration-format';
+export type { DurationParts, SecondsRounding } from './duration-format';
+export { DueRefresher } from './due-refresher';

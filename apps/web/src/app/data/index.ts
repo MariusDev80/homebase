@@ -11,11 +11,18 @@ export type {
   NewWidgetInstance,
   Note,
   NoteSearchHit,
+  Reminder,
+  ReminderDelivery,
+  ReminderInput,
+  ReminderStatus,
+  DeliveryOutcome,
   Shortcut,
   ShortcutFields,
   Todo,
   TodoChanges,
   TodoList,
+  TimeSession,
+  TimeSessionKind,
   TodoSearchHit,
   WidgetInstanceRecord,
 } from './models';
@@ -26,6 +33,7 @@ export {
   DEFAULT_DASHBOARD_ICON,
   DEFAULT_DASHBOARD_THEME_VERSION,
   MAX_DASHBOARD_THEME_CHARS,
+  SCHEDULE_LIMITS,
   TODO_DESCRIPTION_MAX,
   TODO_RRULE_MAX,
   TODO_RRULE_MIN,
@@ -34,13 +42,17 @@ export {
 export { validTheme } from './dashboard-theme-input';
 export { DataError } from './data-error';
 export type { DataErrorKind } from './data-error';
+export type { CommandErrorDetails } from './tauri/invoke-command';
 export { randomUuid } from './clock';
 export type { Clock, IdGenerator } from './clock';
 export type {
   DashboardRepository,
+  MarkSeenTarget,
   NoteRepository,
+  ReminderRepository,
   SettingsRepository,
   ShortcutRepository,
+  TimeSessionRepository,
   TodoRepository,
   WidgetInstanceRepository,
 } from './repositories';

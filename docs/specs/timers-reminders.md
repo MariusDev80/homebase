@@ -583,7 +583,7 @@ export interface TimeSessionRepository {
 Implémentation `data/tauri/` (seul dossier de `data/` qui importe `@tauri-apps/api/core`, règle ESLint ajoutée) :
 - `invoke-command.ts` : `invokeCommand<T>(name, args): Promise<T>` ; hors Tauri (`isTauriRuntime()` faux) → `DataError('unavailable')` ; erreur Rust `{ kind }` → `DataError` : `invalid_input` et `time` → `invalid_input` ; `not_found` → `not_found` ; `conflict`, `already_running` → `conflict` ; `limit_reached` → `forbidden` ; `busy` → `busy` ; autre → `unknown` ; l'objet Rust est conservé en `cause`.
 - `tauri-reminder.repository.ts`, `tauri-time-session.repository.ts` : arguments exacts (`{ input }`, `{ id, input }`, `{ id }`, `{ limit }`, `{ target }`, `{ before, limit }`, `{ id, label }`).
-- `data.providers.ts` : jetons `REMINDER_REPOSITORY`, `TIME_SESSION_REPOSITORY`, fournis par `provideDataLayer()` (`new TauriReminderRepository(randomUuid)`…) ; `data/index.ts` exporte types et jetons.
+- `data/schedule.tokens.ts` : jetons `REMINDER_REPOSITORY`, `TIME_SESSION_REPOSITORY` en `InjectionToken` `providedIn: 'root'` avec `factory` (`new TauriReminderRepository(randomUuid)`…), hors de `provideDataLayer()` et hors du barrel `data/index.ts` (qui n'exporte que les types) : les stores les importent par `../../data/schedule.tokens`, ce qui garde ces dépôts hors du bundle initial (amendement F1).
 
 `core/` :
 - `core/time/now-signal.ts` (exporté par `core/time/index.ts`) : `createNowSignal(periodMs: 1000 | 60000, destroyRef: DestroyRef): Signal<InstantIso>` : valeur = `CLOCK.nowIso()` ; prochain tick aligné sur le multiple suivant de `periodMs` ; suspendu quand `document.visibilityState === 'hidden'`, recalculé au retour visible et au `focus`.
