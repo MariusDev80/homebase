@@ -62,6 +62,18 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-dashboard-delete",
             "allow-time-validate",
             "allow-time-expand",
+            "allow-reminder-list",
+            "allow-reminder-create",
+            "allow-reminder-update",
+            "allow-reminder-delete",
+            "allow-reminder-unseen-deliveries",
+            "allow-reminder-mark-seen",
+            "allow-session-list-running",
+            "allow-session-history",
+            "allow-session-start",
+            "allow-session-stop",
+            "allow-session-rename",
+            "allow-session-delete",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",
@@ -205,4 +217,32 @@ fn dialog_plugin_exposes_nothing_to_the_front() {
         let text = fs::read_to_string(root.join(package)).expect("package.json");
         assert!(!text.contains("plugin-dialog") && !text.contains("plugin-fs"));
     }
+}
+
+/// The scheduler shows its notifications from Rust: the front gets the twelve schedule commands and
+/// no `core:`, `notification:` or `autostart:` plugin permission.
+#[test]
+fn schedule_commands_add_no_plugin_permission() {
+    // `default.json` only: `debug.json` keeps its devtools permission.
+    for permission in permissions() {
+        let identifier = match &permission {
+            Value::String(s) => s.as_str(),
+            other => other["identifier"].as_str().expect("identifier"),
+        };
+        for prefix in ["core:", "notification:", "autostart:"] {
+            assert!(
+                !identifier.starts_with(prefix),
+                "forbidden permission {identifier}"
+            );
+        }
+    }
+    let schedule = permissions()
+        .iter()
+        .filter(|p| {
+            p.as_str().is_some_and(|s| {
+                s.starts_with("allow-reminder-") || s.starts_with("allow-session-")
+            })
+        })
+        .count();
+    assert_eq!(schedule, 12);
 }

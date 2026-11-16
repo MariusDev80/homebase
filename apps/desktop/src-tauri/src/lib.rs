@@ -35,6 +35,18 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::dashboard_delete,
         time::commands::time_validate,
         time::commands::time_expand,
+        schedule::commands::reminder_list,
+        schedule::commands::reminder_create,
+        schedule::commands::reminder_update,
+        schedule::commands::reminder_delete,
+        schedule::commands::reminder_unseen_deliveries,
+        schedule::commands::reminder_mark_seen,
+        schedule::commands::session_list_running,
+        schedule::commands::session_history,
+        schedule::commands::session_start,
+        schedule::commands::session_stop,
+        schedule::commands::session_rename,
+        schedule::commands::session_delete,
     ]
 }
 
@@ -59,6 +71,18 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::dashboard_delete,
         time::commands::time_validate,
         time::commands::time_expand,
+        schedule::commands::reminder_list,
+        schedule::commands::reminder_create,
+        schedule::commands::reminder_update,
+        schedule::commands::reminder_delete,
+        schedule::commands::reminder_unseen_deliveries,
+        schedule::commands::reminder_mark_seen,
+        schedule::commands::session_list_running,
+        schedule::commands::session_history,
+        schedule::commands::session_start,
+        schedule::commands::session_stop,
+        schedule::commands::session_rename,
+        schedule::commands::session_delete,
     ]
 }
 
@@ -178,6 +202,18 @@ mod tests {
             "weather::weather_geocode",
             "time::commands::time_validate",
             "time::commands::time_expand",
+            "schedule::commands::reminder_list",
+            "schedule::commands::reminder_create",
+            "schedule::commands::reminder_update",
+            "schedule::commands::reminder_delete",
+            "schedule::commands::reminder_unseen_deliveries",
+            "schedule::commands::reminder_mark_seen",
+            "schedule::commands::session_list_running",
+            "schedule::commands::session_history",
+            "schedule::commands::session_start",
+            "schedule::commands::session_stop",
+            "schedule::commands::session_rename",
+            "schedule::commands::session_delete",
         ] {
             assert_eq!(
                 production.matches(&format!("        {command},")).count(),
@@ -206,6 +242,18 @@ mod tests {
             "dashboard_delete",
             "time_validate",
             "time_expand",
+            "reminder_list",
+            "reminder_create",
+            "reminder_update",
+            "reminder_delete",
+            "reminder_unseen_deliveries",
+            "reminder_mark_seen",
+            "session_list_running",
+            "session_history",
+            "session_start",
+            "session_stop",
+            "session_rename",
+            "session_delete",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }

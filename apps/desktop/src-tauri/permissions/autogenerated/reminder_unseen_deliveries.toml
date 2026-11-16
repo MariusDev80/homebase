@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-reminder-unseen-deliveries"
+description = "Enables the reminder_unseen_deliveries command without any pre-configured scope."
+commands.allow = ["reminder_unseen_deliveries"]
+
+[[permission]]
+identifier = "deny-reminder-unseen-deliveries"
+description = "Denies the reminder_unseen_deliveries command without any pre-configured scope."
+commands.deny = ["reminder_unseen_deliveries"]

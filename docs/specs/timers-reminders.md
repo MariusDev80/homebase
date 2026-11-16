@@ -153,7 +153,7 @@ Désactiver un rappel efface son cache ; le réactiver repart de `next_after(now
 `reminders` n'a ni `start_on` ni contrainte d'ancre exclusive : une ancre datée ne sonne jamais (ADR-003 §3.5.5), un « rappel » sans heure n'aurait pas de sens. Les éléments « toute la journée » viendront des tâches et des habitudes. Écart assumé au fragment « ancre exclusive » (ADR-003 §3.1.3), qui vise les éléments pouvant porter l'une ou l'autre (§10.3).
 
 ### D12. Édition d'une série (M8)
-« Modifier » remplace toute la série (titre, ancre, règle, exceptions, activation) et recalcule le cache. « Ignorer la prochaine occurrence » ajoute `next_fire_key` aux `exdates` (≤ 366, ADR-003 §3.5.3) par la même commande de modification. Une modification qui change l'heure crée de nouvelles clés : la nouvelle occurrence sonnera même si l'ancienne a déjà sonné le même jour (comportement voulu) ; une modification du seul titre conserve les clés (pas de doublon).
+« Modifier » remplace toute la série (titre, ancre, règle, exceptions, activation) et recalcule le cache. « Ignorer la prochaine occurrence » ajoute `next_fire_key` aux `exdates` (≤ 366, ADR-003 §3.5.3) par la même commande de modification. Une modification qui change l'heure crée de nouvelles clés : la nouvelle occurrence sonnera même si l'ancienne a déjà sonné le même jour (comportement voulu) ; une modification du seul titre conserve les clés (pas de doublon). Les clés d'occurrence sont des heures murales : un changement de fuseau ou d'heure de départ qui laisse la même heure murale garde la même clé, et si cette occurrence a déjà été livrée le jour du changement, la nouvelle est absorbée sans toast (cas limite accepté en v1, L36). Avant d'appliquer une modification, les commandes qui touchent une échéance traitent d'abord ce qui est déjà échu (même fonction que le passage, §4.3 étapes 1 et 2, sous le même `gate`) : modifier un rappel échu non traité le livre d'abord, démarrer une session après un minuteur expiré non complété le complète d'abord.
 
 ---
 
@@ -440,6 +440,8 @@ Chaque commande qui modifie une échéance (§4.4) appelle `ctx.signal.wake()` *
 
 ### 4.4 Commandes Tauri (lot R3)
 
+**Avant toute modification d'échéance** (`reminder_update`, `reminder_delete`, `session_start`, `session_stop`, `session_delete`), la commande exécute sous le `gate`, dans le même passage de connexion, les étapes 1 et 2 de §4.3 (minuteurs et rappels échus, fonction partagée avec `tick`), puis applique sa modification ; les toasts collectés sont affichés après libération du `gate`, hors transaction (`group` puis `render`). `reminder_create` compte et insère dans une transaction `BEGIN IMMEDIATE`.
+
 Toutes `#[tauri::command]` sur `async fn` (hors thread principal, V16 de l'ADR-003), prennent `State<'_, SchedulerState>`, valident **toutes** les bornes avant tout accès disque, puis appellent une fonction métier `pub(crate) async fn …(ctx: &SchedulerCtx, …)` testée sans Tauri. DTO en camelCase, `#[serde(deny_unknown_fields)]` sur les entrées.
 
 ```rust
@@ -493,7 +495,7 @@ pub async fn session_delete(state, id: String) -> Result<bool, ScheduleError>;
 | `session_list_running` | — | `WHERE ended_at IS NULL ORDER BY started_at, id` | non |
 | `session_history` | `limit` 1..=200 ; curseur : instant strict + UUID | `WHERE ended_at IS NOT NULL AND (?1 IS NULL OR started_at < ?1 OR (started_at = ?1 AND id < ?2)) ORDER BY started_at DESC, id DESC LIMIT ?3` | non |
 | `session_start` | `id`, `label`, `check_duration` ; en transaction `BEGIN IMMEDIATE` : sessions en cours ≥ 20 → `LimitReached` ; `kind` pomodoro et un pomodoro en cours → `AlreadyRunning` | `started_at = now`, `ends_at = now + durée` (ou `NULL`) ; id existant → `Conflict` | oui |
-| `session_stop` | `id` | en cours et `ends_at <= now` : complétée (`ended_at = ends_at`, `completed`, **sans toast** : l'utilisateur est devant) ; en cours sinon : `ended_at = max(now, started_at)`, `stopped` ; déjà terminée : renvoyée telle quelle (idempotent) ; absente → `NotFound` | oui |
+| `session_stop` | `id` | en cours et `ends_at <= now` : complétée (`ended_at = ends_at`, `completed` ; le toast de fin est celui du traitement de l'échu qui précède, une seule fois) ; en cours sinon : `ended_at = max(now, started_at)`, `stopped` ; déjà terminée : renvoyée telle quelle (idempotent) ; absente → `NotFound` | oui |
 | `session_rename` | `id`, `label` | `label`, `updated_at` ; absente → `NotFound` | non |
 | `session_delete` | `id` | `DELETE` (en cours comprise : aucun toast ne suivra) ; `false` si absente | oui |
 
@@ -679,6 +681,7 @@ Une habitude « tous les lundis » **sans heure** reste une ancre datée qui ne 
 | L33 | Fenêtre masquée pendant un décompte | Aucun calcul côté front ; au retour, décompte juste immédiatement |
 | L34 | Hors-ligne, synchronisation | Sans objet (tout est local) |
 | L35 | Base occupée (`busy`) pendant un passage | Erreur journalisée, nouvel essai dans 5 s, aucune livraison partielle (transaction) |
+| L36 | Changement de fuseau (ou d'heure de départ) d'un rappel vers la même heure murale, alors que l'occurrence de cette heure murale a déjà été livrée le jour même | La clé d'occurrence (heure murale) est identique : la nouvelle occurrence est absorbée sans toast. Cas limite accepté en v1 (D12) |
 
 ---
 

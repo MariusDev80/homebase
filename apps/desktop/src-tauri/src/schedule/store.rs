@@ -58,7 +58,6 @@ pub struct DeliveryRow {
 }
 
 /// An unseen delivery joined with its reminder's title and time zone.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnseenDelivery {
     pub reminder_id: String,
@@ -73,7 +72,6 @@ pub struct UnseenDelivery {
 }
 
 /// Which deliveries `mark_seen` touches.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeenTarget<'a> {
     All,
@@ -84,7 +82,6 @@ pub enum SeenTarget<'a> {
 }
 
 /// Keyset cursor of the session history: `(started_at, id)`.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HistoryCursor<'a> {
     pub started_at: &'a str,
@@ -147,7 +144,10 @@ fn session_from(row: &SqliteRow) -> Result<SessionRow, ScheduleError> {
     })
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "tests only; used by get_delivery")
+)]
 fn delivery_from(row: &SqliteRow) -> Result<DeliveryRow, ScheduleError> {
     let outcome: String = row.try_get("outcome")?;
     let skipped: i64 = row.try_get("skipped_count")?;
@@ -163,7 +163,6 @@ fn delivery_from(row: &SqliteRow) -> Result<DeliveryRow, ScheduleError> {
     })
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 fn unseen_from(row: &SqliteRow) -> Result<UnseenDelivery, ScheduleError> {
     let outcome: String = row.try_get("outcome")?;
     let skipped: i64 = row.try_get("skipped_count")?;
@@ -184,7 +183,6 @@ fn unseen_from(row: &SqliteRow) -> Result<UnseenDelivery, ScheduleError> {
 // reminders
 // ---------------------------------------------------------------------------------------------
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn insert_reminder(
     conn: &mut SqliteConnection,
     row: &ReminderRow,
@@ -210,9 +208,24 @@ pub async fn insert_reminder(
     Ok(())
 }
 
+/// Inserts a reminder inside a `BEGIN IMMEDIATE` transaction after checking that fewer than
+/// `max` exist (`LimitReached`). An existing id gives `Conflict`.
+pub async fn insert_reminder_limited(
+    conn: &mut SqliteConnection,
+    row: &ReminderRow,
+    max: i64,
+) -> Result<(), ScheduleError> {
+    let mut tx = conn.begin_with("BEGIN IMMEDIATE").await?;
+    if count_reminders(&mut tx).await? >= max {
+        return Err(ScheduleError::LimitReached);
+    }
+    insert_reminder(&mut tx, row).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
 /// Replaces the editable fields and the cache of a reminder (`created_at` is kept). `false` if
 /// the reminder does not exist.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn replace_reminder(
     conn: &mut SqliteConnection,
     row: &ReminderRow,
@@ -238,7 +251,6 @@ pub async fn replace_reminder(
 }
 
 /// Deletes a reminder; its deliveries go with it (cascade). `false` if absent.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn delete_reminder(conn: &mut SqliteConnection, id: &str) -> Result<bool, ScheduleError> {
     let result = sqlx::query("DELETE FROM reminders WHERE id = ?1")
         .bind(id)
@@ -247,7 +259,6 @@ pub async fn delete_reminder(conn: &mut SqliteConnection, id: &str) -> Result<bo
     Ok(result.rows_affected() > 0)
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn get_reminder(
     conn: &mut SqliteConnection,
     id: &str,
@@ -260,7 +271,6 @@ pub async fn get_reminder(
 }
 
 /// All reminders: scheduled first by next occurrence, then the others by title.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn list_reminders(
     conn: &mut SqliteConnection,
 ) -> Result<Vec<ReminderRow>, ScheduleError> {
@@ -273,7 +283,6 @@ pub async fn list_reminders(
     rows.iter().map(reminder_from).collect()
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn count_reminders(conn: &mut SqliteConnection) -> Result<i64, ScheduleError> {
     Ok(sqlx::query_scalar("SELECT COUNT(*) FROM reminders")
         .fetch_one(conn)
@@ -409,7 +418,7 @@ pub async fn record_firing_detailed(
 // deliveries
 // ---------------------------------------------------------------------------------------------
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
+#[cfg_attr(not(test), expect(dead_code, reason = "tests only"))]
 pub async fn get_delivery(
     conn: &mut SqliteConnection,
     reminder_id: &str,
@@ -427,7 +436,6 @@ pub async fn get_delivery(
     row.as_ref().map(delivery_from).transpose()
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn unseen_deliveries(
     conn: &mut SqliteConnection,
     limit: i64,
@@ -446,7 +454,6 @@ pub async fn unseen_deliveries(
 }
 
 /// Marks unseen deliveries as seen; returns the number of rows changed.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn mark_seen(
     conn: &mut SqliteConnection,
     target: SeenTarget<'_>,
@@ -478,7 +485,6 @@ pub async fn mark_seen(
 /// Inserts a new running session inside a `BEGIN IMMEDIATE` transaction after checking the
 /// bounds: at most `max_running` running sessions (`LimitReached`) and a single running
 /// pomodoro (`AlreadyRunning`). An existing id gives `Conflict`.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn insert_session(
     conn: &mut SqliteConnection,
     row: &SessionRow,
@@ -522,7 +528,6 @@ pub async fn insert_session(
     Ok(())
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn get_session(
     conn: &mut SqliteConnection,
     id: &str,
@@ -534,7 +539,6 @@ pub async fn get_session(
     row.as_ref().map(session_from).transpose()
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn list_running_sessions(
     conn: &mut SqliteConnection,
 ) -> Result<Vec<SessionRow>, ScheduleError> {
@@ -548,7 +552,6 @@ pub async fn list_running_sessions(
 }
 
 /// Finished sessions, newest first, after `before` (exclusive) when given.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn session_history(
     conn: &mut SqliteConnection,
     before: Option<HistoryCursor<'_>>,
@@ -605,7 +608,6 @@ pub async fn complete_session(
 }
 
 /// Stops a running session at `ended_at`. `false` if it was not running.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn stop_session(
     conn: &mut SqliteConnection,
     id: &str,
@@ -624,7 +626,6 @@ pub async fn stop_session(
     Ok(result.rows_affected() > 0)
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn rename_session(
     conn: &mut SqliteConnection,
     id: &str,
@@ -640,7 +641,6 @@ pub async fn rename_session(
     Ok(result.rows_affected() > 0)
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn delete_session(conn: &mut SqliteConnection, id: &str) -> Result<bool, ScheduleError> {
     let result = sqlx::query("DELETE FROM time_sessions WHERE id = ?1")
         .bind(id)

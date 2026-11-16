@@ -32,7 +32,7 @@ pub struct TickReport {
 }
 
 /// A cached next occurrence: instant text and occurrence key.
-type Cache = (String, String);
+pub(super) type Cache = (String, String);
 
 /// Takes `ctx.gate`, reads `ctx.clock.now()` once (truncated to the millisecond), applies 4.3 and
 /// shows the toasts after the commits. A failure in the middle still shows the toasts of what was
@@ -49,12 +49,31 @@ pub async fn tick(ctx: &SchedulerCtx, phase: Phase) -> Result<TickReport, Schedu
     let mut notices = Vec::new();
     let outcome = pass(&mut conn, now, phase, &mut report, &mut notices).await;
     store::close(conn).await;
+    report.toasts = show_notices(ctx, notices);
+    outcome.map(|()| report)
+}
+
+/// Groups the notices (D6) and shows them. Called outside any transaction.
+pub(super) fn show_notices(ctx: &SchedulerCtx, notices: Vec<Notice>) -> usize {
     let grouped = group(notices);
     for notice in &grouped {
         ctx.notifier.show(&render(notice));
     }
-    report.toasts = grouped.len();
-    outcome.map(|()| report)
+    grouped.len()
+}
+
+/// Steps 1 and 2 of 4.3: completes the due timers and fires the due reminders, collecting the
+/// notices to show. The commands that change a deadline call it first, under the gate, so what
+/// was already due is handled before the change.
+pub(super) async fn settle_due(
+    conn: &mut SqliteConnection,
+    now: Timestamp,
+    report: &mut TickReport,
+    notices: &mut Vec<Notice>,
+) -> Result<(), ScheduleError> {
+    let now_text = format_instant(now);
+    complete_due_sessions(conn, now, &now_text, report, notices).await?;
+    fire_due_reminders(conn, now, &now_text, report, notices).await
 }
 
 async fn pass(
@@ -64,9 +83,7 @@ async fn pass(
     report: &mut TickReport,
     notices: &mut Vec<Notice>,
 ) -> Result<(), ScheduleError> {
-    let now_text = format_instant(now);
-    complete_due_sessions(conn, now, &now_text, report, notices).await?;
-    fire_due_reminders(conn, now, &now_text, report, notices).await?;
+    settle_due(conn, now, report, notices).await?;
     if phase == Phase::Startup {
         refresh_caches(conn, now, report).await?;
     }
@@ -144,7 +161,7 @@ async fn fire_due_reminders(
     }
 }
 
-fn cache_of(occurrence: &crate::time::recurrence::Occurrence) -> Option<Cache> {
+pub(super) fn cache_of(occurrence: &crate::time::recurrence::Occurrence) -> Option<Cache> {
     match &occurrence.start {
         OccurrenceStart::Instant { at, .. } => Some((format_instant(*at), occurrence.key.clone())),
         OccurrenceStart::Date(_) => None,

@@ -659,13 +659,21 @@ pub fn next_after(
         Some(RuleEnd::UntilInstant(at)) => Some(*at),
         _ => None,
     };
+    // An occurrence is never after `UNTIL`: a series already over at `after` has no next one, and
+    // the nominal iteration from the anchor (possibly decades back) is not needed to know it.
+    if until.is_some_and(|limit| limit <= after) {
+        return Ok(None);
+    }
     let excluded: HashSet<&str> = spec.exdates.iter().map(String::as_str).collect();
     // Nominal times are ascending and an anchor yields at most one occurrence per day, so the
     // resolved instants are ascending too (a gap shift never reorders two different days):
     // the first one strictly after `after` is the answer.
     for nominal in nominal_times(spec, *start_local, upper)? {
+        if nominal < lo {
+            continue;
+        }
         let key = format_local_date_time(nominal);
-        if nominal < lo || excluded.contains(key.as_str()) {
+        if excluded.contains(key.as_str()) {
             continue;
         }
         let at = resolve_local(nominal, time_zone)?;

@@ -37,6 +37,18 @@ fn main() {
                 "dashboard_delete",
                 "time_validate",
                 "time_expand",
+                "reminder_list",
+                "reminder_create",
+                "reminder_update",
+                "reminder_delete",
+                "reminder_unseen_deliveries",
+                "reminder_mark_seen",
+                "session_list_running",
+                "session_history",
+                "session_start",
+                "session_stop",
+                "session_rename",
+                "session_delete",
             ])),
     )
     .expect("failed to run tauri-build");

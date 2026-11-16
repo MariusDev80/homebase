@@ -1,5 +1,5 @@
 //! Reminder and timer scheduling (docs/specs/timers-reminders.md). Storage and pure planning
-//! (lot R1), the pass, the worker thread and the wiring (lot R2); the Tauri commands come in R3.
+//! (lot R1), the pass, the worker thread and the wiring (lot R2), the Tauri commands (lot R3).
 
 use crate::backup::BackupState;
 use crate::time::clock::Clock;
@@ -9,6 +9,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, Runtime};
 
+pub mod commands;
 pub mod error;
 pub mod notice;
 pub mod notifier;
@@ -39,17 +40,12 @@ pub const CATCHUP_WINDOW: SignedDuration = SignedDuration::from_hours(7 * 24);
 pub const COUNT_WINDOW: SignedDuration = SignedDuration::from_hours(399 * 24);
 pub const MAX_TOASTS_PER_TICK: usize = 4;
 pub const DUE_BATCH: i64 = 200;
-#[expect(dead_code, reason = "used by the R3 commands")]
 pub const MAX_REMINDERS: i64 = 1000;
-#[expect(dead_code, reason = "used by the R3 commands")]
 pub const MAX_RUNNING_SESSIONS: i64 = 20;
 pub const TITLE_MAX_CHARS: usize = 200;
 pub const LABEL_MAX_CHARS: usize = 100;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub const DURATION_MIN_MS: i64 = 1_000;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub const DURATION_MAX_MS: i64 = 86_400_000;
-#[expect(dead_code, reason = "used by the R3 commands")]
 pub const LIST_MAX_LIMIT: u32 = 200;
 
 /// Everything a pass and a command need (D3). One per process.
@@ -107,6 +103,7 @@ pub fn shutdown<R: Runtime>(app: &AppHandle<R>) {
 
 #[cfg(test)]
 mod tests {
+    mod commands_tests;
     mod plan_tests;
     mod store_tests;
     mod tick_tests;

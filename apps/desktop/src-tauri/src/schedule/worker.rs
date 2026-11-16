@@ -27,11 +27,20 @@ struct Flags {
 pub struct WakeSignal {
     flags: Mutex<Flags>,
     condvar: Condvar,
+    /// Number of `wake()` calls (tests count the wake-ups requested by the commands).
+    #[cfg(test)]
+    wakes: std::sync::atomic::AtomicUsize,
 }
 
 impl WakeSignal {
-    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
+    #[cfg(test)]
+    pub fn wake_count(&self) -> usize {
+        self.wakes.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
     pub fn wake(&self) {
+        #[cfg(test)]
+        self.wakes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         if let Ok(mut flags) = self.flags.lock() {
             flags.woken = true;
         }
