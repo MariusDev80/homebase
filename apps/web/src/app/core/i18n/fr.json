@@ -319,6 +319,77 @@
         "urlCredentials": "L'adresse ne doit pas contenir d'identifiants.",
         "urlTooLong": "L'adresse est trop longue (2048 caractères au maximum)."
       }
+    },
+    "timers": {
+      "title": "Minuteurs",
+      "description": "Minuteurs, chronos, alarmes et historique",
+      "running": "En cours",
+      "empty": "Aucun minuteur en cours.",
+      "startTitle": "Démarrer",
+      "presets": "Durées usuelles",
+      "presetMinutes": "{{ m }} min",
+      "minutes": "Minutes",
+      "seconds": "Secondes",
+      "label": "Libellé",
+      "start": "Démarrer le minuteur",
+      "startStopwatch": "Démarrer un chrono",
+      "stop": "Arrêter",
+      "stopOf": "Arrêter {{ name }}",
+      "detailsOf": "Détails de {{ name }}",
+      "since": "En cours depuis {{ duration }}",
+      "sinceTime": "depuis {{ time }}",
+      "endsAt": "Fin à {{ time }}",
+      "finished": "Terminé",
+      "finishedOf": "{{ name }} : terminé",
+      "alarm": "Alarme",
+      "alarmTime": "Heure",
+      "alarmSetAction": "Régler l'alarme",
+      "alarmSet": "Alarme réglée pour {{ when }}",
+      "alarmToday": "aujourd'hui à {{ time }}",
+      "alarmTomorrow": "demain à {{ time }}",
+      "alarmOther": "le {{ date }} à {{ time }}",
+      "history": "Historique",
+      "justFinished": "Terminées à l'instant",
+      "historyEmpty": "Aucune session terminée.",
+      "stopped": "Arrêté",
+      "total": "Total : {{ duration }}",
+      "more": "Voir plus",
+      "confirmYes": "Supprimer",
+      "confirmNo": "Annuler",
+      "removeSession": "Supprimer {{ name }} de l'historique",
+      "kind": {
+        "stopwatch": "Chrono",
+        "countdown": "Minuteur",
+        "pomodoroWork": "Travail",
+        "pomodoroShortBreak": "Pause courte",
+        "pomodoroLongBreak": "Pause longue"
+      },
+      "detail": {
+        "group": "Détails de {{ name }}",
+        "back": "Retour",
+        "saving": "Enregistrement…",
+        "saved": "Enregistré",
+        "started": "Début",
+        "elapsed": "Durée écoulée",
+        "past": "Sessions terminées avec ce libellé"
+      },
+      "errors": {
+        "minutes": "Les minutes doivent être un nombre entier de 0 à {{ max }}.",
+        "seconds": "Les secondes doivent être un nombre entier de 0 à 59.",
+        "range": "La durée doit être comprise entre 1 seconde et 24 heures.",
+        "alarmTime": "Choisissez une heure pour l'alarme.",
+        "load": "Impossible de lire les minuteurs.",
+        "unknown": "L'opération a échoué.",
+        "sessionLimit": "Trop de minuteurs, chronos et pomodoros en cours ({{ max }} au plus, pomodoros compris).",
+        "alarmNotScheduled": "L'alarme n'a pas pu être programmée : aucune occurrence à venir.",
+        "reminderLimit": "Trop de rappels enregistrés : supprimez-en avant d'en ajouter.",
+        "busy": "Homebase est occupé : réessayez dans un instant.",
+        "notFound": "Ce minuteur n'existe plus.",
+        "label": "Le libellé est trop long ou contient des caractères non autorisés.",
+        "duration": "La durée est refusée : elle doit être comprise entre 1 seconde et 24 heures.",
+        "alarmInvalid": "Cette heure d'alarme est refusée.",
+        "invalid": "Les valeurs saisies sont refusées."
+      }
     }
   },
   "dashboard": {
@@ -470,6 +541,15 @@
     "tomorrow": "Demain",
     "overdue": "En retard de {{ days }} j",
     "justNow": "à l'instant"
+  },
+  "duration": {
+    "short": "{{ h }} h {{ m }} min",
+    "minutes": "{{ m }} min",
+    "seconds": "{{ s }} s",
+    "days": "{{ d }} j {{ h }} h"
+  },
+  "common": {
+    "desktopOnly": "Disponible uniquement dans l'application Windows."
   },
   "backup": {
     "title": "Sauvegardes",

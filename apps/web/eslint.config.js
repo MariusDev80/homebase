@@ -6,7 +6,14 @@ const angular = require('angular-eslint');
 const prettier = require('eslint-config-prettier');
 
 /** Builds the no-restricted-imports options (test-only modules are always restricted). */
-function restrict({ plugin, internals, temporal = true, tauriApi = false, timeBarrel = false }) {
+function restrict({
+  plugin,
+  internals,
+  temporal = true,
+  tauriApi = false,
+  timeBarrel = false,
+  tauriRepos = false,
+}) {
   const paths = [
     { name: 'better-sqlite3', message: 'Test-only dependency (data/testing).' },
     {
@@ -46,7 +53,11 @@ function restrict({ plugin, internals, temporal = true, tauriApi = false, timeBa
   }
   if (internals) {
     patterns.push({
-      group: ['**/data/sqlite/**', '**/data/testing/**'],
+      group: [
+        '**/data/sqlite/**',
+        '**/data/testing/**',
+        ...(tauriRepos ? [] : ['**/data/tauri/**']),
+      ],
       message: 'Import from the data layer public API (data/index.ts) instead.',
     });
   }
@@ -128,6 +139,16 @@ module.exports = defineConfig([
     files: ['src/**/*.ts'],
     rules: {
       'no-restricted-imports': ['error', restrict({ plugin: true, internals: true })],
+    },
+  },
+  {
+    // Specs may build the Rust-command repositories (e.g. the injection tokens test).
+    files: ['src/**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        restrict({ plugin: true, internals: true, tauriRepos: true }),
+      ],
     },
   },
   {

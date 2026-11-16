@@ -28,7 +28,7 @@ export class TauriTimeSessionRepository implements TimeSessionRepository {
     readonly durationMs: number | null;
   }): Promise<TimeSession> {
     if (input.durationMs !== null && !Number.isSafeInteger(input.durationMs)) {
-      // Same shape as the Rust error, so that commandErrorDetails reads it too.
+      // Same shape as the Rust error.
       return Promise.reject(
         new DataError('invalid_input', 'durationMs must be a safe integer', {
           cause: { kind: 'invalid_input', field: 'durationMs' },

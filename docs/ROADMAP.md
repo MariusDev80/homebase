@@ -64,7 +64,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot R3 : commandes Tauri reminder_* et session_* (revu ; vérification manuelle CA-R3-4 à faire par Marius)
 - [x] (S) Lot R4 : démarrage réduit, autostart --minimized, Réglages (relu ; vérifications manuelles MV8, MV9 à faire par Marius)
 - [x] (S) Lot F1 : dépôts data/tauri, services core (rappels, sessions, horloge d'affichage) (revu ; bundle initial 490,32 kB, sous main ; vérifier à la main que WebView2 passe en « hidden » fenêtre réduite dans la zone de notification)
-- [ ] (S) Lot W1 : widget Minuteurs (minuteurs, chronos, alarme, historique)
+- [x] (S) Lot W1 : widget Minuteurs (minuteurs, chronos, alarme, historique) (revu ; vérifications manuelles MV3, MV4, MV5 à faire par Marius)
 - [ ] (S) Lot W2 : widget Pomodoro
 - [ ] (S) Lot W3 : widget Rappels (vérification de sortie MV1 à faire par Marius)
 - [ ] (O) mini-spec Habitudes (s'appuie sur §4.9 de timers-reminders)

@@ -42,7 +42,6 @@ export {
 export { validTheme } from './dashboard-theme-input';
 export { DataError } from './data-error';
 export type { DataErrorKind } from './data-error';
-export type { CommandErrorDetails } from './tauri/invoke-command';
 export { randomUuid } from './clock';
 export type { Clock, IdGenerator } from './clock';
 export type {
