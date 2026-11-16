@@ -140,7 +140,7 @@ Désactiver un rappel efface son cache ; le réactiver repart de `next_after(now
 - Aucune permission `notification:*` côté JS (V8) : le front n'envoie jamais de notification. Le `NotificationService` prévu par l'ADR-001 §3.8 n'est pas créé (§10.1).
 - Son **toujours explicite** (V13) : `Reminder` pour un rappel, `Alarm` pour la fin d'un minuteur, `Default` pour un résumé (M7).
 - Textes natifs en français, **dans un seul fichier Rust** (`schedule/notice.rs`) : i18n native hors périmètre (spike) ; un changement de langue ne touchera que ce fichier.
-- Le Rust ne connaît ni le fuseau de l'utilisateur ni celui de Windows (ADR-003 §3.2) : un rappel affiche son heure **nominale dans son propre fuseau** (`next_fire_key`) ; un minuteur parle en durée relative (« il y a 2 h 05 »).
+- Le Rust ne connaît ni le fuseau de l'utilisateur ni celui de Windows (ADR-003 §3.2) : un rappel affiche son heure **nominale dans son propre fuseau** (`next_fire_key`) ; un minuteur parle en durée relative (« il y a 2 h 5 min », au plus deux unités, cf. §4.5).
 - Rejeté pour la phase 2 : `tauri-winrt-notification` en direct (boutons, `Scenario::Reminder`, clic) : déjà dans l'arbre (V10) mais il faudrait recopier la gestion de l'AUMID du plugin (V11) ; option documentée pour M5/M7 (§12).
 
 ### D10. Fenêtre, zone de notification, démarrage automatique (M6)
@@ -271,7 +271,13 @@ CREATE INDEX time_sessions_running_idx ON time_sessions (ends_at)
   WHERE ended_at IS NULL;
 CREATE INDEX time_sessions_history_idx ON time_sessions (started_at, id)
   WHERE ended_at IS NOT NULL;
+
+-- Safety net for M10 (a single pomodoro): the indexed expression is constant, so two running
+-- pomodoro sessions cannot coexist even if a row is written outside insert_session.
+CREATE UNIQUE INDEX time_sessions_one_pomodoro_idx ON time_sessions ((ended_at IS NULL))
+  WHERE ended_at IS NULL AND kind IN ('pomodoro_work', 'pomodoro_short_break', 'pomodoro_long_break');
 ```
+- `time_sessions_one_pomodoro_idx` est un filet de sécurité (M10) : l'index unique partiel sur une expression constante interdit deux pomodoros en cours même si une ligne est écrite hors de `insert_session`, qui garde son contrôle transactionnel et renvoie `AlreadyRunning` dans le cas normal.
 - `src/db.rs` : `version: 7, description: "timers_reminders"`. `checksums.json` : SHA-256 du fichier.
 - Aucune contrainte `ended_at >= started_at` (ADR-002 §3.3 : un recul d'horloge ferait échouer l'écriture) ; le Rust écrit `max(now, started_at)` à l'arrêt. `ends_at > started_at` est sûr (les deux viennent du même `now`).
 - Pas de `DEFAULT` (tables neuves). Pas de rattachement à `widget_instances` (M9).
@@ -344,7 +350,7 @@ pub enum ScheduleError {
 impl From<sqlx::Error> for ScheduleError; // code SQLite 5 → Busy ; 1555 / 2067 → Conflict ; sinon Database
 
 // text.rs
-/// trim non vide, 1..=TITLE_MAX_CHARS points de code, aucun caractère de contrôle (C0, DEL, C1).
+/// trim non vide, 1..=TITLE_MAX_CHARS points de code, aucun caractère de contrôle (C0, DEL, C1) ni caractère de format invisible (U+200B à U+200F, U+202A à U+202E, U+2066 à U+2069, U+FEFF : usurpation bidi).
 pub fn check_title(s: &str) -> Result<(), ScheduleError>;
 /// 0..=LABEL_MAX_CHARS points de code, aucun caractère de contrôle.
 pub fn check_label(s: &str) -> Result<(), ScheduleError>;
@@ -363,7 +369,7 @@ pub struct PlannedDelivery { pub key: String, pub due_at: Timestamp, pub nominal
 pub struct DuePlan { pub delivery: Option<PlannedDelivery>, pub next: Option<Occurrence> }
 /// Reconstruit la spec par la même conversion que time_validate (to_spec rendu pub(crate), V3).
 pub fn spec_of(row: &ReminderRow) -> Result<RecurrenceSpec, TimeError>;
-pub fn status_of(row: &ReminderRow) -> ReminderStatus;   // invalid si spec_of échoue
+pub fn status_of(row: &ReminderRow, now: Timestamp) -> ReminderStatus;   // invalid si spec_of échoue, ou si next_fire échoue pour un rappel actif sans cache (sinon finished)
 pub fn outcome_for(due_at: Timestamp, now: Timestamp) -> Outcome;  // bornes inclusives (D6)
 /// D6 étapes 1 à 3. `cached_next <= now` (sinon appel invalide : debug_assert).
 pub fn plan_due(spec: &RecurrenceSpec, cached_next: Timestamp, now: Timestamp) -> Result<DuePlan, TimeError>;
@@ -499,12 +505,12 @@ Le titre utilisateur passe par `check_title` à l'écriture ; à l'affichage, il
 |---|---|---|---|
 | Rappel, `on_time` | `{titre}` | `Prévu à {HH:MM}` | `Reminder` |
 | Rappel, `late` | `Rappel manqué : {titre}` | `Prévu le {JJ/MM} à {HH:MM}` | `Reminder` |
-| … avec `skipped = n > 0` | idem | + ` · {n} occurrence précédente manquée` / ` · {n} occurrences précédentes manquées` | idem |
+| … avec `skipped = n > 0` (rappel `on_time` comme `late`) | idem | + ` · {n} occurrence précédente manquée` / ` · {n} occurrences précédentes manquées` | idem |
 | Minuteur (`countdown`) | `Minuteur terminé` | `{libellé}` ou, si vide, `Minuteur de {durée}` | `Alarm` |
 | Pomodoro, travail | `Pomodoro terminé` | `C'est l'heure de la pause.` (+ ` ({libellé})` si non vide) | `Alarm` |
 | Pomodoro, pause | `Pause terminée` | `Prêt pour le prochain pomodoro ?` | `Alarm` |
 | Minuteur en retard (`late_by`) | titre ci-dessus + ` pendant l'absence` | corps ci-dessus + ` · il y a {durée}` | `Alarm` |
-| Résumé | `Homebase` | `{r} rappel(s) manqué(s)` et/ou `{s} minuteur(s) terminé(s)`, joints par ` et `, puis `. Ouvrez Homebase pour les voir.` (singulier : `1 rappel manqué`, `1 minuteur terminé`) | `Default` |
+| Résumé | `Homebase` | `{r} autre(s) rappel(s)` (certains ont pu sonner à l'heure) et/ou `{s} minuteur(s) terminé(s)`, joints par ` et `, puis `. Ouvrez Homebase pour les voir.` (singulier : `1 autre rappel`, `1 minuteur terminé` ; pluriel : `3 autres rappels`) | `Default` |
 
 `{durée}` (fonction pure `format_duration_fr`) : `45 s`, `10 min`, `1 h`, `1 h 30 min`, `2 j 3 h` (au plus deux unités, troncature). Une session `stopwatch` ne produit jamais d'avis.
 
@@ -641,7 +647,7 @@ Une habitude « tous les lundis » **sans heure** reste une ancre datée qui ne 
 | L4 | Horloge avancée d'1 jour par erreur | Rappels du jour traités `late` ; au retour de l'horloge, aucun doublon ; un minuteur paraît fini plus tôt (instants) : accepté |
 | L5 | PC éteint du 10/11 au 16/11 12:00Z, quotidien 09:00 Paris | 1 livraison `2026-11-16T09:00:00`, `late`, `skipped_count` 6, 1 toast « Rappel manqué », cache 17/11 08:00Z |
 | L6 | Rappel ponctuel échu il y a 10 jours | Livraison `missed`, aucun toast, visible dans « Sonnés » |
-| L7 | 6 rappels échus dans un passage | 3 toasts + 1 résumé « 3 rappels manqués… » |
+| L7 | 6 rappels échus dans un passage | 3 toasts + 1 résumé « 3 autres rappels… » |
 | L8 | Quotidien 02:30 Paris à travers le pli du 2026-10-25 | 1 seul toast à `00:30:00.000Z` ; suivant `2026-10-26T01:30:00.000Z` (ADR-003 C2) |
 | L9 | Quotidien 02:30 Paris dans le trou du 2027-03-28 | Toast à `01:30:00.000Z` (03:30 CEST), clé `2027-03-28T02:30:00` (C3) |
 | L10 | Quotidien 09:00 à travers le pli | 07:00Z puis 08:00Z (C5) |
@@ -653,6 +659,7 @@ Une habitude « tous les lundis » **sans heure** reste une ancre datée qui ne 
 | L16 | `COUNT` épuisé, `UNTIL` dépassé | Cache `NULL`, statut `finished` |
 | L17 | Ligne modifiée hors du Rust avec `rrule` invalide | Ignorée, cache `NULL`, `status: invalid`, les autres rappels sonnent |
 | L18 | Prochaine occurrence au-delà de 10 ans | `finished` (horizon de `next_after`) ; la fiche refuse une telle date |
+| L18b | Rappel ponctuel en retard de plus de 399 jours | Aucune livraison enregistrée (`expand` vide, D6 étape 2), cache vidé, statut `finished` |
 | L19 | Minuteur de 25 min lancé à `2026-10-25T00:50:00.000Z` | `ends_at` `01:15:00.000Z`, affiché 02:15 (C25) ; toast à l'échéance |
 | L20 | Application quittée pendant un minuteur, relancée 2 h après la fin | `ended_at = ends_at`, `completed`, toast « … pendant l'absence · il y a 2 h » |
 | L21 | Chrono en cours, application quittée 3 jours | Toujours en cours au redémarrage, « En cours depuis 3 j … » |

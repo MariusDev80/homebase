@@ -3,6 +3,7 @@ mod backup;
 mod capability_tests;
 mod db;
 mod net;
+mod schedule;
 mod spike;
 mod time;
 mod tray;

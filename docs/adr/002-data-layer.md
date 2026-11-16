@@ -138,6 +138,8 @@ Les tests de `data/` tournent dans une config Vitest séparée (environnement `n
 
 *Amendement (spec timers-reminders, 2026-11-16)* : exceptions justifiées pour les tables `reminders`, `reminder_deliveries` et `time_sessions` (V7) : clé naturelle `(reminder_id, occurrence_key)` pour `reminder_deliveries` ; `created_at` / `updated_at` de ces tables fournis par l'horloge Rust (`time::clock::Clock`, même format).
 
+*Amendement (spec timers-reminders, 2026-11-16)* : pour les index partiels, un nom qui porte un rôle est accepté en dérogation à `<table>_<colonnes>_idx` : `reminder_deliveries_unseen_idx`, `time_sessions_running_idx`, `time_sessions_history_idx`, `time_sessions_one_pomodoro_idx`.
+
 ### 3.4 Schéma V1 (phase 0)
 Trois tables : `settings` (clé/valeur JSON), `dashboards`, `widget_instances`. Rien pour les widgets futurs. SQL exact au §6.3.
 

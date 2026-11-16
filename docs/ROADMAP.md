@@ -59,7 +59,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 ## Phase 2 : Temps
 - [x] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec (vérification manuelle CA-B7 à faire par Marius)
 - [x] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage) (`docs/specs/timers-reminders.md`, décisions M1 à M12 validées par Marius le 2026-11-16)
-- [ ] (S) Lot R1 (spec timers-reminders) : migration V7, stockage et planification pure (texte de V7 figé à la revue ; pas de npm run dev avant)
+- [x] (S) Lot R1 (spec timers-reminders) : migration V7, stockage et planification pure (revu ; texte de V7 figé le 2026-11-16, index unique « un seul pomodoro » ajouté à la revue)
 - [ ] (S) Lot R2 : passage du planificateur, boucle, notifications, câblage
 - [ ] (S) Lot R3 : commandes Tauri reminder_* et session_*
 - [ ] (S) Lot R4 : démarrage réduit, autostart --minimized, Réglages

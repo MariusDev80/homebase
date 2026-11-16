@@ -72,7 +72,7 @@ pub struct CanonicalSpecDto {
 }
 
 /// Converts and validates a spec; `exdates` come out sorted and de-duplicated (canonical).
-fn to_spec(dto: &RecurrenceSpecDto) -> Result<RecurrenceSpec, TimeError> {
+pub(crate) fn to_spec(dto: &RecurrenceSpecDto) -> Result<RecurrenceSpec, TimeError> {
     if dto.exdates.len() > MAX_EXDATES {
         return Err(TimeError::InvalidExdate {
             value: format!("{} exdates", dto.exdates.len()),

@@ -45,6 +45,12 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/V6__todo_details.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "timers_reminders",
+            sql: include_str!("../migrations/V7__timers_reminders.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
