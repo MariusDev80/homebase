@@ -29,8 +29,8 @@ Ce que Tauri complique :
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
 | Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003. Exception : la prochaine échéance d'une TODO répétée (date sans heure, sans notification) est calculée par `core/time/date-rule.ts` (ADR-003 §3.9, spec todo-details). |
-| Timers | Web Worker (UI) + horloge Rust (rappels) | Fiable même fenêtre réduite |
-| Notifications | `tauri-plugin-notification`, tray, `autostart` | Natif Windows |
+| Timers | Web Worker (UI) + horloge Rust (rappels) | Fiable même fenêtre réduite. *Amendement (spec timers-reminders, 2026-11-16)* : échéances tenues par le planificateur Rust (`time_sessions`), affichage recalculé depuis `CLOCK` quand la fenêtre est visible ; pas de Web Worker (spec timers-reminders D7). |
+| Notifications | `tauri-plugin-notification`, tray, `autostart` | Natif Windows. *Amendement (spec timers-reminders, 2026-11-16)* : depuis le Rust uniquement, son explicite (un toast sans nom de son est muet). |
 | HTTP sortant | `reqwest` 0.13.5 (`default-features = false`, feature `native-tls` : TLS de Windows), module Rust `net`, appelé uniquement par des commandes dédiées | Pas de `tauri-plugin-http` ni de réseau depuis le front (CSP inchangée) ; rustls par défaut écarté (aws-lc exige NASM sous Windows). Voir `docs/specs/weather-widget.md` (décidé le 21/10/2026) |
 | Sauvegarde et fichiers natifs | `tauri-plugin-dialog` (dialogues ouverts par Rust uniquement, aucune permission JS ; ESLint `no-alert` car son script injecté remplace `alert`/`confirm`) ; `rfd` direct pour le message natif de démarrage bloqué ; archives `zip` 9 ; accès Rust à la base via `sqlx` 0.8 (même version que `tauri-plugin-sql`) | Voir `docs/specs/backup-restore.md` |
 | Mise à jour | `tauri-plugin-updater` (binaires signés) | Phase finitions |
@@ -70,7 +70,7 @@ UTC + fuseau IANA ; récurrence en RRULE ; planificateur Rust qui recalcule la p
 ## 5. Widgets : notes de conception
 - **TODO** : ligne compacte (case, marqueur « Important », titre, échéance relative, indicateurs, bouton de détail) qui s'adapte à la largeur de la carte ; fiche dans le widget (titre, « Important », description, échéance, répétition) enregistrée au fil de l'eau ; cocher une tâche répétée avance son échéance, sans historique (`docs/specs/todo-details.md`).
 - **Calendrier** : agrège les `CalendarSource` (rappels, TODO datées, habits, objectifs).
-- **Timers/pomodoro** : session « en cours depuis X » cliquable (détail + historique) ; historique en base ; reprise correcte après fermeture.
+- **Timers/pomodoro** : session « en cours depuis X » cliquable (détail + historique) ; historique en base ; reprise correcte après fermeture. *Amendement (spec timers-reminders, 2026-11-16)* : pas de pause ni d'enchaînement automatique en v1 (M3, M4).
 - **Habits** : distinct de la TODO ; inclut des rappels de mise à jour périodique (ex. solde des comptes).
 - **Objectifs** : entièrement manuels (progression éditable, durée définie), étiquette libre (ex. SkyBlock). Aucune dépendance à une API de jeu.
 - **Budget/comptes** : saisie manuelle et import CSV ; automatisation bancaire reportée (GoCardless fermé aux nouveaux comptes depuis juillet 2025, Powens sur devis, autres non vérifiés).
@@ -103,5 +103,5 @@ Les agents du kit suffisent pour démarrer. Plugins officiels optionnels : `secu
 6. Accès à Opus sur ton plan (sinon `architect`/`reviewer` passent en Sonnet).
 
 ## 9. Limites assumées (usage solo, PC uniquement)
-- Pas de rappel quand le PC est éteint ou l'application fermée : au prochain lancement, les rappels manqués sont rattrapés et signalés.
+- Pas de rappel quand le PC est éteint ou l'application fermée : au prochain lancement, les rappels manqués sont rattrapés et signalés. *Amendement (spec timers-reminders, 2026-11-16)* : rattrapage : une notification par rappel (dernière occurrence manquée), fenêtre de 7 jours, au-delà visible dans le widget.
 - Pas d'accès depuis un téléphone ni un autre ordinateur. Si ce besoin apparaît un jour, il faudra rouvrir la question d'un serveur ou d'une synchronisation (ADR dédié) ; l'architecture `Repository` permet de le faire sans réécrire les widgets.

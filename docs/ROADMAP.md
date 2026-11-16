@@ -58,9 +58,16 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 
 ## Phase 2 : Temps
 - [x] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec (vérification manuelle CA-B7 à faire par Marius)
-- [ ] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage)
-- [ ] (S) Timers/alarmes, pomodoro, session « en cours depuis X » + historique
-- [ ] (S) Rappels datés/récurrents (rrule) + notifications natives + zone de notification + démarrage automatique
+- [x] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage) (`docs/specs/timers-reminders.md`, décisions M1 à M12 validées par Marius le 2026-11-16)
+- [ ] (S) Lot R1 (spec timers-reminders) : migration V7, stockage et planification pure (texte de V7 figé à la revue ; pas de npm run dev avant)
+- [ ] (S) Lot R2 : passage du planificateur, boucle, notifications, câblage
+- [ ] (S) Lot R3 : commandes Tauri reminder_* et session_*
+- [ ] (S) Lot R4 : démarrage réduit, autostart --minimized, Réglages
+- [ ] (S) Lot F1 : dépôts data/tauri, services core (rappels, sessions, horloge d'affichage)
+- [ ] (S) Lot W1 : widget Minuteurs (minuteurs, chronos, alarme, historique)
+- [ ] (S) Lot W2 : widget Pomodoro
+- [ ] (S) Lot W3 : widget Rappels (vérification de sortie MV1 à faire par Marius)
+- [ ] (O) mini-spec Habitudes (s'appuie sur §4.9 de timers-reminders)
 - [ ] (S) Habit tracker (+ rappels de mise à jour périodique)
 - [ ] (O) ADR-004 : choix du calendrier (Schedule-X vs FullCalendar) après essai
 - [ ] (S) Calendrier agrégé via `CalendarSource`

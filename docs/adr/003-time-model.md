@@ -146,6 +146,8 @@ Un élément planifié a **exactement une** ancre :
 
 Plus, optionnellement : `rrule` (sans préfixe `RRULE:` ni `DTSTART`, sous-ensemble §3.5) et `exdates` (tableau JSON d'heures murales pour une ancre horodatée, de dates pour une ancre datée). Sans `rrule`, l'élément est ponctuel. L'instant d'un élément ponctuel horodaté n'est **pas stocké** : il est résolu à la lecture (§3.3). **Seules les ancres horodatées déclenchent des notifications** (§3.5.5).
 
+*Amendement (spec timers-reminders, 2026-11-16)* : `reminders` n'admet qu'une ancre horodatée (colonnes `NOT NULL`, sans `start_on` ni contrainte d'ancre exclusive) : une ancre datée ne sonne jamais (§3.5.5).
+
 #### 3.1.3 Fragments SQL normatifs (à recopier dans chaque migration qui crée une colonne temporelle)
 `<c>` désigne la colonne. Tables `STRICT`, type `TEXT`. Le `IS` (et non `=`) est indispensable : un `CHECK` qui vaut `NULL` **passe**. Le modificateur `'+0 seconds'` est indispensable : sans lui, `strftime` renvoie `T24:00:00` tel quel (V13).
 
@@ -301,6 +303,8 @@ Limites : plage ≤ **400 jours** et `from < to` (sinon `invalid_range`) ; `limi
 #### 3.5.5 Prochaine occurrence et notifications
 `next_after(spec, after)` (Rust) renvoie la première occurrence **strictement après** `after`, cherchée sur **10 ans** au plus (au-delà : « aucune »). Elle n'est définie que pour une **ancre horodatée** ; pour une ancre datée elle renvoie `TimeError::NotSchedulable`. Décision : **une ancre datée ne déclenche jamais de notification** (sinon le Rust devrait connaître le fuseau utilisateur pour savoir quand commence la journée). Un rappel d'habitude « à 20 h » est donc une ancre horodatée ; une habitude « tous les lundis » sans heure n'est qu'affichée.
 
+*Amendement (spec timers-reminders, 2026-11-16)* : `next_after` est utilisée par le planificateur ; le rattrapage compte les occurrences manquées par `expand` sur au plus 399 jours.
+
 ### 3.6 Horloge injectable et interdiction du calcul à la main
 **TS**
 - `Clock` (`data/clock.ts`) reste **l'unique** source du « maintenant » (`nowIso()`).
@@ -368,6 +372,7 @@ Deux commandes **pures** (aucun accès disque, réseau ni état), **asynchrones*
 
 ### 3.10 Ce qui reste pour la phase 2 et l'ADR-004
 **Spec planificateur (phase 2, Opus)** : boucle (réveil à intervalle borné, ≤ 30 s, comparé à `Clock::now()` pour survivre à la veille et aux changements d'horloge) ; rattrapage au démarrage (recommandation : une notification pour la **dernière** occurrence manquée par élément, plus un résumé) ; table des déclenchements avec unicité `(élément, clé d'occurrence)` ; cache `next_fire_at` ; accès Rust à la base (ADR-002 O2) ; plugin single-instance ; modèle des timers ; édition « cette occurrence / les suivantes / toutes ».
+*Amendement (spec timers-reminders, 2026-11-16)* : traité par `docs/specs/timers-reminders.md` (thread borné à 30 s, rattrapage D6, table `reminder_deliveries`, cache `next_fire_at`, connexions sqlx, timers D7, édition D12).
 **ADR-004** : bibliothèque calendrier, champs visuels de `CalendarEvent`, conversion vers la lib, début de semaine (lundi en `fr`).
 
 ---

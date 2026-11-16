@@ -1,6 +1,6 @@
 # Spec : minuteurs, pomodoro, sessions « en cours depuis X » et planificateur de rappels (Rust)
 
-- **Statut** : proposée (2026-11-16), décisions M1 à M12 à valider par Marius avant le lot R1
+- **Statut** : acceptée (2026-11-16) ; décisions M1 à M12 validées par Marius le 2026-11-16, telles que recommandées
 - **Auteur** : architect (Opus)
 - **Destinataire** : `implementer` (Sonnet), un lot à la fois (§7), sur la branche `phase-2-time`
 - **Liens** : `CLAUDE.md` ; `docs/PLAN.md` §2, §4 « Temps », §9 ; `docs/DESIGN.md` ; ADR-001 (§3.1, §3.2, §3.6, §3.8) ; ADR-002 (§2.3, §3.3, O2, O3, R11) ; ADR-003 (§3.1, §3.3, §3.5.3 à §3.5.5, §3.6, §3.10, D1 à D3) ; `docs/spikes/001-tray-notification-autostart.md` ; `docs/specs/backup-restore.md` (connexions sqlx dédiées, thread quotidien) ; `docs/specs/todo-details.md` (format, D10)
@@ -9,9 +9,9 @@ Cette spec vaut compte rendu de décision (contexte, options, décision, conséq
 
 ---
 
-## 0. Décisions à valider par Marius
+## 0. Décisions validées par Marius (2026-11-16)
 
-Format de l'ADR-003 §7. Chaque ligne donne la **recommandation** de l'architecte ; la spec est écrite pour elle. Une réponse différente modifie le ou les lots cités.
+Format de l'ADR-003 §7. Chaque ligne donne la **recommandation** de l'architecte ; la spec est écrite pour elle. Une réponse différente modifie le ou les lots cités. Marius a validé les douze recommandations telles quelles le 2026-11-16.
 
 - **M1** Une « alarme » (sonner à 7 h) **est un rappel** (ponctuel ou récurrent), pas un objet à part. Le widget Minuteurs propose un raccourci « Alarme à HH:MM » qui crée un rappel ponctuel. *Recommandation : oui.* (W1, W3)
 - **M2** Rattrapage au démarrage ou au réveil du PC : **une notification par rappel**, pour sa **dernière** occurrence manquée, avec le nombre d'occurrences précédentes sautées ; **fenêtre de 7 jours** (au-delà : enregistré « manqué », sans notification, visible dans le widget) ; au-delà de 4 notifications dans un même passage, **3 notifications + 1 résumé**. Un retard de 5 minutes au plus compte comme « à l'heure ». *Recommandation : oui (7 jours, 5 minutes, 4).* (R1, R2)
@@ -781,7 +781,7 @@ Sur l'**exe release installé** (identité des toasts, V11), sauf mention.
 
 ---
 
-## 10. Amendements à appliquer par le coordinateur (proposés, non appliqués)
+## 10. Amendements appliqués (2026-11-16)
 
 ### 10.1 ADR-001 (`docs/adr/001-widget-contract.md`)
 - §3.8, ligne `notifications` : « Pas de `NotificationService` côté front ni de permission `notification:*` : les notifications sont émises par le planificateur Rust (spec timers-reminders D9). La permission `notifications` d'un widget (`timers`, `pomodoro`, `reminders`) reste de la documentation. »
