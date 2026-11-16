@@ -60,6 +60,8 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-config-import-pick",
             "allow-config-import-apply",
             "allow-dashboard-delete",
+            "allow-time-validate",
+            "allow-time-expand",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",

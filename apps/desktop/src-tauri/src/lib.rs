@@ -32,6 +32,8 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::config_import_pick,
         backup::commands::config_import_apply,
         backup::commands::dashboard_delete,
+        time::commands::time_validate,
+        time::commands::time_expand,
     ]
 }
 
@@ -54,6 +56,8 @@ fn invoke_handler<R: tauri::Runtime>(
         backup::commands::config_import_pick,
         backup::commands::config_import_apply,
         backup::commands::dashboard_delete,
+        time::commands::time_validate,
+        time::commands::time_expand,
     ]
 }
 
@@ -167,6 +171,8 @@ mod tests {
             "backup::commands::dashboard_delete",
             "weather::weather_forecast",
             "weather::weather_geocode",
+            "time::commands::time_validate",
+            "time::commands::time_expand",
         ] {
             assert_eq!(
                 production.matches(&format!("        {command},")).count(),
@@ -193,6 +199,8 @@ mod tests {
             "config_import_pick",
             "config_import_apply",
             "dashboard_delete",
+            "time_validate",
+            "time_expand",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }

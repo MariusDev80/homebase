@@ -35,6 +35,8 @@ fn main() {
                 "config_import_pick",
                 "config_import_apply",
                 "dashboard_delete",
+                "time_validate",
+                "time_expand",
             ])),
     )
     .expect("failed to run tauri-build");

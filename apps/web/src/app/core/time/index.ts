@@ -39,3 +39,13 @@ export {
 export { Today } from './today';
 export { TimeDisplay } from './time-display';
 export type { DateStyle, InstantStyle } from './time-display';
+export { formatRecurrenceRule, parseRecurrenceRule } from './recurrence';
+export type { AnchorKind, RecurrenceRule, RuleEnd, RuleParseResult, Weekday } from './recurrence';
+export { RECURRENCE_ENGINE, TauriRecurrenceEngine } from './recurrence-engine';
+export type {
+  ExpandRange,
+  Occurrence,
+  RecurrenceEngine,
+  RecurrenceSpec,
+  ScheduleAnchor,
+} from './recurrence-engine';

@@ -57,7 +57,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius)
 
 ## Phase 2 : Temps
-- [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec
+- [x] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec (vérification manuelle CA-B7 à faire par Marius)
 - [ ] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage)
 - [ ] (S) Timers/alarmes, pomodoro, session « en cours depuis X » + historique
 - [ ] (S) Rappels datés/récurrents (rrule) + notifications natives + zone de notification + démarrage automatique

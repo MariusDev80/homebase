@@ -291,6 +291,13 @@ Une ancre sans règle suit le même chemin. **Clé d'occurrence** = heure murale
 
 Limites : plage ≤ **400 jours** et `from < to` (sinon `invalid_range`) ; `limit` 1..1000 (défaut 500) ; entrées IPC bornées (§3.8).
 
+*Amendement (lot B, 2026-11-16)* : précisions d'implémentation, sans changement de résultat.
+- `limit` égal à 0 ou supérieur à 1000 → `out_of_range` (valeur = la limite). Plus de 366 `exdates`, ou une exception de plus de 19 caractères (longueur d'une heure murale) → `invalid_exdate`, contrôlé avant toute copie ou tri.
+- Une erreur interne de la crate `rrule` à la construction de la règle (non attendue après validation) est traduite en `invalid_rule` avec le code `invalid_value`.
+- L'itération est bornée par `UNTIL` : pour un `UNTIL` instant, la borne haute est `min(hi, heure murale de UNTIL + 1 jour)` ; pour un `UNTIL` date, `UNTIL + 1 jour`. Un `UNTIL` proche de l'ancre ne provoque donc pas d'`expansion_limit` quand la plage est lointaine. `next_after` s'arrête à la première occurrence strictement postérieure (heures nominales croissantes, une occurrence par jour au plus).
+- Le codec accepte en entrée les parties dans un ordre quelconque, `INTERVAL=1` et un `BYDAY` non trié, puis produit la forme canonique (§3.5.1) ; `parseDateRule` (§3.9) exige en plus que le texte soit déjà canonique.
+- Le champ `part` des erreurs de règle (nom de la partie fautive) est vérifié par les vecteurs `ruleCodec` des deux côtés quand il y figure.
+
 #### 3.5.5 Prochaine occurrence et notifications
 `next_after(spec, after)` (Rust) renvoie la première occurrence **strictement après** `after`, cherchée sur **10 ans** au plus (au-delà : « aucune »). Elle n'est définie que pour une **ancre horodatée** ; pour une ancre datée elle renvoie `TimeError::NotSchedulable`. Décision : **une ancre datée ne déclenche jamais de notification** (sinon le Rust devrait connaître le fuseau utilisateur pour savoir quand commence la journée). Un rappel d'habitude « à 20 h » est donc une ancre horodatée ; une habitude « tous les lundis » sans heure n'est qu'affichée.
 
