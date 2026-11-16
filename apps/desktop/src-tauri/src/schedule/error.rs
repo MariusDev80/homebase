@@ -6,18 +6,22 @@ use crate::time::error::TimeError;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ScheduleError {
     /// `field` is the DTO field name, in camelCase.
+    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
     InvalidInput {
         field: String,
     },
     Time {
         error: TimeError,
     },
+    #[expect(dead_code, reason = "used by the R3 commands")]
     NotFound,
     /// Identifier already used.
     Conflict,
     /// A pomodoro is already running.
+    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
     AlreadyRunning,
     /// `MAX_REMINDERS` or `MAX_RUNNING_SESSIONS` reached.
+    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
     LimitReached,
     /// SQLITE_BUSY after the busy timeout.
     Busy,
@@ -26,6 +30,7 @@ pub enum ScheduleError {
 }
 
 impl ScheduleError {
+    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
     pub fn invalid(field: &str) -> Self {
         Self::InvalidInput {
             field: field.to_owned(),

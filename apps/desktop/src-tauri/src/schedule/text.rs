@@ -6,6 +6,7 @@ use crate::backup::names::is_uuid_shape;
 
 /// C0 controls, DEL and C1 controls, plus invisible format characters that can spoof the text
 /// direction or hide content in a toast: U+200B..U+200F, U+202A..U+202E, U+2066..U+2069, U+FEFF.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 fn has_control(s: &str) -> bool {
     s.chars().any(|c| {
         c.is_control()
@@ -14,6 +15,7 @@ fn has_control(s: &str) -> bool {
 }
 
 /// Trimmed non-empty, `1..=TITLE_MAX_CHARS` code points, no control character.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub fn check_title(s: &str) -> Result<(), ScheduleError> {
     let count = s.chars().count();
     if s.trim().is_empty() || count > TITLE_MAX_CHARS || has_control(s) {
@@ -23,6 +25,7 @@ pub fn check_title(s: &str) -> Result<(), ScheduleError> {
 }
 
 /// `0..=LABEL_MAX_CHARS` code points, no control character.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub fn check_label(s: &str) -> Result<(), ScheduleError> {
     if s.chars().count() > LABEL_MAX_CHARS || has_control(s) {
         return Err(ScheduleError::invalid("label"));
@@ -30,6 +33,7 @@ pub fn check_label(s: &str) -> Result<(), ScheduleError> {
     Ok(())
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub fn check_id(s: &str) -> Result<(), ScheduleError> {
     if is_uuid_shape(s) {
         Ok(())

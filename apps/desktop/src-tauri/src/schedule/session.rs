@@ -14,6 +14,7 @@ pub enum SessionKind {
 }
 
 impl SessionKind {
+    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
     pub fn is_pomodoro(self) -> bool {
         matches!(
             self,
@@ -22,6 +23,7 @@ impl SessionKind {
     }
 
     /// Value stored in `time_sessions.kind`.
+    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
     pub fn as_sql(self) -> &'static str {
         match self {
             Self::Stopwatch => "stopwatch",
@@ -58,6 +60,7 @@ pub struct SessionRow {
 }
 
 /// Stopwatch if and only if no duration; otherwise `DURATION_MIN_MS..=DURATION_MAX_MS`.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub fn check_duration(kind: SessionKind, duration_ms: Option<i64>) -> Result<(), ScheduleError> {
     let ok = match (kind, duration_ms) {
         (SessionKind::Stopwatch, None) => true,

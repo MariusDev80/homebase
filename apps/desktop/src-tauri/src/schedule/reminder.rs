@@ -26,6 +26,7 @@ pub struct ReminderRow {
     pub updated_at: String,
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReminderStatus {
@@ -52,6 +53,7 @@ impl Outcome {
         }
     }
 
+    #[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
     pub fn from_sql(s: &str) -> Option<Self> {
         Some(match s {
             "on_time" => Self::OnTime,
@@ -96,6 +98,7 @@ pub fn spec_of(row: &ReminderRow) -> Result<RecurrenceSpec, TimeError> {
 
 /// Status shown to the user. An enabled reminder without a cached occurrence is `Finished` only if
 /// the series really has no occurrence after `now`; if computing it fails, it is `Invalid`.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub fn status_of(row: &ReminderRow, now: Timestamp) -> ReminderStatus {
     let Ok(spec) = spec_of(row) else {
         return ReminderStatus::Invalid;

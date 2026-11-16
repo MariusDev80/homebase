@@ -11,15 +11,28 @@ use sqlx::{Connection, Row, SqliteConnection};
 use std::path::Path;
 use std::time::Duration;
 
-const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+/// Production wait for a busy database.
+pub const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// A dedicated connection (D3): never creates the file, waits for a busy database, enforces
 /// foreign keys (the delivery cascade).
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "tests only; production uses connect_with_timeout")
+)]
 pub async fn connect(db: &Path) -> Result<SqliteConnection, ScheduleError> {
+    connect_with_timeout(db, BUSY_TIMEOUT).await
+}
+
+/// Same as [`connect`] with an explicit busy timeout (the scheduler context carries it).
+pub async fn connect_with_timeout(
+    db: &Path,
+    busy_timeout: Duration,
+) -> Result<SqliteConnection, ScheduleError> {
     let options = SqliteConnectOptions::new()
         .filename(db)
         .create_if_missing(false)
-        .busy_timeout(BUSY_TIMEOUT)
+        .busy_timeout(busy_timeout)
         .foreign_keys(true);
     Ok(SqliteConnection::connect_with(&options).await?)
 }
@@ -45,6 +58,7 @@ pub struct DeliveryRow {
 }
 
 /// An unseen delivery joined with its reminder's title and time zone.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnseenDelivery {
     pub reminder_id: String,
@@ -59,6 +73,7 @@ pub struct UnseenDelivery {
 }
 
 /// Which deliveries `mark_seen` touches.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeenTarget<'a> {
     All,
@@ -69,6 +84,7 @@ pub enum SeenTarget<'a> {
 }
 
 /// Keyset cursor of the session history: `(started_at, id)`.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HistoryCursor<'a> {
     pub started_at: &'a str,
@@ -131,6 +147,7 @@ fn session_from(row: &SqliteRow) -> Result<SessionRow, ScheduleError> {
     })
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 fn delivery_from(row: &SqliteRow) -> Result<DeliveryRow, ScheduleError> {
     let outcome: String = row.try_get("outcome")?;
     let skipped: i64 = row.try_get("skipped_count")?;
@@ -146,6 +163,7 @@ fn delivery_from(row: &SqliteRow) -> Result<DeliveryRow, ScheduleError> {
     })
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 fn unseen_from(row: &SqliteRow) -> Result<UnseenDelivery, ScheduleError> {
     let outcome: String = row.try_get("outcome")?;
     let skipped: i64 = row.try_get("skipped_count")?;
@@ -166,6 +184,7 @@ fn unseen_from(row: &SqliteRow) -> Result<UnseenDelivery, ScheduleError> {
 // reminders
 // ---------------------------------------------------------------------------------------------
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn insert_reminder(
     conn: &mut SqliteConnection,
     row: &ReminderRow,
@@ -193,6 +212,7 @@ pub async fn insert_reminder(
 
 /// Replaces the editable fields and the cache of a reminder (`created_at` is kept). `false` if
 /// the reminder does not exist.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn replace_reminder(
     conn: &mut SqliteConnection,
     row: &ReminderRow,
@@ -218,6 +238,7 @@ pub async fn replace_reminder(
 }
 
 /// Deletes a reminder; its deliveries go with it (cascade). `false` if absent.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn delete_reminder(conn: &mut SqliteConnection, id: &str) -> Result<bool, ScheduleError> {
     let result = sqlx::query("DELETE FROM reminders WHERE id = ?1")
         .bind(id)
@@ -226,6 +247,7 @@ pub async fn delete_reminder(conn: &mut SqliteConnection, id: &str) -> Result<bo
     Ok(result.rows_affected() > 0)
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn get_reminder(
     conn: &mut SqliteConnection,
     id: &str,
@@ -238,6 +260,7 @@ pub async fn get_reminder(
 }
 
 /// All reminders: scheduled first by next occurrence, then the others by title.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn list_reminders(
     conn: &mut SqliteConnection,
 ) -> Result<Vec<ReminderRow>, ScheduleError> {
@@ -250,6 +273,7 @@ pub async fn list_reminders(
     rows.iter().map(reminder_from).collect()
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn count_reminders(conn: &mut SqliteConnection) -> Result<i64, ScheduleError> {
     Ok(sqlx::query_scalar("SELECT COUNT(*) FROM reminders")
         .fetch_one(conn)
@@ -311,6 +335,10 @@ pub async fn write_cache(
 /// (D5). Returns `true` when the delivery row was created by this call (so the caller may show
 /// its toast), `false` when it already existed, when there was no delivery, or when the cache
 /// no longer held `expected` (then nothing is written).
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "tests only; the pass uses record_firing_detailed")
+)]
 pub async fn record_firing(
     conn: &mut SqliteConnection,
     reminder_id: &str,
@@ -318,12 +346,39 @@ pub async fn record_firing(
     delivery: Option<&DeliveryRow>,
     next: Option<(&str, &str)>,
 ) -> Result<bool, ScheduleError> {
+    Ok(
+        record_firing_detailed(conn, reminder_id, expected, delivery, next)
+            .await?
+            .inserted,
+    )
+}
+
+/// What [`record_firing_detailed`] did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Firing {
+    /// The compare-and-write on the cache changed a row (otherwise nothing was written).
+    pub written: bool,
+    /// The delivery row was created by this call.
+    pub inserted: bool,
+}
+
+/// [`record_firing`] that also tells whether the compare-and-write wrote.
+pub async fn record_firing_detailed(
+    conn: &mut SqliteConnection,
+    reminder_id: &str,
+    expected: Option<&str>,
+    delivery: Option<&DeliveryRow>,
+    next: Option<(&str, &str)>,
+) -> Result<Firing, ScheduleError> {
     let mut tx = conn.begin_with("BEGIN IMMEDIATE").await?;
     // Compare-and-write first: a reminder that was deleted or whose cache moved writes nothing.
     let changed = write_cache(&mut tx, reminder_id, expected, next).await?;
     if changed == 0 {
         tx.rollback().await?;
-        return Ok(false);
+        return Ok(Firing {
+            written: false,
+            inserted: false,
+        });
     }
     let inserted = match delivery {
         Some(d) => {
@@ -344,13 +399,17 @@ pub async fn record_firing(
         None => false,
     };
     tx.commit().await?;
-    Ok(inserted)
+    Ok(Firing {
+        written: true,
+        inserted,
+    })
 }
 
 // ---------------------------------------------------------------------------------------------
 // deliveries
 // ---------------------------------------------------------------------------------------------
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn get_delivery(
     conn: &mut SqliteConnection,
     reminder_id: &str,
@@ -368,6 +427,7 @@ pub async fn get_delivery(
     row.as_ref().map(delivery_from).transpose()
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn unseen_deliveries(
     conn: &mut SqliteConnection,
     limit: i64,
@@ -386,6 +446,7 @@ pub async fn unseen_deliveries(
 }
 
 /// Marks unseen deliveries as seen; returns the number of rows changed.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn mark_seen(
     conn: &mut SqliteConnection,
     target: SeenTarget<'_>,
@@ -417,6 +478,7 @@ pub async fn mark_seen(
 /// Inserts a new running session inside a `BEGIN IMMEDIATE` transaction after checking the
 /// bounds: at most `max_running` running sessions (`LimitReached`) and a single running
 /// pomodoro (`AlreadyRunning`). An existing id gives `Conflict`.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn insert_session(
     conn: &mut SqliteConnection,
     row: &SessionRow,
@@ -460,6 +522,7 @@ pub async fn insert_session(
     Ok(())
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn get_session(
     conn: &mut SqliteConnection,
     id: &str,
@@ -471,6 +534,7 @@ pub async fn get_session(
     row.as_ref().map(session_from).transpose()
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn list_running_sessions(
     conn: &mut SqliteConnection,
 ) -> Result<Vec<SessionRow>, ScheduleError> {
@@ -484,6 +548,7 @@ pub async fn list_running_sessions(
 }
 
 /// Finished sessions, newest first, after `before` (exclusive) when given.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn session_history(
     conn: &mut SqliteConnection,
     before: Option<HistoryCursor<'_>>,
@@ -540,6 +605,7 @@ pub async fn complete_session(
 }
 
 /// Stops a running session at `ended_at`. `false` if it was not running.
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn stop_session(
     conn: &mut SqliteConnection,
     id: &str,
@@ -558,6 +624,7 @@ pub async fn stop_session(
     Ok(result.rows_affected() > 0)
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn rename_session(
     conn: &mut SqliteConnection,
     id: &str,
@@ -573,6 +640,7 @@ pub async fn rename_session(
     Ok(result.rows_affected() > 0)
 }
 
+#[cfg_attr(not(test), expect(dead_code, reason = "used by the R3 commands"))]
 pub async fn delete_session(conn: &mut SqliteConnection, id: &str) -> Result<bool, ScheduleError> {
     let result = sqlx::query("DELETE FROM time_sessions WHERE id = ?1")
         .bind(id)
@@ -589,7 +657,7 @@ pub async fn delete_session(conn: &mut SqliteConnection, id: &str) -> Result<boo
 pub async fn next_due(conn: &mut SqliteConnection) -> Result<Option<String>, ScheduleError> {
     Ok(sqlx::query_scalar(
         "SELECT MIN(t) FROM (\
-         SELECT MIN(next_fire_at) AS t FROM reminders WHERE next_fire_at IS NOT NULL \
+         SELECT MIN(next_fire_at) AS t FROM reminders \n         WHERE enabled = 1 AND next_fire_at IS NOT NULL \
          UNION ALL \
          SELECT MIN(ends_at) FROM time_sessions WHERE ended_at IS NULL AND ends_at IS NOT NULL)",
     )

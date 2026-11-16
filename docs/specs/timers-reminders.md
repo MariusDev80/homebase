@@ -432,7 +432,9 @@ Sous `ctx.gate`, `now` lu une fois :
    - Répéter tant qu'un lot est plein.
 3. **Phase `Startup` seulement**, après 1 et 2 : pour chaque rappel `enabled = 1`, recalculer `next_fire(spec, now)` et écrire le cache s'il diffère (invalide → `NULL`). Filet tzdb / version du moteur ; aucun rattrapage n'est perdu puisque les échéances passées ont été traitées avant.
 4. `group(avis)` puis `notifier.show(render(…))` pour chacun, **hors transaction**.
-5. `next_due` : `SELECT MIN(t) FROM (SELECT MIN(next_fire_at) AS t FROM reminders WHERE next_fire_at IS NOT NULL UNION ALL SELECT MIN(ends_at) FROM time_sessions WHERE ended_at IS NULL AND ends_at IS NOT NULL)`.
+5. `next_due` : `SELECT MIN(t) FROM (SELECT MIN(next_fire_at) AS t FROM reminders WHERE enabled = 1 AND next_fire_at IS NOT NULL UNION ALL SELECT MIN(ends_at) FROM time_sessions WHERE ended_at IS NULL AND ends_at IS NOT NULL)`.
+
+Garde-fous de la boucle (revue R2) : si `next_due <= now` après un passage réussi (échéance que le passage n'a pas pu faire avancer), le thread attend `ERROR_RETRY` et journalise, au lieu de `WAKE_MARGIN` ; une panique du passage (notifieur) est traitée comme une erreur (attente `ERROR_RETRY`, phase inchangée). Le `busy_timeout` est porté par `SchedulerCtx` (5 s en production). Écarts assumés : (1) un échec de `spawn` du thread est journalisé et l'application démarre sans planificateur ; (2) `fire_due_reminders` garde un `HashSet` des identifiants déjà vus dans le passage pour ne jamais retraiter en boucle un rappel dont le cache a bougé ; limite connue : un tel rappel n'est repris qu'au passage suivant, et `reminders_processed` ne compte que les compare-and-write ayant écrit.
 
 Chaque commande qui modifie une échéance (§4.4) appelle `ctx.signal.wake()` **après** son commit ; la boucle refait alors un passage `Regular` et recalcule son attente.
 

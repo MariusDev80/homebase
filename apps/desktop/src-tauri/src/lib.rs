@@ -108,6 +108,7 @@ pub fn run() {
             // First, before anything else: confirms a restoration done in this process.
             backup::startup::on_app_ready(app.handle())?;
             tray::setup(app.handle())?;
+            schedule::start(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -123,6 +124,9 @@ pub fn run() {
         .expect("error while building Homebase")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
+                // Before the backup exit. Tauri calls this callback (so both waits) before
+                // `process::restart`; the bounded waits are a prudence measure.
+                schedule::shutdown(app);
                 backup::startup::on_exit(app);
             }
         });
@@ -270,5 +274,34 @@ mod tests {
         assert!(ready < tray, "on_app_ready must come before tray::setup");
         assert!(!production.contains("app_restart"));
         assert!(!production.contains("tauri_plugin_process"));
+    }
+
+    #[test]
+    fn scheduler_starts_after_the_tray_and_stops_before_the_backup_exit() {
+        let source = include_str!("lib.rs");
+        let production = source
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production part");
+        let ready = production
+            .find("backup::startup::on_app_ready(")
+            .expect("on_app_ready");
+        let tray = production.find("tray::setup(").expect("tray");
+        let start = production.find("schedule::start(").expect("schedule start");
+        assert!(
+            ready < start,
+            "schedule::start must come after on_app_ready"
+        );
+        assert!(tray < start, "schedule::start must come after tray::setup");
+        let stop = production
+            .find("schedule::shutdown(")
+            .expect("schedule shutdown");
+        let exit = production
+            .find("backup::startup::on_exit(")
+            .expect("backup exit");
+        assert!(
+            stop < exit,
+            "schedule::shutdown must precede the backup exit"
+        );
     }
 }

@@ -630,10 +630,6 @@ fn sort_key(occurrence: &Occurrence) -> (Timestamp, &str) {
 
 /// First occurrence strictly after `after`, searched over [`NEXT_HORIZON_YEARS`] years at most.
 /// Timed anchors only: a dated anchor never triggers a notification (section 3.5.5).
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "used by the phase 2 reminder scheduler")
-)]
 pub fn next_after(
     spec: &RecurrenceSpec,
     after: Timestamp,
