@@ -27,10 +27,11 @@
       "label": "Thème"
     },
     "system": {
-      "label": "Système (expérimental)",
+      "label": "Système",
       "unavailable": "Disponible uniquement dans l'application Windows.",
       "testNotification": "Envoyer une notification de test dans 10 s",
-      "autostart": "Lancer au démarrage de Windows",
+      "autostart": "Lancer Homebase au démarrage de Windows (réduit dans la zone de notification)",
+      "autostartHelp": "Les rappels et les minuteurs sonnent tant que Homebase tourne, même fenêtre fermée. « Quitter » (icône de la zone de notification) les arrête.",
       "error": "L'opération a échoué."
     },
     "timeZone": {

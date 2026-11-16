@@ -9,8 +9,8 @@ mod time;
 mod tray;
 mod weather;
 
-use tauri::{Manager, WindowEvent};
-use tauri_plugin_autostart::MacosLauncher;
+use tauri::{Manager, Runtime, WindowEvent};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
 /// Debug builds also expose the test-notification spike command.
 #[cfg(debug_assertions)]
@@ -117,7 +117,7 @@ pub fn run() {
         // MacosLauncher is ignored on Windows (registry Run key).
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
-            None,
+            Some(vec![MINIMIZED_ARG]),
         ))
         // Must stay right before the SQL plugin: its setup runs the startup sequence (restore
         // exchange) and, on `StartupBlocked`, fails so that the SQL plugin never initialises.
@@ -133,6 +133,11 @@ pub fn run() {
             backup::startup::on_app_ready(app.handle())?;
             tray::setup(app.handle())?;
             schedule::start(app.handle())?;
+            refresh_autostart(app.handle());
+            // The window is declared invisible: a manual launch must show it.
+            if !launched_minimized(std::env::args()) {
+                show_main_window(app.handle());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -156,6 +161,29 @@ pub fn run() {
         });
 }
 
+/// Fixed argument written in the autostart entry (no user input).
+const MINIMIZED_ARG: &str = "--minimized";
+
+/// True when the process was started by the autostart entry (exact `--minimized` argument).
+/// The executable path (first item) can never equal the argument.
+pub(crate) fn launched_minimized(args: impl IntoIterator<Item = String>) -> bool {
+    args.into_iter().any(|arg| arg == MINIMIZED_ARG)
+}
+
+/// Rewrites the autostart entry (current path and argument) when it is enabled. Never blocking.
+fn refresh_autostart<R: Runtime>(app: &tauri::AppHandle<R>) {
+    let manager = app.autolaunch();
+    match manager.is_enabled() {
+        Ok(true) => {
+            if let Err(error) = manager.enable() {
+                eprintln!("autostart refresh failed: {error}");
+            }
+        }
+        Ok(false) => {}
+        Err(error) => eprintln!("autostart state unavailable: {error}"),
+    }
+}
+
 /// Called in the running instance when the user launches Homebase again (Start menu, shortcut):
 /// brings the existing window back from the tray. Arguments and cwd are ignored.
 fn on_second_launch<R: tauri::Runtime>(
@@ -177,6 +205,45 @@ pub(crate) fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 #[cfg(test)]
 mod tests {
+    use super::launched_minimized;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    #[test]
+    fn launched_minimized_requires_the_exact_argument() {
+        assert!(launched_minimized(args(&["homebase.exe", "--minimized"])));
+        assert!(!launched_minimized(args(&["homebase.exe"])));
+        assert!(!launched_minimized(args(&[])));
+        assert!(!launched_minimized(args(&[
+            "homebase.exe",
+            "--minimized=1"
+        ])));
+        assert!(!launched_minimized(args(&["homebase.exe", "--Minimized"])));
+        assert!(launched_minimized(args(&[
+            "homebase.exe",
+            "--other",
+            "--minimized"
+        ])));
+    }
+
+    #[test]
+    fn setup_refreshes_autostart_then_shows_the_window_unless_minimized() {
+        let source = include_str!("lib.rs");
+        let production = source
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production part");
+        let start = production.find("schedule::start(").expect("start");
+        let refresh = production.find("refresh_autostart(app").expect("refresh");
+        let show = production
+            .find("if !launched_minimized(std::env::args())")
+            .expect("show");
+        assert!(start < refresh && refresh < show);
+        assert!(production.contains("Some(vec![MINIMIZED_ARG])"));
+    }
+
     /// Both `invoke_handler` variants (debug and release) must list the backup commands and
     /// keep the weather ones.
     #[test]
