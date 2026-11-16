@@ -3,8 +3,12 @@
     "name": "Homebase"
   },
   "pages": {
-    "dashboard": { "title": "Tableau de bord" },
-    "settings": { "title": "Réglages" }
+    "dashboard": {
+      "title": "Tableau de bord"
+    },
+    "settings": {
+      "title": "Réglages"
+    }
   },
   "layout": {
     "mainNav": "Navigation principale",
@@ -429,6 +433,155 @@
         "alarmInvalid": "Cette heure d'alarme est refusée.",
         "invalid": "Les valeurs saisies sont refusées."
       }
+    },
+    "reminders": {
+      "title": "Rappels",
+      "description": "Rappels datés et récurrents, avec notification",
+      "rung": "Sonnés",
+      "missed": "manqué",
+      "ok": "OK",
+      "okOf": "Marquer comme vu : {{ name }}",
+      "markAllSeen": "Tout marquer comme vu",
+      "skippedBadge": "+{{ count }}",
+      "upcoming": "À venir",
+      "paused": "En pause",
+      "finishedSection": "Terminés",
+      "invalidSection": "Illisibles",
+      "invalid": "Rappel illisible : supprimez-le et recréez-le.",
+      "recurring": "Récurrent",
+      "new": "Nouveau rappel",
+      "detailsOf": "Détails de {{ name }}",
+      "removeOf": "Supprimer {{ name }}",
+      "empty": "Aucun rappel.",
+      "back": "Retour",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "skipNext": "Ignorer la prochaine occurrence",
+      "delete": "Supprimer",
+      "confirmDelete": "Confirmer la suppression",
+      "zone": "Heure de {{ zone }}",
+      "monthDaySkipped": "Les mois sans ce jour seront sautés.",
+      "preview": "Prochaines occurrences",
+      "previewEmpty": "Aucune occurrence à venir.",
+      "formTitleNew": "Nouveau rappel",
+      "formTitleEdit": "Modifier le rappel",
+      "and": "et",
+      "announce": {
+        "saved": "Rappel enregistré.",
+        "deleted": "Rappel supprimé.",
+        "skipped": "Prochaine occurrence ignorée.",
+        "seen": "Marqué comme vu."
+      },
+      "fields": {
+        "title": "Titre",
+        "date": "Date",
+        "time": "Heure",
+        "repeat": "Répétition",
+        "interval": "Intervalle",
+        "weekdays": "Jours de la semaine",
+        "end": "Fin",
+        "count": "Nombre de fois",
+        "until": "Dernier jour (inclus)",
+        "enabled": "Activé"
+      },
+      "repeat": {
+        "none": "Aucune",
+        "daily": "Tous les jours",
+        "weekly": "Toutes les semaines",
+        "monthlyDay": "Tous les mois, le {{ day }}",
+        "monthlyLast": "Tous les mois, le dernier jour",
+        "monthlyNth": "Tous les mois, le {{ nth }} {{ weekday }}",
+        "yearly": "Tous les ans",
+        "custom": "Règle personnalisée"
+      },
+      "customHint": "Cette règle de répétition est conservée telle quelle : elle n'est pas modifiable ici.",
+      "intervalRange": "de 1 à {{ max }}",
+      "intervalUnit": {
+        "DAILY": "jour(s)",
+        "WEEKLY": "semaine(s)",
+        "MONTHLY": "mois",
+        "YEARLY": "an(s)"
+      },
+      "end": {
+        "never": "Jamais",
+        "count": "Après un nombre de fois",
+        "until": "Jusqu'à une date"
+      },
+      "weekdays": {
+        "MO": "lundi",
+        "TU": "mardi",
+        "WE": "mercredi",
+        "TH": "jeudi",
+        "FR": "vendredi",
+        "SA": "samedi",
+        "SU": "dimanche"
+      },
+      "weekdaysShort": {
+        "MO": "L",
+        "TU": "M",
+        "WE": "M",
+        "TH": "J",
+        "FR": "V",
+        "SA": "S",
+        "SU": "D"
+      },
+      "nth": {
+        "1": "1er",
+        "2": "2e",
+        "3": "3e",
+        "4": "4e",
+        "last": "dernier"
+      },
+      "label": {
+        "once": "Une fois à {{ time }}",
+        "custom": "Règle personnalisée",
+        "daily": "Tous les jours à {{ time }}",
+        "dailyEvery": "Tous les {{ n }} jours à {{ time }}",
+        "weekly": "Chaque {{ days }} à {{ time }}",
+        "weeklyEvery": "Toutes les {{ n }} semaines : {{ days }} à {{ time }}",
+        "monthlyDay": "Le {{ day }} de chaque mois à {{ time }}",
+        "monthlyLast": "Le dernier jour du mois à {{ time }}",
+        "monthlyNth": "Le {{ nth }} {{ weekday }} du mois à {{ time }}",
+        "yearly": "Tous les ans le {{ date }} à {{ time }}",
+        "yearlyEvery": "Tous les {{ n }} ans le {{ date }} à {{ time }}",
+        "count": ", {{ count }} fois",
+        "until": ", jusqu'au {{ date }}",
+        "monthlyDayEvery": "Le {{ day }}, tous les {{ n }} mois, à {{ time }}",
+        "monthlyLastEvery": "Le dernier jour, tous les {{ n }} mois, à {{ time }}",
+        "monthlyNthEvery": "Le {{ nth }} {{ weekday }}, tous les {{ n }} mois, à {{ time }}"
+      },
+      "errors": {
+        "title": "Saisissez un titre de 1 à 200 caractères, sans caractère de contrôle.",
+        "date": "Saisissez une date valide.",
+        "time": "Saisissez une heure valide (HH:MM).",
+        "past": "Cette date est passée.",
+        "tooFar": "Au plus 10 ans à l'avance.",
+        "interval": "Saisissez un intervalle entier accepté pour cette répétition.",
+        "weekdays": "Choisissez au moins un jour.",
+        "count": "Saisissez un nombre entier de 1 à 1000.",
+        "until": "Choisissez une date de fin qui n'est pas avant le début.",
+        "rule": "Cette règle de répétition est refusée.",
+        "exdates": "Les occurrences ignorées sont refusées.",
+        "limit": "Trop de rappels enregistrés : supprimez-en avant d'en ajouter.",
+        "busy": "Homebase est occupé : réessayez dans un instant.",
+        "notFound": "Ce rappel n'existe plus.",
+        "conflict": "Ce rappel existe déjà.",
+        "invalid": "Les valeurs saisies sont refusées.",
+        "unknown": "L'opération a échoué.",
+        "load": "Impossible de lire les rappels."
+      },
+      "skippedTextOne": "{{ count }} occurrence précédente sautée",
+      "skippedTextMany": "{{ count }} occurrences précédentes sautées",
+      "skipNextAt": "Ignorer l'occurrence du {{ when }}",
+      "skipChanged": "La prochaine occurrence a changé : vérifiez-la, puis cliquez à nouveau.",
+      "skipNone": "Il n'y a plus d'occurrence à ignorer.",
+      "discardQuestion": "Abandonner les modifications ?",
+      "discard": "Abandonner",
+      "keepEditing": "Continuer",
+      "leapDaySkipped": "Les années sans 29 février seront sautées.",
+      "notRinging": "Ce rappel est enregistré mais ne sonnera pas : aucune occurrence à venir.",
+      "noNext": "Aucune occurrence à venir",
+      "unreadable": "Ce rappel est illisible : les champs ont été remplacés par des valeurs par défaut. Supprimez-le ou corrigez-le."
     }
   },
   "dashboard": {

@@ -24,12 +24,12 @@ export type RuleParseResult =
   | { readonly ok: false; readonly code: RuleErrorCode; readonly part: string | null };
 
 const MAX_RULE_LENGTH = 256;
-const MAX_COUNT = 1000;
+export const COUNT_MAX = 1000;
 const SYNTAX_PATTERN = /^[A-Z]+=[^;=]+(;[A-Z]+=[^;=]+)*$/;
 const ALLOWED_PARTS = ['FREQ', 'INTERVAL', 'BYDAY', 'BYMONTHDAY', 'COUNT', 'UNTIL'];
 const FREQS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
 const WEEKDAYS: readonly Weekday[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-const INTERVAL_MAX: Readonly<Record<RecurrenceRule['freq'], number>> = {
+export const INTERVAL_MAX: Readonly<Record<RecurrenceRule['freq'], number>> = {
   DAILY: 366,
   WEEKLY: 52,
   MONTHLY: 11,
@@ -119,7 +119,7 @@ export function parseRecurrenceRule(text: string, anchor: AnchorKind): RuleParse
   let count: number | null = null;
   const countText = get('COUNT');
   if (countText !== undefined) {
-    count = parseUnsigned(countText, MAX_COUNT);
+    count = parseUnsigned(countText, COUNT_MAX);
     if (count === null) return fail('invalid_value', 'COUNT');
   }
   let untilForm: UntilForm | null = null;

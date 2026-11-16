@@ -1,6 +1,6 @@
 import { MAX_LOCAL_DATE, type LocalDateIso } from '../../data';
 import { addDays, compareLocalDates, daysBetween } from './local-date';
-import { parseRecurrenceRule } from './recurrence';
+import { INTERVAL_MAX, parseRecurrenceRule } from './recurrence';
 import { Temporal } from './temporal';
 import { TimeError } from './time-error';
 import { formatLocalDate, parseLocalDate } from './time-format';
@@ -18,12 +18,7 @@ export interface DateRule {
   readonly lastDayOfMonth: boolean;
 }
 
-export const DATE_RULE_INTERVAL_MAX: Readonly<Record<DateRuleFreq, number>> = {
-  DAILY: 366,
-  WEEKLY: 52,
-  MONTHLY: 11,
-  YEARLY: 10,
-};
+export const DATE_RULE_INTERVAL_MAX: Readonly<Record<DateRuleFreq, number>> = INTERVAL_MAX;
 
 const MAX_ITERATIONS = 1000;
 const MAX_YEAR = 2199;
