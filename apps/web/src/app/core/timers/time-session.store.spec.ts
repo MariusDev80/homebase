@@ -83,16 +83,26 @@ describe('TimeSessionStore', () => {
     expect(repo.calls.listRunning).toBe(2);
   });
 
-  it('exposes an action error, rethrows it, then clears it on the next success', async () => {
+  it('rejects a failed action and leaves error for reads', async () => {
     const store = await create();
     const failure = new DataError('forbidden', 'limit');
     repo.failNext(failure);
     await expect(store.start({ kind: 'stopwatch', label: '', durationMs: null })).rejects.toBe(
       failure,
     );
-    expect(store.error()).toBe(failure);
-    await store.refresh();
     expect(store.error()).toBeNull();
+  });
+
+  it('exposes the failed re-read that follows a failed action', async () => {
+    const store = await create();
+    const failure = new DataError('forbidden', 'limit');
+    const readFailure = new DataError('busy', 'busy');
+    vi.spyOn(repo, 'start').mockRejectedValue(failure);
+    vi.spyOn(repo, 'listRunning').mockRejectedValue(readFailure);
+    await expect(store.start({ kind: 'stopwatch', label: '', durationMs: null })).rejects.toBe(
+      failure,
+    );
+    expect(store.error()).toBe(readFailure);
   });
 
   it('exposes a read error without throwing', async () => {

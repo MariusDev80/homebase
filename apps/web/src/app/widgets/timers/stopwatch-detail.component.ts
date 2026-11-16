@@ -18,7 +18,7 @@ import { TimeSessionStore } from '../../core/timers';
 import { TimeDisplay, createNowSignal, durationBetween, formatClock } from '../../core/time';
 import { PendingWrites } from '../../core/widgets';
 import { SCHEDULE_LIMITS } from '../../data';
-import { commandErrorKey, durationLabel, markActionError, sessionNameKey } from './timer-format';
+import { commandErrorKey, durationLabel, sessionNameKey } from './timer-format';
 
 /** Delay between the last keystroke in the label and the automatic save (DESIGN.md, panel). */
 export const STOPWATCH_DETAIL_SAVE_DEBOUNCE_MS = 800;
@@ -97,6 +97,7 @@ export class StopwatchDetailComponent {
   /** The user was warned once by Retour: a second press leaves anyway. */
   private warned = false;
   private finished = false;
+  private dirty = false;
 
   constructor() {
     const unregister = inject(PendingWrites).register(() => this.flush());
@@ -123,6 +124,7 @@ export class StopwatchDetailComponent {
 
   protected onInput(event: Event): void {
     this.draft.set((event.target as HTMLInputElement).value);
+    this.dirty = true;
     this.saveFailed = false;
     this.warned = false;
     clearTimeout(this.timer);
@@ -157,27 +159,41 @@ export class StopwatchDetailComponent {
   }
 
   private write(): Promise<void> {
-    this.running ??= this.save().finally(() => (this.running = null));
+    this.running ??= this.drain().finally(() => (this.running = null));
     return this.running;
   }
 
-  private async save(): Promise<void> {
+  /** One save loop at a time: edits made while it runs are picked up by the same loop. */
+  private async drain(): Promise<void> {
+    while (this.dirty) {
+      this.dirty = false;
+      if (!(await this.save())) {
+        // Kept dirty: a later flush retries.
+        this.dirty = true;
+        return;
+      }
+    }
+  }
+
+  /** Writes the current draft; false when the write failed. */
+  private async save(): Promise<boolean> {
     const draft = this.draft();
     const session = this.session();
-    if (draft === null || session === undefined) return;
+    if (draft === null || session === undefined) return true;
     const label = draft.trim();
     // The draft stays as typed (trailing spaces included) until the panel closes.
-    if (label === session.label) return;
+    if (label === session.label) return true;
     this.saveState.set('saving');
     try {
       await this.store.rename(session.id, label);
       this.saveFailed = false;
       this.saveState.set('saved');
+      return true;
     } catch (error) {
-      markActionError(error);
       this.saveFailed = true;
       this.errorKey.set(commandErrorKey(error, 'session'));
       this.saveState.set('error');
+      return false;
     }
   }
 }

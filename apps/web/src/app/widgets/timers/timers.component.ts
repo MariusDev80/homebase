@@ -6,8 +6,10 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ReminderStore } from '../../core/reminders';
@@ -32,8 +34,6 @@ import {
   PRESET_MINUTES,
   commandErrorKey,
   durationLabel,
-  isActionError,
-  markActionError,
   parseTimerDuration,
   sessionNameKey,
 } from './timer-format';
@@ -105,14 +105,8 @@ export class TimersComponent {
   };
 
   protected readonly unavailable = computed(() => this.store.error()?.kind === 'unavailable');
-  /** A failed read (the store also reports failed actions, which have their own message). */
-  protected readonly loadError = computed(
-    () =>
-      this.store.error() !== null &&
-      !this.unavailable() &&
-      !isActionError(this.store.error()) &&
-      this.actionError() === null,
-  );
+  /** A failed read (a failed action only rejects, and has its own message). */
+  protected readonly loadError = computed(() => this.store.error() !== null && !this.unavailable());
   protected readonly actionMessage = computed(() =>
     this.unavailable() ? null : this.actionError(),
   );
@@ -134,6 +128,22 @@ export class TimersComponent {
   });
 
   private opener = 'history';
+  /** The running list when the last action failed: a later successful re-read clears the message. */
+  private failedAt: readonly TimeSession[] | null = null;
+
+  constructor() {
+    effect(() => {
+      const running = this.store.running();
+      untracked(() => {
+        if (running !== this.failedAt) this.actionError.set(null);
+      });
+    });
+  }
+
+  private failAction(error: unknown): void {
+    this.failedAt = this.store.running();
+    this.actionError.set(commandErrorKey(error, 'session'));
+  }
 
   private rowOf(session: TimeSession, now: string): RunningRow {
     const name = session.label === '' ? this.t(sessionNameKey(session.kind)) : session.label;
@@ -218,8 +228,7 @@ export class TimersComponent {
     try {
       await this.store.start({ kind, label: this.label().trim(), durationMs });
     } catch (error) {
-      markActionError(error);
-      this.actionError.set(commandErrorKey(error, 'session'));
+      this.failAction(error);
     } finally {
       this.busy.set(false);
     }
@@ -232,8 +241,7 @@ export class TimersComponent {
     try {
       await this.store.stop(id);
     } catch (error) {
-      markActionError(error);
-      this.actionError.set(commandErrorKey(error, 'session'));
+      this.failAction(error);
       return;
     }
     // The stopped row is gone: the focus goes to the row after it, else to the heading.

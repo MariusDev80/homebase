@@ -109,9 +109,7 @@ export class ReminderStore {
    */
   skipNext(reminder: Reminder): Promise<Reminder> {
     const refuse = (message: string): Promise<never> => {
-      const failure = new DataError('invalid_input', message);
-      this.errorState.set(failure);
-      return Promise.reject(failure);
+      return Promise.reject(new DataError('invalid_input', message));
     };
     const key = reminder.nextFireKey;
     if (key === null) return refuse('No next occurrence to skip');
@@ -127,9 +125,11 @@ export class ReminderStore {
     });
   }
 
-  /** Runs an action, then re-reads (also after a failure: the state may have moved). */
+  /**
+   * Runs an action, then re-reads (also after a failure: the state may have moved). A failed action
+   * only rejects: `error` is for reads, and the re-read sets it if it fails itself.
+   */
   private async act<T>(action: () => Promise<T>): Promise<T> {
-    this.errorState.set(null);
     try {
       const result = await action();
       await this.refresh();
@@ -139,7 +139,6 @@ export class ReminderStore {
       const failure = asDataError(error);
       await this.refresh();
       await this.latest;
-      this.errorState.set(failure);
       throw failure;
     }
   }

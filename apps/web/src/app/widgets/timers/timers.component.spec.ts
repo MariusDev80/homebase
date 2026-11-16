@@ -222,7 +222,7 @@ describe('TimersComponent', () => {
     const error = t.q('timers-action-error');
     expect(error?.getAttribute('role')).toBe('alert');
     expect(error?.textContent).toContain(
-      'Trop de minuteurs, chronos et pomodoros en cours (20 au plus, pomodoros compris).',
+      'Trop de sessions en cours (20 au plus : minuteurs, chronos et pomodoro).',
     );
   });
 
@@ -565,6 +565,40 @@ describe('TimersComponent', () => {
       await t.click(t.q('stopwatch-detail-back'));
       expect(t.q('stopwatch-detail')).toBeNull();
       expect(t.q('timers-load-error')).toBeNull();
+    });
+
+    it('keeps the last typed value when a blur arrives during a save', async () => {
+      const t = await openDetail();
+      const real = t.sessions.rename.bind(t.sessions);
+      let release = () => undefined as void;
+      let first = true;
+      const spy = vi.spyOn(t.sessions, 'rename').mockImplementation(async (id, label) => {
+        if (first) {
+          first = false;
+          await new Promise<void>((resolve) => (release = resolve));
+        }
+        return real(id, label);
+      });
+      await typeInto(t, 'stopwatch-detail-label', 'a');
+      await t.settle(STOPWATCH_DETAIL_SAVE_DEBOUNCE_MS);
+      expect(spy).toHaveBeenCalledTimes(1);
+      const input = await typeInto(t, 'stopwatch-detail-label', 'ab');
+      input.dispatchEvent(new Event('blur'));
+      release();
+      await t.settle();
+      await t.settle();
+      expect(t.sessions.items[0].label).toBe('ab');
+    });
+
+    it('clears a failed action message after a successful re-read', async () => {
+      const t = await render();
+      t.sessions.failNext(new DataError('forbidden', 'Too many sessions'));
+      await t.click(t.q('timers-start-stopwatch'));
+      expect(t.q('timers-action-error')).not.toBeNull();
+      expect(t.q('timers-load-error')).toBeNull();
+      window.dispatchEvent(new Event('focus'));
+      await t.elapse(300);
+      expect(t.q('timers-action-error')).toBeNull();
     });
 
     it('shows "cannot read" for a failed read', async () => {

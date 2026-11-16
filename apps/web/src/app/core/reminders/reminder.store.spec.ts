@@ -111,14 +111,22 @@ describe('ReminderStore', () => {
     expect(repo.calls.list).toBe(6);
   });
 
-  it('exposes an action error and rethrows it', async () => {
+  it('rejects a failed action and leaves error for reads', async () => {
     const store = await create();
     const failure = new DataError('invalid_input', 'title');
     repo.failNext(failure);
     await expect(store.create(INPUT)).rejects.toBe(failure);
-    expect(store.error()).toBe(failure);
-    await store.refresh();
     expect(store.error()).toBeNull();
+  });
+
+  it('exposes the failed re-read that follows a failed action', async () => {
+    const store = await create();
+    const failure = new DataError('invalid_input', 'title');
+    const readFailure = new DataError('busy', 'busy');
+    vi.spyOn(repo, 'create').mockRejectedValue(failure);
+    vi.spyOn(repo, 'list').mockRejectedValue(readFailure);
+    await expect(store.create(INPUT)).rejects.toBe(failure);
+    expect(store.error()).toBe(readFailure);
   });
 
   it('loading is true only until the first load, not during background re-reads', async () => {
@@ -146,11 +154,11 @@ describe('ReminderStore', () => {
     expect(store.reminders().map((r) => r.title)).toEqual(['fresh']);
   });
 
-  it('exposes a skipNext refusal in error', async () => {
+  it('rejects a skipNext refusal without touching error', async () => {
     await repo.create(INPUT);
     const store = await create();
     await expect(store.skipNext(store.reminders()[0])).rejects.toBeInstanceOf(DataError);
-    expect(store.error()?.kind).toBe('invalid_input');
+    expect(store.error()).toBeNull();
   });
 
   it('exposes a read error without throwing', async () => {

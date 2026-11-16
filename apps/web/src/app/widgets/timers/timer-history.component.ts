@@ -20,13 +20,7 @@ import {
   toLocalDate,
 } from '../../core/time';
 import type { LocalDateIso, TimeSession } from '../../data';
-import {
-  commandErrorKey,
-  durationLabel,
-  markActionError,
-  sessionIcon,
-  sessionNameKey,
-} from './timer-format';
+import { commandErrorKey, durationLabel, sessionIcon, sessionNameKey } from './timer-format';
 
 /** A session that ended less than this ago stays at the head of its day. */
 export const RECENT_END_MS = 10 * 60_000;
@@ -156,7 +150,6 @@ export class TimerHistoryComponent {
       this.confirmingId.set(null);
       this.focus('[data-testid="timer-history-back"]');
     } catch (error) {
-      markActionError(error);
       this.errorKey.set(commandErrorKey(error, 'session'));
       this.confirmingId.set(null);
       // The row may be gone (not found): the focus stays inside the panel either way.
@@ -173,7 +166,6 @@ export class TimerHistoryComponent {
     // The store reports a failed page in `error` without throwing.
     const after = this.store.error();
     if (after !== null && after !== before) {
-      markActionError(after);
       this.errorKey.set(commandErrorKey(after, 'session'));
     }
   }

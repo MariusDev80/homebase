@@ -320,6 +320,45 @@
         "urlTooLong": "L'adresse est trop longue (2048 caractères au maximum)."
       }
     },
+    "pomodoro": {
+      "title": "Pomodoro",
+      "description": "Séances de travail et pauses, avec notification",
+      "work": "Travail",
+      "shortBreak": "Pause courte",
+      "longBreak": "Pause longue",
+      "startPhase": "Démarrer : {{ phase }}",
+      "otherPhases": "Autres phases",
+      "today": "Aujourd'hui : {{ count }} pomodoros",
+      "todayOne": "Aujourd'hui : {{ count }} pomodoro",
+      "alreadyRunning": "Un pomodoro est déjà en cours.",
+      "settings": "Réglages",
+      "cycle": "{{ done }} sur {{ every }}",
+      "label": "Libellé",
+      "labelPlaceholder": "Sur quoi travaillez-vous ?",
+      "stop": "Arrêter",
+      "stopOf": "Arrêter : {{ name }}",
+      "doneWork": "Pomodoro terminé : c'est l'heure de la pause.",
+      "doneBreak": "Pause terminée.",
+      "back": "Retour",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré",
+      "fields": {
+        "workMinutes": "Durée du travail (minutes)",
+        "shortBreakMinutes": "Durée de la pause courte (minutes)",
+        "longBreakMinutes": "Durée de la pause longue (minutes)",
+        "longBreakEvery": "Pause longue toutes les (séances)"
+      },
+      "errors": {
+        "load": "Impossible de lire les sessions.",
+        "unknown": "L'opération a échoué.",
+        "sessionLimit": "Trop de sessions en cours ({{ max }} au plus : minuteurs, chronos et pomodoro).",
+        "busy": "Homebase est occupé : réessayez dans un instant.",
+        "notFound": "Cette session n'existe plus.",
+        "invalid": "Les valeurs saisies sont refusées.",
+        "save": "Réglages non enregistrés : réessayez.",
+        "range": "Saisissez un nombre entier de {{ min }} à {{ max }}."
+      }
+    },
     "timers": {
       "title": "Minuteurs",
       "description": "Minuteurs, chronos, alarmes et historique",
@@ -380,7 +419,7 @@
         "alarmTime": "Choisissez une heure pour l'alarme.",
         "load": "Impossible de lire les minuteurs.",
         "unknown": "L'opération a échoué.",
-        "sessionLimit": "Trop de minuteurs, chronos et pomodoros en cours ({{ max }} au plus, pomodoros compris).",
+        "sessionLimit": "Trop de sessions en cours ({{ max }} au plus : minuteurs, chronos et pomodoro).",
         "alarmNotScheduled": "L'alarme n'a pas pu être programmée : aucune occurrence à venir.",
         "reminderLimit": "Trop de rappels enregistrés : supprimez-en avant d'en ajouter.",
         "busy": "Homebase est occupé : réessayez dans un instant.",

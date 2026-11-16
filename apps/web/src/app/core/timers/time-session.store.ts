@@ -135,9 +135,11 @@ export class TimeSessionStore {
     return this.act(() => this.repository.remove(id));
   }
 
-  /** Runs an action, then re-reads (also after a failure: the state may have moved). */
+  /**
+   * Runs an action, then re-reads (also after a failure: the state may have moved). A failed action
+   * only rejects: `error` is for reads, and the re-read sets it if it fails itself.
+   */
   private async act<T>(action: () => Promise<T>): Promise<T> {
-    this.errorState.set(null);
     try {
       const result = await action();
       await this.refresh();
@@ -147,7 +149,6 @@ export class TimeSessionStore {
       const failure = asDataError(error);
       await this.refresh();
       await this.latest;
-      this.errorState.set(failure);
       throw failure;
     }
   }

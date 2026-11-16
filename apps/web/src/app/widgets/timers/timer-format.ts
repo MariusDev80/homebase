@@ -95,18 +95,3 @@ export function commandErrorKey(error: unknown, context: ErrorContext): string {
       return 'widgets.timers.errors.unknown';
   }
 }
-
-const actionErrors = new WeakSet<object>();
-
-/**
- * The store keeps the last failure in `error` whether it came from a read or from an action. An
- * action reports its own message, so it flags its error here and the "cannot read" banner
- * ignores it.
- */
-export function markActionError(error: unknown): void {
-  if (typeof error === 'object' && error !== null) actionErrors.add(error);
-}
-
-export function isActionError(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && actionErrors.has(error);
-}
