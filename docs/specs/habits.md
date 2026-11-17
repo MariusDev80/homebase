@@ -1,6 +1,6 @@
 # Spec : Habitudes (habit tracker) et rappels de mise à jour périodique
 
-- **Statut** : proposée (2026-11-17) ; décisions H1 à H10 à valider par Marius (§0)
+- **Statut** : acceptée (2026-11-17) ; décisions H1 à H10 validées par Marius le 2026-11-17, telles que recommandées
 - **Auteur** : architect (Opus)
 - **Destinataire** : `implementer` (Sonnet), un lot à la fois (§6), sur la branche `phase-2-habits`
 - **Liens** : `CLAUDE.md` ; `docs/PLAN.md` §5 (Habits) ; `docs/DESIGN.md` §3 ; ADR-001 ; ADR-002 (§3.3, O3) ; ADR-003 (§1, §2.2, §3.1, §3.3, §3.5.3, §3.5.5) ; `docs/specs/timers-reminders.md` (§4.9 point d'accroche, D2, D3, D6, D8, D12, §4.4, §4.7, §4.8)
@@ -9,7 +9,7 @@ Cette mini-spec vaut compte rendu de décision. Elle ne modifie aucun autre docu
 
 ---
 
-## 0. Décisions à valider par Marius
+## 0. Décisions validées par Marius (2026-11-17)
 
 Chaque ligne donne la **recommandation** de l'architecte ; la spec est écrite pour elle. Une réponse différente modifie les lots cités.
 
