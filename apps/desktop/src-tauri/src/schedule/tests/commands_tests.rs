@@ -1,7 +1,8 @@
-//! The schedule commands on a real V7 database (spec 6.1, `commands_tests`): every row of the
+//! The schedule commands on a real database at the latest schema (spec 6.1, `commands_tests`): every row of the
 //! table of 4.4, the exact serialisations, the bounds checked before any disk access, the
 //! wake-ups after a commit (CA-R3-3) and the gate shared with the scheduler thread (S5).
 
+use crate::backup::sqlite::supported_schema_version;
 use crate::backup::test_support::{make_database, run};
 use crate::schedule::commands::{
     create_reminder, delete_reminder, delete_session, history_sessions, list_reminders,
@@ -63,7 +64,7 @@ impl Fx {
     fn new() -> Self {
         let dir = TempDir::new().expect("tmp");
         let db = dir.path().join("homebase.db");
-        make_database(&db, 7, false);
+        make_database(&db, supported_schema_version(), false);
         Self::with_db(dir, db)
     }
 
@@ -218,6 +219,7 @@ fn raw_reminder_row(n: u32, title: &str, rrule: Option<&str>) -> ReminderRow {
         enabled: true,
         next_fire_at: None,
         next_fire_key: None,
+        habit_id: None,
         created_at: NOW.to_owned(),
         updated_at: NOW.to_owned(),
     }

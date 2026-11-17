@@ -11,6 +11,10 @@ use tauri::{AppHandle, Manager, Runtime};
 
 pub mod commands;
 pub mod error;
+#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
+pub mod habit;
+#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
+pub mod habit_store;
 pub mod notice;
 pub mod notifier;
 pub mod reminder;
@@ -41,6 +45,13 @@ pub const COUNT_WINDOW: SignedDuration = SignedDuration::from_hours(399 * 24);
 pub const MAX_TOASTS_PER_TICK: usize = 4;
 pub const DUE_BATCH: i64 = 200;
 pub const MAX_REMINDERS: i64 = 1000;
+#[expect(dead_code, reason = "habit commands (lot H2)")]
+pub const MAX_HABITS: i64 = 100;
+/// Widest range of `habit_checks`, bounds included.
+#[expect(dead_code, reason = "habit commands (lot H2)")]
+pub const HABIT_RANGE_MAX_DAYS: i64 = 400;
+#[expect(dead_code, reason = "habit commands (lot H2)")]
+pub const HABIT_CHECKS_MAX_ROWS: i64 = 50_000;
 pub const MAX_RUNNING_SESSIONS: i64 = 20;
 pub const TITLE_MAX_CHARS: usize = 200;
 pub const LABEL_MAX_CHARS: usize = 100;
@@ -104,6 +115,8 @@ pub fn shutdown<R: Runtime>(app: &AppHandle<R>) {
 #[cfg(test)]
 mod tests {
     mod commands_tests;
+    mod habit_plan_tests;
+    mod habit_store_tests;
     mod plan_tests;
     mod store_tests;
     mod tick_tests;

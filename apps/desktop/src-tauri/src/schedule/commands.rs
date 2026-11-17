@@ -266,6 +266,7 @@ impl Parts {
             enabled,
             next_fire_at,
             next_fire_key,
+            habit_id: None,
             created_at,
             updated_at,
         }

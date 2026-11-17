@@ -22,6 +22,8 @@ pub struct ReminderRow {
     pub enabled: bool,
     pub next_fire_at: Option<String>,
     pub next_fire_key: Option<String>,
+    /// Owner habit (spec habits): such a reminder is written only by the habit commands.
+    pub habit_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

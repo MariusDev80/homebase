@@ -25,6 +25,7 @@ fn row(start_local: &str, time_zone: &str, rrule: Option<&str>, exdates: &str) -
         next_fire_at: Some("2026-11-16T08:00:00.000Z".to_owned()),
         next_fire_key: Some("2026-11-16T09:00:00".to_owned()),
         created_at: "2026-11-01T00:00:00.000Z".to_owned(),
+        habit_id: None,
         updated_at: "2026-11-01T00:00:00.000Z".to_owned(),
     }
 }
