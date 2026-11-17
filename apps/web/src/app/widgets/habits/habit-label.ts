@@ -1,5 +1,5 @@
 import { WEEKDAYS } from '../../core/habits';
-import type { Streak, WeekProgress } from '../../core/habits';
+import type { Rate, Streak, WeekProgress } from '../../core/habits';
 import { zoneCity } from '../../core/time';
 import type { HabitReminder, HabitSchedule, LocalDateIso, TimeZoneId } from '../../data';
 
@@ -10,9 +10,16 @@ export interface HabitLabelFormat {
   t(key: string, params?: Record<string, unknown>): string;
   /** Long form with the weekday: "mardi 17 novembre 2026". */
   formatLongDate(date: LocalDateIso): string;
+  /** Active language, for plural rules (default: French). */
+  readonly lang?: string;
 }
 
 const P = 'widgets.habits.';
+
+/** Plural form of a count in the active language: 'one' (0 and 1 in French) or 'other'. */
+function pluralForm(count: number, fmt: HabitLabelFormat): 'one' | 'other' {
+  return new Intl.PluralRules(fmt.lang ?? 'fr').select(count) === 'one' ? 'one' : 'other';
+}
 
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -76,11 +83,32 @@ export function streakTexts(
   fmt: HabitLabelFormat,
 ): { readonly text: string; readonly sr: string } {
   const count = `${streak.count}${streak.truncated ? '+' : ''}`;
-  const srKey = streak.unit === 'days' ? 'streakDaysSr' : 'streakWeeksSr';
+  const srKey = `${streak.unit === 'days' ? 'streakDaysSr' : 'streakWeeksSr'}_${pluralForm(streak.count, fmt)}`;
   return {
     text: fmt.t(P + 'streak', { count }),
     sr: fmt.t(P + srKey, { count }),
   };
+}
+
+/** "Série actuelle : 12 jours prévus d'affilée" (French plural: 0 and 1 are singular). */
+export function historyStreakText(streak: Streak, fmt: HabitLabelFormat): string {
+  const count = `${streak.count}${streak.truncated ? '+' : ''}`;
+  if (streak.count === 0 && !streak.truncated) return fmt.t(P + 'historyStreakNone');
+  const form = pluralForm(streak.count, fmt);
+  const unit = streak.unit === 'days' ? 'historyStreakDays' : 'historyStreakWeeks';
+  return fmt.t(`${P}${unit}_${form}`, { count });
+}
+
+/** "Réussite sur 30 jours : 86 % (6/7)", "Sur 4 semaines : 2/2" or the no-data text. */
+export function rateText(
+  unit: Streak['unit'],
+  rate: Rate,
+  percent: number | null,
+  fmt: HabitLabelFormat,
+): string {
+  if (percent === null) return fmt.t(P + 'noRate');
+  const params = { rate: percent, done: rate.done, expected: rate.expected };
+  return fmt.t(P + (unit === 'days' ? 'rate30' : 'rate4w'), params);
 }
 
 /** "1/3 cette semaine". */

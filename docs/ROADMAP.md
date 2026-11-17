@@ -72,7 +72,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot H2 : commandes habit_* (revu ; vérification manuelle CA-H2-5 à faire par Marius)
 - [x] (S) Lot H3 : front, données et services (habitudes) (revu ; PV2 à mesurer en H4a)
 - [x] (S) Lot H4a : widget Habitudes (liste, bande, fiche, archivage) (revu ; vérifications manuelles MH1 à MH6 et PV2 à faire par Marius)
-- [ ] (S) Lot H4b : historique 5 semaines et statistiques
+- [x] (S) Lot H4b : historique 5 semaines et statistiques (revu ; vérifications manuelles MH7, MH8 à faire par Marius)
 - [ ] (O) ADR-004 : choix du calendrier (Schedule-X vs FullCalendar) après essai
 - [ ] (S) Calendrier agrégé via `CalendarSource`
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.

@@ -95,7 +95,7 @@ async function render(options: Options = {}) {
   const all = (id: string) => Array.from(el.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`));
   const text = (id: string) => q(id)?.textContent?.replace(/\s+/g, ' ').trim() ?? null;
   const cell = (habitId: string, day: string) =>
-    el.querySelector<HTMLButtonElement>(`[data-cell="${habitId}|${day}"]`);
+    el.querySelector<HTMLButtonElement>(`[data-cell="strip|${habitId}|${day}"]`);
   const settle = async (ms = 0) => {
     await vi.advanceTimersByTimeAsync(ms);
     fixture.detectChanges();
@@ -305,7 +305,9 @@ describe('HabitsComponent', () => {
     const stops = (id: string) =>
       view
         .all('habits-cell')
-        .filter((c) => c.dataset['cell']?.startsWith(id) && c.getAttribute('tabindex') === '0');
+        .filter(
+          (c) => c.dataset['cell']?.startsWith(`strip|${id}`) && c.getAttribute('tabindex') === '0',
+        );
     expect(stops(a)).toHaveLength(1);
     expect(stops(b)).toHaveLength(1);
     expect(stops(a)[0].dataset['day']).toBe(TODAY);
@@ -771,6 +773,39 @@ describe('HabitsComponent', () => {
       expect(document.activeElement).toBe(view.q('habits-new'));
     });
 
+    it('asks for no focus once destroyed (no NG0911, no unhandled rejection)', async () => {
+      let id = '';
+      const view = await render({
+        make: (clock) => new GatedRepository(clock),
+        prepare: async (repo) => {
+          id = (await seed(repo, daily('Read'))).id;
+        },
+      });
+      const repo = view.repo as GatedRepository;
+      let release!: () => void;
+      repo.gate = new Promise<void>((resolve) => (release = resolve));
+      view.cell(id, '2026-11-16')?.click();
+      await view.settle();
+      view.fixture.destroy();
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(view.fixture.componentRef.hostView.destroyed).toBe(true);
+    });
+
+    it('leaves nothing focusable when every day is before the start date', async () => {
+      let id = '';
+      const view = await render({
+        prepare: async (repo) => {
+          id = (await seed(repo, daily('Read', '2026-11-18'))).id;
+        },
+      });
+      const cells = view.all('habits-cell');
+      expect(cells).toHaveLength(7);
+      expect(cells.every((c) => (c as HTMLButtonElement).disabled && c.tabIndex === -1)).toBe(true);
+      expect(view.cell(id, TODAY)?.tabIndex).toBe(-1);
+    });
+
     it('shifts the strip when the day changes at midnight', async () => {
       let id = '';
       const view = await render({
@@ -787,6 +822,42 @@ describe('HabitsComponent', () => {
       expect(view.cell(id, '2026-11-18')).not.toBeNull();
       expect(view.cell(id, '2026-11-11')).toBeNull();
       expect(view.cell(id, '2026-11-18')?.className).toContain('border-accent');
+    });
+  });
+  describe('history in the detail panel', () => {
+    it('shows a check made in the strip', async () => {
+      const view = await render({
+        prepare: async (repo) => {
+          await seed(repo, daily('Lire'));
+        },
+      });
+      const id = view.store.habits()[0].id;
+      await view.click(view.cell(id, TODAY));
+      await view.click(view.q('habits-detail'));
+      const histCell = view.el.querySelector<HTMLButtonElement>(
+        `[data-testid="habit-history-cell"][data-day="${TODAY}"]`,
+      );
+      expect(histCell?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('is shown for an existing habit only and stays in sync with the strip', async () => {
+      let id = '';
+      const view = await render({
+        prepare: async (repo) => {
+          id = (await seed(repo, daily('Lire'))).id;
+        },
+      });
+      await view.click(view.q('habits-new'));
+      expect(view.q('habit-history')).toBeNull();
+      await view.click(view.q('habit-back'));
+      await view.click(view.q('habits-detail'));
+      expect(view.all('habit-history-cell').length).toBeGreaterThan(0);
+      const histCell = view.el.querySelector<HTMLButtonElement>(
+        `[data-testid="habit-history-cell"][data-day="${TODAY}"]`,
+      );
+      await view.click(histCell);
+      await view.click(view.q('habit-back'));
+      expect(view.cell(id, TODAY)?.getAttribute('aria-pressed')).toBe('true');
     });
   });
 });

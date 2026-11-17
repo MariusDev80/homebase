@@ -22,6 +22,10 @@
     {{ (isNew() ? 'widgets.habits.formTitleNew' : 'widgets.habits.formTitleEdit') | transloco }}
   </h3>
 
+  @if (habit(); as existing) {
+    <app-habit-history [habit]="existing" />
+  }
+
   @if (formError(); as key) {
     <p role="alert" class="flash flash-danger" data-testid="habit-form-error">
       <i class="pi pi-exclamation-circle" aria-hidden="true"></i>

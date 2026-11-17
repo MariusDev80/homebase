@@ -2,6 +2,8 @@ import {
   cellLabel,
   reminderLabel,
   scheduleLabel,
+  historyStreakText,
+  rateText,
   streakTexts,
   weekProgressLabel,
 } from './habit-label';
@@ -21,8 +23,18 @@ const TABLE: Record<string, string> = {
   'widgets.habits.todayFlag': "aujourd'hui",
   'widgets.habits.beforeStart': "avant le début de l'habitude",
   'widgets.habits.streak': 'Série : {count}',
-  'widgets.habits.streakDaysSr': "{count} jours prévus d'affilée",
-  'widgets.habits.streakWeeksSr': "{count} semaines d'affilée",
+  'widgets.habits.streakDaysSr_one': "{count} jour prévu d'affilée",
+  'widgets.habits.streakDaysSr_other': "{count} jours prévus d'affilée",
+  'widgets.habits.streakWeeksSr_one': "{count} semaine d'affilée",
+  'widgets.habits.streakWeeksSr_other': "{count} semaines d'affilée",
+  'widgets.habits.historyStreakNone': 'Série actuelle : aucune',
+  'widgets.habits.historyStreakDays_one': "Série actuelle : {count} jour prévu d'affilée",
+  'widgets.habits.historyStreakDays_other': "Série actuelle : {count} jours prévus d'affilée",
+  'widgets.habits.historyStreakWeeks_one': "Série actuelle : {count} semaine d'affilée",
+  'widgets.habits.historyStreakWeeks_other': "Série actuelle : {count} semaines d'affilée",
+  'widgets.habits.rate30': 'Réussite sur 30 jours : {rate} % ({done}/{expected})',
+  'widgets.habits.rate4w': 'Sur 4 semaines : {done}/{expected}',
+  'widgets.habits.noRate': 'Réussite : pas encore de données',
   'widgets.habits.weekProgress': '{done}/{required} cette semaine',
 };
 
@@ -100,7 +112,64 @@ describe('streak and progress texts', () => {
     });
   });
 
+  it('uses the singular for 0 and 1 in the screen-reader text', () => {
+    expect(streakTexts({ count: 1, unit: 'days', truncated: false }, fmt).sr).toBe(
+      "1 jour prévu d'affilée",
+    );
+    expect(streakTexts({ count: 0, unit: 'weeks', truncated: false }, fmt).sr).toBe(
+      "0 semaine d'affilée",
+    );
+    expect(streakTexts({ count: 2, unit: 'weeks', truncated: false }, fmt).sr).toBe(
+      "2 semaines d'affilée",
+    );
+  });
+
   it('writes the weekly progress', () => {
     expect(weekProgressLabel({ done: 1, required: 3 }, fmt)).toBe('1/3 cette semaine');
+  });
+});
+
+describe('historyStreakText', () => {
+  const days = (count: number, truncated = false) =>
+    historyStreakText({ count, unit: 'days', truncated }, fmt);
+  const weeks = (count: number, truncated = false) =>
+    historyStreakText({ count, unit: 'weeks', truncated }, fmt);
+
+  it('says none for zero, whatever the unit', () => {
+    expect(days(0)).toBe('Série actuelle : aucune');
+    expect(weeks(0)).toBe('Série actuelle : aucune');
+  });
+
+  it('uses the singular for 1 and the plural from 2', () => {
+    expect(days(1)).toBe("Série actuelle : 1 jour prévu d'affilée");
+    expect(days(2)).toBe("Série actuelle : 2 jours prévus d'affilée");
+    expect(weeks(1)).toBe("Série actuelle : 1 semaine d'affilée");
+    expect(weeks(2)).toBe("Série actuelle : 2 semaines d'affilée");
+  });
+
+  it('adds a plus when truncated', () => {
+    expect(days(57, true)).toBe("Série actuelle : 57+ jours prévus d'affilée");
+    expect(weeks(0, true)).toBe("Série actuelle : 0+ semaine d'affilée");
+  });
+});
+
+describe('rateText', () => {
+  it('writes the 30-day rate of a days habit', () => {
+    expect(rateText('days', { done: 6, expected: 7 }, 86, fmt)).toBe(
+      'Réussite sur 30 jours : 86 % (6/7)',
+    );
+  });
+
+  it('writes the 4-week rate of a weekly habit', () => {
+    expect(rateText('weeks', { done: 2, expected: 2 }, 100, fmt)).toBe('Sur 4 semaines : 2/2');
+  });
+
+  it('says there is no data when the percentage is null', () => {
+    expect(rateText('days', { done: 0, expected: 0 }, null, fmt)).toBe(
+      'Réussite : pas encore de données',
+    );
+    expect(rateText('weeks', { done: 0, expected: 0 }, null, fmt)).toBe(
+      'Réussite : pas encore de données',
+    );
   });
 });

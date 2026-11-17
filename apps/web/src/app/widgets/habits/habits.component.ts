@@ -12,26 +12,16 @@ import {
   untracked,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import {
-  HabitStore,
-  currentStreak,
-  isExpected,
-  weekProgress,
-  weekdayCode,
-} from '../../core/habits';
-import { TimeDisplay, Today, UserTimeZone, addDays, compareLocalDates } from '../../core/time';
+import { HabitStore, currentStreak, weekProgress, weekdayCode } from '../../core/habits';
+import { TimeDisplay, Today, UserTimeZone, addDays } from '../../core/time';
 import { injectWidgetContext } from '../../core/widgets';
-import type { Habit, LocalDateIso, WeekdayCode } from '../../data';
+import type { Habit, LocalDateIso } from '../../data';
+import { activeDay, cellClass, focusCell, linearMove, makeCell, tabStopDay } from './habit-cell';
+import type { Cell } from './habit-cell';
 import { HabitDetailComponent } from './habit-detail.component';
 import type { HabitDetailResult } from './habit-detail.component';
 import { problemOf } from './habit-form';
-import {
-  cellLabel,
-  reminderLabel,
-  scheduleLabel,
-  streakTexts,
-  weekProgressLabel,
-} from './habit-label';
+import { reminderLabel, scheduleLabel, streakTexts, weekProgressLabel } from './habit-label';
 import type { HabitLabelFormat } from './habit-label';
 import type { HabitsConfig } from './habits.config';
 
@@ -43,17 +33,6 @@ const ANNOUNCE: Record<Exclude<HabitDetailResult, 'cancelled'>, string> = {
 
 const STRIP_DAYS = 7;
 const EMPTY_DAYS: ReadonlySet<LocalDateIso> = new Set();
-
-export interface Cell {
-  readonly day: LocalDateIso;
-  readonly weekday: WeekdayCode;
-  readonly done: boolean;
-  readonly expected: boolean;
-  /** Before the start date: cannot be checked. */
-  readonly beforeStart: boolean;
-  readonly today: boolean;
-  readonly label: string;
-}
 
 export interface RowView {
   readonly habit: Habit;
@@ -87,10 +66,7 @@ export class HabitsComponent {
   private readonly transloco = inject(TranslocoService);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly fmt: HabitLabelFormat = {
-    t: (key, params) => this.transloco.translate(key, params),
-    formatLongDate: (date) => this.display.formatLocalDate(date, 'weekday-long'),
-  };
+  private readonly fmt: HabitLabelFormat = this.makeFormat();
 
   protected readonly headingId = `habits-heading-${this.ctx.instanceId}`;
   protected readonly archivedId = `habits-archived-${this.ctx.instanceId}`;
@@ -182,25 +158,9 @@ export class HabitsComponent {
     today: LocalDateIso,
     windowStart: LocalDateIso,
   ): RowView {
-    const cells = Array.from({ length: STRIP_DAYS }, (_, i): Cell => {
-      const day = addDays(today, i - (STRIP_DAYS - 1));
-      const expected = isExpected(habit.schedule, day);
-      const beforeStart = compareLocalDates(day, habit.startOn) < 0;
-      return {
-        day,
-        weekday: weekdayCode(day),
-        done: checked.has(day),
-        expected,
-        beforeStart,
-        today: day === today,
-        label: cellLabel(
-          habit.title,
-          day,
-          { expected, today: day === today, beforeStart },
-          this.fmt,
-        ),
-      };
-    });
+    const cells = Array.from({ length: STRIP_DAYS }, (_, i) =>
+      makeCell(habit, addDays(today, i - (STRIP_DAYS - 1)), today, checked, this.fmt),
+    );
     const streak = streakTexts(currentStreak(habit, checked, today, windowStart), this.fmt);
     const progress = weekProgress(habit, checked, today);
     return {
@@ -223,23 +183,12 @@ export class HabitsComponent {
   }
 
   protected cellClass(cell: Cell): string {
-    const base =
-      'inline-flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded-box border p-0 text-xs disabled:cursor-not-allowed disabled:opacity-40';
-    const border = cell.today ? 'border-accent' : 'border-default';
-    if (cell.done) {
-      return `${base} ${border} bg-success-emphasis text-fg-on-emphasis`;
-    }
-    // An unplanned day is dashed and tinted: still checkable, as a bonus.
-    return cell.expected
-      ? `${base} ${border} bg-transparent`
-      : `${base} ${border} border-dashed bg-canvas-subtle`;
+    return cellClass(cell);
   }
 
   protected tabIndexOf(row: RowView, cell: Cell): number {
-    const stored = this.roving()[row.habit.id];
-    const holder = row.cells.find((c) => c.day === stored && !c.beforeStart);
-    const day = holder?.day ?? this.today.date();
-    return cell.day === day ? 0 : -1;
+    const day = tabStopDay(row.cells, this.roving()[row.habit.id], this.today.date());
+    return cell.day === day && !cell.beforeStart ? 0 : -1;
   }
 
   protected setRoving(row: RowView, cell: Cell): void {
@@ -262,25 +211,9 @@ export class HabitsComponent {
   protected onKeydown(event: KeyboardEvent, row: RowView): void {
     const usable = row.cells.filter((c) => !c.beforeStart);
     if (usable.length === 0) return;
-    const active = (event.target as HTMLElement).closest<HTMLElement>('[data-day]')?.dataset['day'];
-    const index = usable.findIndex((c) => c.day === active);
-    let next: number;
-    switch (event.key) {
-      case 'ArrowLeft':
-        next = Math.max(0, index - 1);
-        break;
-      case 'ArrowRight':
-        next = Math.min(usable.length - 1, index + 1);
-        break;
-      case 'Home':
-        next = 0;
-        break;
-      case 'End':
-        next = usable.length - 1;
-        break;
-      default:
-        return;
-    }
+    const index = usable.findIndex((c) => c.day === activeDay(event));
+    const next = linearMove(event.key, index, usable.length);
+    if (next === null) return;
     event.preventDefault();
     this.focusCell(row.habit.id, usable[next].day, false);
   }
@@ -308,19 +241,7 @@ export class HabitsComponent {
   }
 
   private focusCell(habitId: string, day: LocalDateIso, afterRender: boolean): void {
-    const run = (): void => {
-      const target = Array.from(
-        this.host.nativeElement.querySelectorAll<HTMLElement>('[data-cell]'),
-      ).find((e) => e.dataset['cell'] === `${habitId}|${day}`);
-      if (target === undefined) return;
-      // Do not steal the focus from something the user moved to meanwhile.
-      const active = document.activeElement;
-      if (!afterRender || active === null || active === document.body || active === target) {
-        target.focus();
-      }
-    };
-    if (afterRender) afterNextRender(run, { injector: this.injector });
-    else run();
+    focusCell(this.host.nativeElement, `strip|${habitId}|${day}`, afterRender, this.injector);
   }
 
   protected openNew(): void {
@@ -403,6 +324,18 @@ export class HabitsComponent {
       },
       { injector: this.injector },
     );
+  }
+
+  private makeFormat(): HabitLabelFormat {
+    const transloco = this.transloco;
+    const display = this.display;
+    return {
+      t: (key, params) => transloco.translate(key, params),
+      formatLongDate: (date) => display.formatLocalDate(date, 'weekday-long'),
+      get lang() {
+        return transloco.getActiveLang();
+      },
+    };
   }
 
   protected t(key: string, params?: Record<string, unknown>): string {

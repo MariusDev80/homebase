@@ -29,6 +29,7 @@ import {
   sortedDays,
 } from './habit-form';
 import type { HabitField, HabitFormErrors, HabitFormState, HabitKind } from './habit-form';
+import { HabitHistoryComponent } from './habit-history.component';
 import type { HabitsConfig } from './habits.config';
 
 /** What happened when the panel closed (the parent announces it). */
@@ -46,7 +47,7 @@ const FIELD_ORDER: readonly HabitField[] = [
 /** Form panel of a habit (spec habits 4.7): explicit Save / Cancel (H10), nothing is written before. */
 @Component({
   selector: 'app-habit-detail',
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, HabitHistoryComponent],
   templateUrl: './habit-detail.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex min-h-0 flex-1 flex-col' },
