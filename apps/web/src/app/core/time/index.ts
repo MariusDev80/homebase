@@ -38,6 +38,7 @@ export {
 } from './time-zone';
 export { Today } from './today';
 export { TimeDisplay } from './time-display';
+export { zoneCity } from './zone-city';
 export type { DateStyle, InstantStyle } from './time-display';
 export { COUNT_MAX, INTERVAL_MAX, formatRecurrenceRule, parseRecurrenceRule } from './recurrence';
 export type { AnchorKind, RecurrenceRule, RuleEnd, RuleParseResult, Weekday } from './recurrence';

@@ -1,0 +1,321 @@
+<div
+  role="group"
+  class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+  data-testid="habit-form"
+  [attr.aria-label]="
+    (isNew() ? 'widgets.habits.formTitleNew' : 'widgets.habits.formTitleEdit') | transloco
+  "
+  (keydown.escape)="cancel()"
+>
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-invisible btn-compact"
+      data-testid="habit-back"
+      (click)="cancel()"
+    >
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      {{ 'widgets.habits.back' | transloco }}
+    </button>
+  </div>
+  <h3 class="m-0 text-base font-semibold">
+    {{ (isNew() ? 'widgets.habits.formTitleNew' : 'widgets.habits.formTitleEdit') | transloco }}
+  </h3>
+
+  @if (formError(); as key) {
+    <p role="alert" class="flash flash-danger" data-testid="habit-form-error">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      {{ key | transloco }}
+    </p>
+  }
+
+  <div class="flex flex-col gap-1">
+    <label class="text-xs font-semibold" [for]="id('title')">{{
+      'widgets.habits.fields.title' | transloco
+    }}</label>
+    <input
+      type="text"
+      class="field w-full"
+      autocomplete="off"
+      data-field="title"
+      data-testid="habit-title"
+      [id]="id('title')"
+      [attr.maxlength]="titleMax"
+      [attr.aria-invalid]="errors().title ? 'true' : null"
+      [attr.aria-describedby]="errors().title ? id('title-error') : null"
+      [value]="state().title"
+      (input)="onTitle($event)"
+    />
+    @if (errors().title; as key) {
+      <p class="field-error" data-testid="habit-error-title" [id]="id('title-error')">
+        {{ key | transloco }}
+      </p>
+    }
+  </div>
+
+  <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
+    <legend class="p-0 text-xs font-semibold">
+      {{ 'widgets.habits.fields.frequency' | transloco }}
+    </legend>
+    <div class="flex flex-wrap gap-3">
+      @for (kind of kinds; track kind) {
+        <label class="flex items-center gap-1">
+          <input
+            type="radio"
+            [name]="id('kind')"
+            [attr.data-testid]="'habit-kind-' + kind"
+            [checked]="state().kind === kind"
+            (change)="onKind(kind)"
+          />
+          {{ 'widgets.habits.kind.' + kind | transloco }}
+        </label>
+      }
+    </div>
+
+    @if (state().kind === 'days') {
+      <div class="flex flex-col gap-1">
+        <div
+          class="flex flex-wrap items-center gap-2"
+          [attr.aria-describedby]="errors().days ? id('days-error') : null"
+        >
+          @for (day of weekdays; track day) {
+            <label class="flex items-center gap-1">
+              <input
+                type="checkbox"
+                [attr.data-field]="$first ? 'days' : null"
+                [attr.data-testid]="'habit-day-' + day"
+                [attr.aria-label]="'widgets.habits.weekdays.' + day | transloco"
+                [attr.aria-invalid]="errors().days ? 'true' : null"
+                [attr.aria-describedby]="errors().days ? id('days-error') : null"
+                [checked]="state().days.includes(day)"
+                (change)="onDay(day, $event)"
+              />
+              <span aria-hidden="true">{{
+                'widgets.habits.weekdaysShort.' + day | transloco
+              }}</span>
+            </label>
+          }
+          <button
+            type="button"
+            class="btn btn-compact"
+            data-testid="habit-all-days"
+            (click)="allDays()"
+          >
+            {{ 'widgets.habits.everyDay' | transloco }}
+          </button>
+        </div>
+        @if (errors().days; as key) {
+          <p class="field-error" data-testid="habit-error-days" [id]="id('days-error')">
+            {{ key | transloco }}
+          </p>
+        }
+      </div>
+    } @else {
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-2">
+          <label class="text-xs" [for]="id('target')">{{
+            'widgets.habits.fields.target' | transloco
+          }}</label>
+          <input
+            type="text"
+            inputmode="numeric"
+            class="field w-16"
+            autocomplete="off"
+            data-field="target"
+            data-testid="habit-target"
+            [id]="id('target')"
+            [attr.aria-invalid]="errors().target ? 'true' : null"
+            [attr.aria-describedby]="errors().target ? id('target-error') : null"
+            [value]="state().target"
+            (input)="onTarget($event)"
+          />
+          <span class="text-fg-muted">{{ 'widgets.habits.perWeek' | transloco }}</span>
+        </div>
+        @if (errors().target; as key) {
+          <p class="field-error" data-testid="habit-error-target" [id]="id('target-error')">
+            {{ key | transloco }}
+          </p>
+        }
+      </div>
+    }
+  </fieldset>
+
+  <div class="flex flex-col gap-1">
+    <label class="text-xs font-semibold" [for]="id('startOn')">{{
+      'widgets.habits.fields.startOn' | transloco
+    }}</label>
+    <input
+      type="date"
+      class="field"
+      min="1900-01-01"
+      [attr.max]="todayDate()"
+      data-field="startOn"
+      data-testid="habit-start"
+      [id]="id('startOn')"
+      [attr.aria-invalid]="errors().startOn ? 'true' : null"
+      [attr.aria-describedby]="errors().startOn ? id('startOn-error') : null"
+      [value]="state().startOn"
+      (input)="onStartOn($event)"
+    />
+    @if (errors().startOn; as key) {
+      <p class="field-error" data-testid="habit-error-startOn" [id]="id('startOn-error')">
+        {{ key | transloco }}
+      </p>
+    }
+  </div>
+
+  <label class="flex items-center gap-2">
+    <input
+      type="checkbox"
+      role="switch"
+      class="switch"
+      data-testid="habit-reminder-on"
+      [checked]="state().reminderOn"
+      (change)="onReminderOn($event)"
+    />
+    {{ 'widgets.habits.fields.reminder' | transloco }}
+  </label>
+
+  @if (reminderOffNote(); as note) {
+    <p class="m-0 text-xs text-fg-muted" data-testid="habit-reminder-off">{{ note }}</p>
+  }
+
+  @if (state().reminderOn) {
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold" [for]="id('reminderTime')">{{
+        'widgets.habits.fields.reminderTime' | transloco
+      }}</label>
+      <input
+        type="time"
+        step="60"
+        class="field"
+        data-field="reminderTime"
+        data-testid="habit-reminder-time"
+        [id]="id('reminderTime')"
+        [attr.aria-invalid]="errors().reminderTime ? 'true' : null"
+        [attr.aria-describedby]="errors().reminderTime ? id('reminderTime-error') : null"
+        [value]="state().reminderTime"
+        (input)="onReminderTime($event)"
+      />
+      @if (errors().reminderTime; as key) {
+        <p
+          class="field-error"
+          data-testid="habit-error-reminderTime"
+          [id]="id('reminderTime-error')"
+        >
+          {{ key | transloco }}
+        </p>
+      }
+      <p class="m-0 text-xs text-fg-muted" data-testid="habit-zone">{{ zoneText() }}</p>
+      @for (warning of warnings(); track warning) {
+        <p class="flash flash-attention" data-testid="habit-warning">{{ warning }}</p>
+      }
+    </div>
+    <fieldset class="m-0 flex flex-col gap-1 border-0 p-0">
+      <legend class="p-0 text-xs font-semibold">
+        {{ 'widgets.habits.fields.reminderDays' | transloco }}
+      </legend>
+      <div class="flex flex-wrap gap-2">
+        @for (day of weekdays; track day) {
+          <label class="flex items-center gap-1">
+            <input
+              type="checkbox"
+              [attr.data-field]="$first ? 'reminderDays' : null"
+              [attr.data-testid]="'habit-reminder-day-' + day"
+              [attr.aria-label]="'widgets.habits.weekdays.' + day | transloco"
+              [attr.aria-invalid]="errors().reminderDays ? 'true' : null"
+              [attr.aria-describedby]="errors().reminderDays ? id('reminderDays-error') : null"
+              [checked]="reminderDays().includes(day)"
+              (change)="onReminderDay(day, $event)"
+            />
+            <span aria-hidden="true">{{ 'widgets.habits.weekdaysShort.' + day | transloco }}</span>
+          </label>
+        }
+      </div>
+      @if (errors().reminderDays; as key) {
+        <p
+          class="field-error"
+          data-testid="habit-error-reminderDays"
+          [id]="id('reminderDays-error')"
+        >
+          {{ key | transloco }}
+        </p>
+      }
+    </fieldset>
+  }
+
+  <div class="flex flex-wrap items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-primary"
+      data-testid="habit-save"
+      [disabled]="busy()"
+      (click)="save()"
+    >
+      {{ 'widgets.habits.save' | transloco }}
+    </button>
+    <button type="button" class="btn" data-testid="habit-cancel" (click)="cancel()">
+      {{ 'widgets.habits.cancel' | transloco }}
+    </button>
+    @if (confirmingDiscard()) {
+      <span class="flex items-center gap-2" role="group" data-testid="habit-discard">
+        <span>{{ 'widgets.habits.discardQuestion' | transloco }}</span>
+        <button
+          type="button"
+          class="btn btn-danger btn-compact"
+          data-testid="habit-discard-confirm"
+          (click)="closed.emit('cancelled')"
+        >
+          {{ 'widgets.habits.discard' | transloco }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-compact"
+          data-testid="habit-keep"
+          (click)="keepEditing()"
+        >
+          {{ 'widgets.habits.keepEditing' | transloco }}
+        </button>
+      </span>
+    }
+    @if (!isNew()) {
+      <button
+        type="button"
+        class="btn"
+        data-testid="habit-archive"
+        [disabled]="busy()"
+        (click)="archive()"
+      >
+        {{ 'widgets.habits.archive' | transloco }}
+      </button>
+      @if (confirmingDelete()) {
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-testid="habit-delete-confirm"
+          [disabled]="busy()"
+          (click)="remove()"
+        >
+          {{ 'widgets.habits.confirmDelete' | transloco }}
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-testid="habit-delete-cancel"
+          (click)="cancelDelete()"
+        >
+          {{ 'widgets.habits.cancel' | transloco }}
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-testid="habit-delete"
+          (click)="askDelete()"
+        >
+          {{ 'widgets.habits.delete' | transloco }}
+        </button>
+      }
+    }
+  </div>
+</div>

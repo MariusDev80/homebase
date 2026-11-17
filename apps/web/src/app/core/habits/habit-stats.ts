@@ -53,7 +53,7 @@ export const RATE_DAYS = 30;
 /** Weeks counted by the success rate of a `weekly` habit. */
 export const RATE_WEEKS = 4;
 
-const WEEKDAYS: readonly WeekdayCode[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+export const WEEKDAYS: readonly WeekdayCode[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
 /** The weekday code of a date. */
 export function weekdayCode(day: LocalDateIso): WeekdayCode {

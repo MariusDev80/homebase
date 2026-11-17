@@ -3,6 +3,7 @@ import {
   daysBetween,
   parseRecurrenceRule,
   toLocalDate,
+  zoneCity,
   type RecurrenceRule,
   type Weekday,
 } from '../../core/time';
@@ -28,15 +29,11 @@ export interface LabelFormat {
   formatDate(date: LocalDateIso, style: LabelDateStyle): string;
 }
 
+export { zoneCity };
+
 const P = 'widgets.reminders.';
 /** Beyond this many days from today, an occurrence shows its month. */
 const WEEKDAY_ONLY_DAYS = 6;
-
-/** "Paris" for `Europe/Paris`. */
-export function zoneCity(zone: TimeZoneId): string {
-  const last = zone.split('/').pop() ?? zone;
-  return last.replace(/_/g, ' ');
-}
 
 /** "(09:00 Paris)": the nominal time of a reminder whose zone differs from the user's. */
 export function zoneSuffix(
