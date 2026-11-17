@@ -632,6 +632,8 @@ Le planificateur ne connaît que `reminders`. Un « rappel de mise à jour péri
 - `tick`, `notice`, `group` : **aucun changement** ; le titre du toast est celui du rappel. Un éventuel lien « jour coché » ↔ rappel (ne pas sonner si l'habitude est déjà faite) relève de la spec Habitudes : prévoir alors un filtre dans `plan_due` derrière un trait, pas de SQL d'habitudes dans `tick`.
 Une habitude « tous les lundis » **sans heure** reste une ancre datée qui ne sonne jamais (ADR-003 §3.5.5). Un futur rappel de tâche (TODO avec heure) suivra le même modèle (`todo_id`).
 
+*Amendement (spec habits, 2026-11-17)* : remplacé par `docs/specs/habits.md` : pas de `habitId` dans `ReminderCreateDto` ni de filtre `owner` ; rappels d'habitude créés et modifiés par les commandes `habit_*` seulement, exclus de `reminder_list`, `reminder_unseen_deliveries`, `reminder_update`, `reminder_delete` ; un au plus par habitude (index unique) ; `exdates` dérivées des coches (D3), sans changement du planificateur.
+
 ### 4.10 Sécurité
 
 - Surface ajoutée côté JS : 12 commandes d'app, rien d'autre (ni `core:*`, ni `notification:*`, ni `autostart:*`). Les commandes n'accèdent qu'aux trois tables, aucun chemin ni URL ne vient du front.

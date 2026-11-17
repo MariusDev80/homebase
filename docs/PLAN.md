@@ -71,7 +71,7 @@ UTC + fuseau IANA ; récurrence en RRULE ; planificateur Rust qui recalcule la p
 - **TODO** : ligne compacte (case, marqueur « Important », titre, échéance relative, indicateurs, bouton de détail) qui s'adapte à la largeur de la carte ; fiche dans le widget (titre, « Important », description, échéance, répétition) enregistrée au fil de l'eau ; cocher une tâche répétée avance son échéance, sans historique (`docs/specs/todo-details.md`).
 - **Calendrier** : agrège les `CalendarSource` (rappels, TODO datées, habits, objectifs).
 - **Timers/pomodoro** : session « en cours depuis X » cliquable (détail + historique) ; historique en base ; reprise correcte après fermeture. *Amendement (spec timers-reminders, 2026-11-16)* : pas de pause ni d'enchaînement automatique en v1 (M3, M4).
-- **Habits** : distinct de la TODO ; inclut des rappels de mise à jour périodique (ex. solde des comptes).
+- **Habits** : distinct de la TODO ; inclut des rappels de mise à jour périodique (ex. solde des comptes). *Amendement (spec habits, 2026-11-17)* : jours précis ou N fois par semaine, coche par jour, séries ; un rappel par habitude, muet si le jour est coché (spec habits).
 - **Objectifs** : entièrement manuels (progression éditable, durée définie), étiquette libre (ex. SkyBlock). Aucune dépendance à une API de jeu.
 - **Budget/comptes** : saisie manuelle et import CSV ; automatisation bancaire reportée (GoCardless fermé aux nouveaux comptes depuis juillet 2025, Powens sur devis, autres non vérifiés).
 - **Météo** : Open-Meteo (sans clé, usage non commercial, attribution CC BY 4.0) ; géocodage inclus ; requêtes par commandes Rust dédiées, cache en mémoire (spec : `docs/specs/weather-widget.md`).

@@ -410,7 +410,7 @@ Sur l'exe release installé pour les toasts (timers-reminders V11), sinon en dev
 - **MH7** Laisser la fenêtre ouverte au passage de minuit : la bande se décale.
 - **MH8** Thèmes clair et sombre, tableau teinté : cellules lisibles (DESIGN §6) ; sauvegarde puis restauration : habitudes et coches présentes ; export de configuration : aucune habitude.
 
-## 8. Amendements proposés (à appliquer par le coordinateur, après validation)
+## 8. Amendements appliqués (2026-11-17)
 - **timers-reminders §4.9** : « Remplacé par `docs/specs/habits.md` : pas de `habitId` dans `ReminderCreateDto` ni de filtre `owner` ; rappels d'habitude créés et modifiés par les commandes `habit_*` seulement, exclus de `reminder_list`, `reminder_unseen_deliveries`, `reminder_update`, `reminder_delete` ; un au plus par habitude (index unique) ; `exdates` dérivées des coches (D3), sans changement du planificateur. »
 - **ADR-002** : O3, avancement : « `habits`, `habit_checks` (V8) : commandes Rust typées seulement ». §3.3 : clé naturelle `(habit_id, day_on)` de `habit_checks` ; horodatages fournis par l'horloge Rust.
 - **ADR-003** : §1, ligne Habitudes : « dates murales ; jours de la semaine ou N fois par semaine ISO (pas de RRULE, spec habits D2) ». §3.5.3 : « les `exdates` d'un rappel d'habitude sont dérivées des jours cochés ». §3.6 : `isoWeekday`, `startOfIsoWeek` dans `core/time`.
