@@ -1,5 +1,5 @@
 import { TimeError } from './time-error';
-import { addDays, compareLocalDates, daysBetween } from './local-date';
+import { addDays, compareLocalDates, daysBetween, isoWeekday, startOfIsoWeek } from './local-date';
 
 describe('local-date', () => {
   it('daysBetween', () => {
@@ -28,5 +28,17 @@ describe('local-date', () => {
     expect(compareLocalDates('2026-10-19', '2026-10-20')).toBe(-1);
     expect(compareLocalDates('2026-10-20', '2026-10-20')).toBe(0);
     expect(compareLocalDates('2026-10-21', '2026-10-20')).toBe(1);
+  });
+
+  it('isoWeekday', () => {
+    expect(isoWeekday('2026-11-16')).toBe(1);
+    expect(isoWeekday('2026-11-17')).toBe(2);
+    expect(isoWeekday('2026-11-22')).toBe(7);
+  });
+
+  it('startOfIsoWeek', () => {
+    expect(startOfIsoWeek('2027-01-02')).toBe('2026-12-28');
+    expect(startOfIsoWeek('2026-11-16')).toBe('2026-11-16');
+    expect(startOfIsoWeek('2026-11-22')).toBe('2026-11-16');
   });
 });

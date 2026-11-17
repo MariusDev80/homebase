@@ -1,6 +1,7 @@
 import { InjectionToken } from '@angular/core';
 import { randomUuid } from './clock';
-import type { ReminderRepository, TimeSessionRepository } from './repositories';
+import type { HabitRepository, ReminderRepository, TimeSessionRepository } from './repositories';
+import { TauriHabitRepository } from './tauri/tauri-habit.repository';
 import { TauriReminderRepository } from './tauri/tauri-reminder.repository';
 import { TauriTimeSessionRepository } from './tauri/tauri-time-session.repository';
 
@@ -17,3 +18,8 @@ export const TIME_SESSION_REPOSITORY = new InjectionToken<TimeSessionRepository>
   'TIME_SESSION_REPOSITORY',
   { providedIn: 'root', factory: () => new TauriTimeSessionRepository(randomUuid) },
 );
+
+export const HABIT_REPOSITORY = new InjectionToken<HabitRepository>('HABIT_REPOSITORY', {
+  providedIn: 'root',
+  factory: () => new TauriHabitRepository(randomUuid),
+});

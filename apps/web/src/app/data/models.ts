@@ -244,6 +244,50 @@ export interface TimeSession {
   readonly updatedAt: InstantIso;
 }
 
+export type WeekdayCode = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
+
+export type HabitSchedule =
+  | { readonly kind: 'days'; readonly days: readonly WeekdayCode[] }
+  | { readonly kind: 'weekly'; readonly target: number };
+
+export interface HabitReminderInput {
+  /** HH:MM */
+  readonly time: string;
+  readonly days: readonly WeekdayCode[];
+  readonly timeZone: TimeZoneId;
+  readonly enabled: boolean;
+}
+
+export interface HabitReminder extends HabitReminderInput {
+  readonly reminderId: string;
+  readonly nextFireAt: InstantIso | null;
+  readonly nextFireKey: LocalDateTimeIso | null;
+  readonly status: ReminderStatus;
+}
+
+export interface HabitInput {
+  readonly title: string;
+  readonly schedule: HabitSchedule;
+  readonly startOn: LocalDateIso;
+  readonly reminder: HabitReminderInput | null;
+}
+
+export interface Habit extends Omit<HabitInput, 'reminder'> {
+  readonly id: string;
+  readonly archivedAt: InstantIso | null;
+  readonly reminder: HabitReminder | null;
+  readonly createdAt: InstantIso;
+  readonly updatedAt: InstantIso;
+}
+
+export interface HabitCheck {
+  readonly habitId: string;
+  readonly dayOn: LocalDateIso;
+}
+
+/** Mirrors MAX_HABITS, TITLE_MAX_CHARS and HABIT_RANGE_MAX_DAYS of `schedule/mod.rs`. */
+export const HABIT_LIMITS = { maxHabits: 100, titleMaxChars: 200, historyDays: 400 } as const;
+
 /**
  * Bounds enforced by the Rust scheduler; they MUST stay equal to the constants of
  * `apps/desktop/src-tauri/src/schedule/mod.rs` (the Rust is authoritative, the front only mirrors

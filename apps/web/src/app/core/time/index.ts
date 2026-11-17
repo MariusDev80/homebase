@@ -28,7 +28,7 @@ export {
   untilEndOfLocalDay,
 } from './zoned';
 export type { LocalTimeKind } from './zoned';
-export { addDays, compareLocalDates, daysBetween } from './local-date';
+export { addDays, compareLocalDates, daysBetween, isoWeekday, startOfIsoWeek } from './local-date';
 export {
   SUPPORTED_TIME_ZONES_READER,
   SYSTEM_TIME_ZONE_READER,

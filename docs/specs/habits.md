@@ -285,6 +285,8 @@ export interface HabitRepository {
 - `core/time/local-date.ts` : `isoWeekday(date): 1..7` (`dayOfWeek`), `startOfIsoWeek(date)` (`addDays(date, 1 − isoWeekday)`), exportés par `core/time/index.ts`.
 - `core/habits/habit.store.ts` (`providedIn: 'root'`) : signaux `habits`, `checks` (`ReadonlyMap<habitId, ReadonlySet<LocalDateIso>>`), `windowStart`, `loading`, `error` ; `refresh()` charge `list()` et `checks({ from: today − 399, to: today })` ; relecture au premier usage, au retour visible et au `focus` (`DueRefresher` sans échéance) et quand `Today.date()` change. Actions `create`, `update`, `setArchived`, `remove` : comme `ReminderStore.act` (action, puis relecture ; l'échec rejette sans toucher à `error`). `setCheck` : mise à jour **optimiste** de `checks`, puis appel ; en cas d'échec, relecture et rejet.
 - `core/habits/habit-stats.ts` (pur, §4.6) : `isExpected(schedule, day)`, `currentStreak(habit, checked, today, windowStart): { count, unit: 'days' | 'weeks', truncated }`, `successRate(habit, checked, today): { done, expected }`, `weekProgress(habit, checked, today): { done, required } | null`.
+- **Création sans doublon (pour H4a)** : `store.create` et le dépôt acceptent un `id` fourni par l'appelant. La fiche génère cet id **une seule fois à son ouverture** (`randomUuid`) et le réutilise à chaque « Enregistrer » : un nouvel essai après un échec ou un double clic reçoit `conflict` (id déjà pris) au lieu de créer un doublon ; la fiche traite `conflict` comme « déjà enregistrée » et relit.
+- **Coche optimiste** : `setCheck` garde les coches en vol et les réapplique à toute lecture qui aboutit avant la réponse de Rust ; un échec rétablit localement l'état précédent du jour, puis relit.
 - Fake : `core/testing/fake-habit.repository.ts` (sémantique du §4.3, horloge `ManualClock`).
 
 ### 4.5 Notifications
@@ -432,6 +434,7 @@ Sur l'exe release installé pour les toasts (timers-reminders V11), sinon en dev
 | R6. Écriture hors Rust (O3 non fait) | Données incohérentes | `CHECK`, revalidation à la lecture, O3 en phase 3 |
 
 - **PV1** S1 : `deny_unknown_fields` sur `HabitScheduleDto` (test H2).
-- **PV2** Temps d'un `habit_checks` sur 400 jours avec 20 habitudes cochées chaque jour (mesure en H3, en dev).
+- **PV2** Temps d'un `habit_checks` sur 400 jours avec 20 habitudes cochées chaque jour (à mesurer en H4a, en dev, une fois le widget disponible).
+- **PV5** (H3, front) Après une coche réussie, le store ne relit pas les habitudes : le rappel affiché n'est donc pas rafraîchi (`nextFireAt` peut être périmé jusqu'à la prochaine relecture). La fiche (H4a) n'affiche **que l'heure** du rappel, jamais la prochaine échéance.
 - **PV3** `ALTER TABLE … ADD COLUMN … REFERENCES` appliquée par le vrai migrateur sur une base V7 avec rappels (test H1).
 - **PV4** Lecteur d'écran (Narrateur) : nom et état des cellules annoncés (MH4).

@@ -2,6 +2,12 @@ export type {
   Dashboard,
   DashboardPatch,
   GridRect,
+  Habit,
+  HabitCheck,
+  HabitInput,
+  HabitReminder,
+  HabitReminderInput,
+  HabitSchedule,
   LayoutItem,
   NewDashboard,
   NewNote,
@@ -24,6 +30,7 @@ export type {
   TimeSession,
   TimeSessionKind,
   TodoSearchHit,
+  WeekdayCode,
   WidgetInstanceRecord,
 } from './models';
 export type { JsonObject, JsonPrimitive, JsonValue } from './json';
@@ -32,6 +39,7 @@ export {
   DASHBOARD_ICON_PATTERN,
   DEFAULT_DASHBOARD_ICON,
   DEFAULT_DASHBOARD_THEME_VERSION,
+  HABIT_LIMITS,
   MAX_DASHBOARD_THEME_CHARS,
   SCHEDULE_LIMITS,
   TODO_DESCRIPTION_MAX,
@@ -46,6 +54,7 @@ export { randomUuid } from './clock';
 export type { Clock, IdGenerator } from './clock';
 export type {
   DashboardRepository,
+  HabitRepository,
   MarkSeenTarget,
   NoteRepository,
   ReminderRepository,
