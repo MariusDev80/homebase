@@ -69,7 +69,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot W3 : widget Rappels (revu ; vérifications manuelles MV1, MV2, MV10 à MV13 à faire par Marius ; MV1 = critère de sortie de phase)
 - [x] (O) mini-spec Habitudes (s'appuie sur §4.9 de timers-reminders) (`docs/specs/habits.md`, décisions H1 à H10 validées par Marius le 2026-11-17)
 - [x] (S) Lot H1 (spec habits) : migration V8, stockage, logique pure (revu ; texte de V8 figé le 2026-11-17)
-- [ ] (S) Lot H2 : commandes habit_*
+- [x] (S) Lot H2 : commandes habit_* (revu ; vérification manuelle CA-H2-5 à faire par Marius)
 - [ ] (S) Lot H3 : front, données et services (habitudes)
 - [ ] (S) Lot H4a : widget Habitudes (liste, bande, fiche, archivage)
 - [ ] (S) Lot H4b : historique 5 semaines et statistiques

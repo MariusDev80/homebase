@@ -9,11 +9,25 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, Runtime};
 
+/// Runs the body under the module gate (D3) on a dedicated connection, closed afterwards. The
+/// gate is released when the macro's block ends, so a caller that wakes the scheduler afterwards
+/// does it outside the gate and after the commit. Defined before the submodules so that their
+/// code sees it (textual scope); the paths are absolute, so it works from any of them.
+macro_rules! locked {
+    ($ctx:expr, $conn:ident => $body:expr) => {{
+        let _gate = $ctx.gate.lock().await;
+        let mut $conn =
+            $crate::schedule::store::connect_with_timeout(&$ctx.db, $ctx.busy_timeout).await?;
+        let result: Result<_, $crate::schedule::error::ScheduleError> = async { $body }.await;
+        $crate::schedule::store::close($conn).await;
+        result
+    }};
+}
+
 pub mod commands;
 pub mod error;
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
 pub mod habit;
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
+pub mod habit_commands;
 pub mod habit_store;
 pub mod notice;
 pub mod notifier;
@@ -45,12 +59,9 @@ pub const COUNT_WINDOW: SignedDuration = SignedDuration::from_hours(399 * 24);
 pub const MAX_TOASTS_PER_TICK: usize = 4;
 pub const DUE_BATCH: i64 = 200;
 pub const MAX_REMINDERS: i64 = 1000;
-#[expect(dead_code, reason = "habit commands (lot H2)")]
 pub const MAX_HABITS: i64 = 100;
 /// Widest range of `habit_checks`, bounds included.
-#[expect(dead_code, reason = "habit commands (lot H2)")]
 pub const HABIT_RANGE_MAX_DAYS: i64 = 400;
-#[expect(dead_code, reason = "habit commands (lot H2)")]
 pub const HABIT_CHECKS_MAX_ROWS: i64 = 50_000;
 pub const MAX_RUNNING_SESSIONS: i64 = 20;
 pub const TITLE_MAX_CHARS: usize = 200;
@@ -115,6 +126,7 @@ pub fn shutdown<R: Runtime>(app: &AppHandle<R>) {
 #[cfg(test)]
 mod tests {
     mod commands_tests;
+    mod habit_commands_tests;
     mod habit_plan_tests;
     mod habit_store_tests;
     mod plan_tests;

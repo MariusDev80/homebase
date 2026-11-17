@@ -79,7 +79,7 @@ Une RRULE ne sait pas dire « 3 fois par semaine », et le calcul de série sur 
 **Retenu : A.** Ensemble borné : seules les coches des jours `[J−1, J+1]`, où J = date de `now` dans le fuseau du rappel, sont examinées (une coche porte sur un jour ≤ aujourd'hui) ; une clé dont l'instant résolu (`resolve_local`, `compatible`) est ≤ `now` est retirée (elle n'a plus d'effet, le rappel n'a ni `COUNT` ni `UNTIL`). Les `exdates` d'un rappel d'habitude comptent donc 0 à 2 éléments. Décocher retire la clé ; le cache repart de `next_after(now)` : aucune sonnerie rétroactive. Si Marius choisit C, supprimer `habit_exdates` et passer `exdates = []`.
 
 ### D4. Rappel d'habitude dérivé de l'habitude (H4)
-Le front envoie `{ time: "HH:MM", days, timeZone, enabled }` ; le Rust construit la règle (7 jours → `FREQ=DAILY`, sinon `FREQ=WEEKLY;BYDAY=<jours triés MO→SU>`), l'ancre `start_local` = date de `now` dans `timeZone` + `time` (ancre conservée si l'heure et le fuseau n'ont pas changé), le titre = titre de l'habitude, puis passe par `prepare` (validation de timers-reminders). Pas de champ `habitId` dans `ReminderCreateDto` (écart au §4.9 de timers-reminders) : un seul chemin d'écriture, celui des commandes `habit_*`. Les commandes `reminder_update` / `reminder_delete` ne voient pas les rappels d'habitude (`NotFound`) ; `reminder_list` et `reminder_unseen_deliveries` les excluent (H6). Le fuseau d'un rappel existant n'est jamais changé par le formulaire (comme W3).
+Le front envoie `{ id, time: "HH:MM", days, timeZone, enabled }` (`id` : UUID minuscule généré par le front ; à la création il devient l'id du rappel, un id déjà pris donne `Conflict` ; si l'habitude a déjà un rappel, son id est conservé et celui reçu est ignoré) ; le Rust construit la règle (7 jours → `FREQ=DAILY`, sinon `FREQ=WEEKLY;BYDAY=<jours triés MO→SU>`), l'ancre `start_local` = date de `now` dans `timeZone` + `time` (ancre conservée si l'heure et le fuseau n'ont pas changé), le titre = titre de l'habitude, puis passe par `prepare` (validation de timers-reminders). Pas de champ `habitId` dans `ReminderCreateDto` (écart au §4.9 de timers-reminders) : un seul chemin d'écriture, celui des commandes `habit_*`. Les commandes `reminder_update` / `reminder_delete` ne voient pas les rappels d'habitude (`reminder_update` : `NotFound` ; `reminder_delete` : `Ok(false)`, comme pour un id absent) ; `reminder_list` et `reminder_unseen_deliveries` les excluent (H6). Le fuseau d'un rappel existant n'est jamais changé par le formulaire (comme W3).
 
 ### D5. Calculs dans le front, `core/habits/habit-stats.ts` (pur)
 Séries et réussite dépendent d'« aujourd'hui » dans le fuseau de l'utilisateur, que le Rust ne connaît pas (ADR-003 §3.2). Calcul TS sur dates murales via `core/time` (`addDays`, `daysBetween`, `compareLocalDates`, et deux ajouts : `isoWeekday`, `startOfIsoWeek`, fondés sur `Temporal.PlainDate.dayOfWeek`). Aucune arithmétique en millisecondes, aucun `Date`. Fenêtre chargée : 400 jours se terminant aujourd'hui.
@@ -201,10 +201,11 @@ Mêmes règles que timers-reminders §4.4 : `async fn`, `State<'_, SchedulerStat
 #[derive(serde::Serialize, serde::Deserialize)] #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HabitScheduleDto { Days { days: Vec<String> }, Weekly { target: u8 } }
 #[derive(serde::Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct HabitReminderInputDto { pub time: String, pub days: Vec<String>, pub time_zone: String, pub enabled: bool }
+pub struct HabitReminderInputDto { pub id: String, /* UUID minuscule, généré par le front ; ignoré si l'habitude a déjà un rappel (son id est conservé) */ pub time: String, pub days: Vec<String>, pub time_zone: String, pub enabled: bool }
 #[derive(serde::Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HabitInputDto { pub title: String, pub schedule: HabitScheduleDto, pub start_on: String,
-    pub reminder: Option<HabitReminderInputDto> }
+    /// obligatoire : `null` supprime le rappel, une clé absente est une erreur de désérialisation
+    #[serde(deserialize_with = "Option::deserialize")] pub reminder: Option<HabitReminderInputDto> }
 #[derive(serde::Deserialize)] #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HabitCreateDto { pub id: String, pub title: String, pub schedule: HabitScheduleDto, pub start_on: String,
     pub reminder: Option<HabitReminderInputDto> }
@@ -229,12 +230,14 @@ pub async fn habit_set_check(state, habit_id: String, day_on: String, done: bool
 | Commande | Contrôles (dans l'ordre) | Effet | Réveil |
 |---|---|---|---|
 | `habit_list` | — | toutes les habitudes (archivées comprises) + leur rappel (`list_habit_reminders`, jointure en Rust) ; `status` par `status_of` hors `gate` (`spawn_blocking`) ; un rappel dont la règle sort des deux formes : `status: invalid`, `days: []` | non |
-| `habit_create` | `id` ; `title` (`bounded` + `check_title`) ; forme (`mask_of`, `target` 1..7) ; `startOn` (`parse_local_date`, ≤ `latest_allowed_day`) ; rappel : `time`, `days`, puis `prepare` (fuseau, règle) ; en transaction : `count_habits < 100`, sinon `LimitReached` ; si rappel : `count_reminders < 1000` | `INSERT` habitude ; si rappel : `INSERT` rappel (`habit_id`, `exdates = []`, cache) ; id existant → `Conflict` | si rappel |
+| `habit_create` | `id` ; `title` (`bounded` + `check_title`) ; forme (`mask_of`, `target` 1..7) ; `startOn` (`parse_local_date`, de 1900-01-01 à `latest_allowed_day`) ; rappel : `id`, `time`, `days`, puis `prepare` (fuseau, règle) ; en transaction : `INSERT` de l'habitude (id existant → `Conflict`, avant toute limite), puis `count_habits <= 100`, sinon `LimitReached` ; si rappel : `count_reminders < 1000` | `INSERT` habitude ; si rappel : `INSERT` rappel (id du front, `habit_id`, `exdates = []`, cache ; id déjà pris → `Conflict`) ; id d'habitude existant → `Conflict` | si rappel |
 | `habit_update` | mêmes contrôles (sans limite d'habitudes) ; absente → `NotFound` | remplace titre, forme, début ; rappel : absent → `delete_habit_reminder` ; présent → crée ou remplace (titre = titre de l'habitude ; ancre D4 ; **forcé `enabled = false` si l'habitude est archivée**) puis `sync_habit_reminder` | si rappel touché |
 | `habit_set_archived` | `id` ; absente → `NotFound` | `true` : `archived_at = now` (inchangé si déjà archivée) + `disable_habit_reminder` ; `false` : `archived_at = NULL` (rappel laissé désactivé, H7) | si rappel touché |
 | `habit_delete` | `id` | `DELETE` (cascade coches, rappel, livraisons) ; `false` si absente | oui |
 | `habit_checks` | `from`, `to` (dates strictes), `from <= to`, `to − from` < 400 jours (`Date::until`, jiff) sinon `InvalidInput { field: "to" }` | `checks_between(…, 50 000)` | non |
 | `habit_set_check` | `habitId`, `dayOn` (strict, ≤ `latest_allowed_day`) ; habitude absente → `NotFound` ; `dayOn < start_on` → `InvalidInput { field: "dayOn" }` | `insert_check` / `delete_check` ; si changé : `sync_habit_reminder` ; renvoie « ligne changée » (idempotent : `false`) | si rappel touché |
+
+Noms de champ des erreurs `InvalidInput` (camelCase, chemin pointé) : `id`, `title`, `schedule.days`, `schedule.target`, `startOn`, `reminder.id`, `reminder.time`, `reminder.days`, `reminder.timeZone`, `habitId`, `dayOn`, `from`, `to`. Toute date (`startOn`, `dayOn`) antérieure au 1900-01-01 est refusée (la contrainte `CHECK` de V8 la refuserait). Archiver une habitude déjà archivée ne touche pas le rappel et ne réveille rien. Un rappel dont le fuseau, le titre ou la règle sont refusés par le moteur (écrit hors du Rust) est « illisible » : `sync_habit_reminder` le journalise (id) et retourne `false`, la coche passe. Le réveil suit le commit même si la relecture du DTO échoue.
 
 Enregistrement : `build.rs`, les **deux** `invoke_handler` de `lib.rs` (+ tests), `capabilities/default.json` (`allow-habit-list`, `allow-habit-create`, `allow-habit-update`, `allow-habit-set-archived`, `allow-habit-delete`, `allow-habit-checks`, `allow-habit-set-check`), `capability_tests.rs` (liste exacte). Description de `default.json`, phrase ajoutée : « The habit commands (habit_*) read and write only the habits and habit_checks tables and the reminders owned by a habit, with bounded, validated inputs. »
 
@@ -347,7 +350,7 @@ Dossier autonome (ADR-001), `OnPush`, signaux, textes Transloco sous `widgets.ha
 | L13 | Fuseau utilisateur changé après la création du rappel | les jours restent des dates ; le silence vise le jour du rappel dans **son** fuseau : approximation acceptée |
 | L14 | Archivage puis restauration | rappel désactivé puis toujours désactivé ; coches conservées |
 | L15 | `start_on` avancé après des coches | coches antérieures conservées, ignorées par les calculs, cellules désactivées |
-| L16 | `reminder_update` / `reminder_delete` sur un rappel d'habitude | `NotFound` ; absent de `reminder_list` et des livraisons non vues |
+| L16 | `reminder_update` / `reminder_delete` sur un rappel d'habitude | `reminder_update` : `NotFound` ; `reminder_delete` : `Ok(false)` ; absent de `reminder_list` et des livraisons non vues |
 | L17 | 101e habitude ; 1001e rappel | `LimitReached`, rien n'est écrit |
 | L18 | Suppression d'un widget Habitudes ; import de configuration | données conservées (H5, H9) |
 | L19 | Restauration d'une sauvegarde V7 | migrée en V8 au démarrage, aucune habitude |

@@ -427,7 +427,6 @@ pub async fn record_firing_detailed(
 // ---------------------------------------------------------------------------------------------
 
 /// The reminder owned by `habit_id`, if any.
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
 pub async fn get_habit_reminder(
     conn: &mut SqliteConnection,
     habit_id: &str,
@@ -440,7 +439,6 @@ pub async fn get_habit_reminder(
 }
 
 /// Every reminder owned by a habit, by owner.
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
 pub async fn list_habit_reminders(
     conn: &mut SqliteConnection,
 ) -> Result<Vec<ReminderRow>, ScheduleError> {
@@ -453,7 +451,6 @@ pub async fn list_habit_reminders(
 }
 
 /// Same as `replace_reminder` but only for the reminder owned by `row.habit_id`.
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
 pub async fn replace_habit_reminder(
     conn: &mut SqliteConnection,
     row: &ReminderRow,
@@ -480,7 +477,6 @@ pub async fn replace_habit_reminder(
 }
 
 /// Deletes the reminder owned by `habit_id` (its deliveries go with it). `false` if none.
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
 pub async fn delete_habit_reminder(
     conn: &mut SqliteConnection,
     habit_id: &str,
@@ -493,7 +489,6 @@ pub async fn delete_habit_reminder(
 }
 
 /// Disables the reminder owned by `habit_id` and clears its cache. `false` if none.
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
 pub async fn disable_habit_reminder(
     conn: &mut SqliteConnection,
     habit_id: &str,
@@ -513,7 +508,6 @@ pub async fn disable_habit_reminder(
 /// Compare-and-write of the derived exceptions and of the cache: only if `next_fire_at` still
 /// equals `expected_cache`. `updated_at` is left alone (derived state, like the cache). Returns
 /// the rows changed.
-#[cfg_attr(not(test), expect(dead_code, reason = "habit commands (lot H2)"))]
 pub async fn write_reminder_exdates(
     conn: &mut SqliteConnection,
     id: &str,

@@ -1482,3 +1482,50 @@ fn listing_fifty_old_finished_series_stays_fast() {
         );
     });
 }
+
+// ---------------------------------------------------------------------------------------------
+// L16: a reminder owned by a habit is invisible to the generic reminder commands
+// ---------------------------------------------------------------------------------------------
+
+#[test]
+fn a_habit_reminder_is_not_found_by_the_generic_reminder_commands() {
+    use crate::schedule::habit_commands::{create_habit, HabitCreateDto, HabitScheduleDto};
+    let fx = Fx::new();
+    run(async {
+        let habit = create_habit(
+            &fx.ctx,
+            HabitCreateDto {
+                id: uuid(1),
+                title: "Méditer".to_owned(),
+                schedule: HabitScheduleDto::Weekly { target: 3 },
+                start_on: "2026-11-09".to_owned(),
+                reminder: Some(crate::schedule::habit_commands::HabitReminderInputDto {
+                    id: uuid(900),
+                    time: "20:00".to_owned(),
+                    days: ["MO", "WE"].map(str::to_owned).to_vec(),
+                    time_zone: PARIS.to_owned(),
+                    enabled: true,
+                }),
+            },
+        )
+        .await
+        .expect("create");
+        let reminder_id = habit.reminder.expect("reminder").reminder_id;
+
+        assert!(list_reminders(&fx.ctx).await.expect("list").is_empty());
+        assert_eq!(
+            err(update_reminder(
+                &fx.ctx,
+                reminder_id.clone(),
+                input_dto("Pirate", "2026-11-20T09:00:00", None, &[], true),
+            )
+            .await),
+            ScheduleError::NotFound
+        );
+        assert!(!delete_reminder(&fx.ctx, reminder_id).await.expect("delete"));
+        assert!(unseen_deliveries(&fx.ctx, 10)
+            .await
+            .expect("unseen")
+            .is_empty());
+    });
+}
