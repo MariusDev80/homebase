@@ -23,7 +23,7 @@ Homebase manipulera plusieurs sortes de temps :
 | Timers, pomodoro, sessions « en cours depuis X » | 2 | instants + durées |
 | Rappels datés (« le 3 novembre à 9 h ») | 2 | **heure murale + fuseau** |
 | Rappels récurrents (« chaque lundi à 9 h ») | 2 | heure murale + fuseau + RRULE |
-| Habitudes (jours cochés, jours attendus) | 2 | dates murales + RRULE sur des dates |
+| Habitudes (jours cochés, jours attendus) | 2 | dates murales + RRULE sur des dates. *Amendement (spec habits, 2026-11-17)* : dates murales ; jours de la semaine ou N fois par semaine ISO (pas de RRULE, spec habits D2) |
 | Calendrier agrégé (`CalendarSource`) | 2 | occurrences sur une plage |
 
 Contraintes : application Windows mono-utilisateur, sans serveur, SQLite, front Angular 21 (WebView2), planificateur de rappels en Rust (phase 2). Exigences du PLAN : stockage UTC + fuseau IANA, récurrence RRULE, aucun calcul de date « à la main », tests obligatoires sur les changements d'heure, et **un seul moteur de vérité** pour l'expansion des occurrences qui déclenchent des notifications : le Rust.
@@ -281,6 +281,8 @@ Le premier contrôle en échec détermine le code :
 - `COUNT` est appliqué **avant** les exceptions : `COUNT=5` + 1 exception = 4 occurrences.
 - `UNTIL` est **inclusif**, comparé à l'**instant résolu**. L'interface propose « jusqu'au <date> inclus » et calcule `UNTIL = startOfDay(date + 1 jour, fuseau de l'élément) − 1 s` en UTC. Ex. : quotidien à 23:30 Paris jusqu'au 31/12/2026 inclus → `UNTIL=20261231T225959Z`.
 
+*Amendement (spec habits, 2026-11-17)* : les `exdates` d'un rappel d'habitude sont dérivées des jours cochés.
+
 #### 3.5.4 Sémantique de l'expansion (Rust, moteur unique)
 Entrée : spec, plage `[from, to)`, fuseau d'affichage de la plage, limite.
 1. **Expansion flottante** : la crate reçoit `DTSTART` = heure murale nominale de l'ancre (minuit pour une ancre datée) **déguisée en UTC** (`rrule::Tz::UTC`), et la règle construite par le builder à partir de la structure validée, **sans `UNTIL`**. En UTC, ni trou ni pli. Les dates invalides sont ignorées par la crate (RFC, D2).
@@ -311,6 +313,7 @@ Limites : plage ≤ **400 jours** et `from < to` (sinon `invalid_range`) ; `limi
 - **Amendement ADR-002** : le jeton `CLOCK` est déclaré dans `data/data.providers.ts` (seul fichier de `data/` qui importe Angular ; `data/` ne peut pas importer `core/`) : `new InjectionToken<Clock>('CLOCK', { providedIn: 'root', factory: () => systemClock })`. Les fabriques des trois repositories utilisent `inject(CLOCK)` au lieu de `systemClock` en dur. `data/index.ts` l'exporte ; `core/time` le réexporte avec `nowInstant(clock)`. Ainsi, fournir `ManualClock` comme `CLOCK` pilote aussi `created_at` / `updated_at`.
 - Toute arithmétique de date passe par `core/time`. Interdits hors `core/time/**` et `data/clock.ts` (ESLint, §8.3) : toute référence à `Date` hors position de type, les accesseurs `get*/set*` de date, `getTimezoneOffset`, `toLocaleDateString/TimeString`, `Intl.DateTimeFormat` (y compris `Intl['DateTimeFormat']` et la déstructuration), `Temporal.Now` (y compris via alias ou `Temporal['Now']`), l'import de `temporal-polyfill`, `DatePipe`, `formatDate`, `CommonModule`. `*.spec.ts` et `**/testing/**` sont exemptés de la règle `Date` (fakes existants) mais pas de `Temporal.Now`.
 - Les ticks d'interface ne font que déclencher un recalcul depuis `clock.nowIso()`.
+- *Amendement (spec habits, 2026-11-17)* : `isoWeekday` et `startOfIsoWeek` sont ajoutées dans `core/time`.
 
 **Rust**
 - `trait Clock: Send + Sync { fn now(&self) -> jiff::Timestamp; }`, `SystemClock`, `FixedClock` (test).

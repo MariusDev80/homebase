@@ -1,6 +1,7 @@
-//! One scheduler pass on a real V7 database (spec 6.1, `tick_tests`): `FixedClock` and
+//! One scheduler pass on a real database at the latest schema (spec 6.1, `tick_tests`): `FixedClock` and
 //! `RecordingNotifier`; cases L1 to L3, L5 to L10, L14 to L17, L20 and L35 of the spec.
 
+use crate::backup::sqlite::supported_schema_version;
 use crate::backup::test_support::{make_database, run};
 use crate::schedule::error::ScheduleError;
 use crate::schedule::notice::Toast;
@@ -41,7 +42,7 @@ impl Fx {
     fn new(now: &str) -> Self {
         let dir = TempDir::new().expect("tmp");
         let db = dir.path().join("homebase.db");
-        make_database(&db, 7, false);
+        make_database(&db, supported_schema_version(), false);
         let clock = Arc::new(FixedClock::new(at(now)));
         let notifier = Arc::new(RecordingNotifier::default());
         let ctx = SchedulerCtx {
@@ -181,6 +182,7 @@ fn row_of(
         enabled: true,
         next_fire_at: None,
         next_fire_key: None,
+        habit_id: None,
         created_at: "2026-11-01T00:00:00.000Z".to_owned(),
         updated_at: "2026-11-01T00:00:00.000Z".to_owned(),
     }

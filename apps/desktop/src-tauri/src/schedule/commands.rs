@@ -126,7 +126,7 @@ pub struct SessionDto {
     pub updated_at: String,
 }
 
-fn reminder_dto(row: ReminderRow, status: ReminderStatus) -> ReminderDto {
+pub(super) fn reminder_dto(row: ReminderRow, status: ReminderStatus) -> ReminderDto {
     ReminderDto {
         // A line written outside the Rust may hold unreadable exceptions: it is reported with
         // `status: invalid`, never as a global error.
@@ -177,27 +177,14 @@ fn session_dto(row: SessionRow) -> SessionDto {
 // Shared helpers
 // ---------------------------------------------------------------------------------------------
 
-/// Runs the body under the module gate (D3) on a dedicated connection, closed afterwards. The
-/// gate is released when the macro's block ends, so a caller that wakes the scheduler afterwards
-/// does it outside the gate and after the commit.
-macro_rules! locked {
-    ($ctx:expr, $conn:ident => $body:expr) => {{
-        let _gate = $ctx.gate.lock().await;
-        let mut $conn = store::connect_with_timeout(&$ctx.db, $ctx.busy_timeout).await?;
-        let result: Result<_, ScheduleError> = async { $body }.await;
-        store::close($conn).await;
-        result
-    }};
-}
-
 /// The clock read through `Clock`, truncated to the millisecond like the passes do.
-fn now_of(ctx: &SchedulerCtx) -> Result<Timestamp, ScheduleError> {
+pub(super) fn now_of(ctx: &SchedulerCtx) -> Result<Timestamp, ScheduleError> {
     Ok(parse_instant(&format_instant(ctx.clock.now()))?)
 }
 
 /// Settles what is already due (4.3 steps 1 and 2) before a command changes a deadline; `true` if
 /// something was processed.
-async fn settle(
+pub(super) async fn settle(
     conn: &mut SqliteConnection,
     now: Timestamp,
     notices: &mut Vec<Notice>,
@@ -208,7 +195,7 @@ async fn settle(
 }
 
 /// Status of a reminder just written: its cache tells it without searching the rule again.
-fn known_status(enabled: bool, cache: &Option<Cache>) -> ReminderStatus {
+pub(super) fn known_status(enabled: bool, cache: &Option<Cache>) -> ReminderStatus {
     if !enabled {
         ReminderStatus::Disabled
     } else if cache.is_some() {
@@ -219,7 +206,7 @@ fn known_status(enabled: bool, cache: &Option<Cache>) -> ReminderStatus {
 }
 
 /// Cheap size check on a user text, before it is walked char by char.
-fn bounded(field: &str, s: &str, max_chars: usize) -> Result<(), ScheduleError> {
+pub(super) fn bounded(field: &str, s: &str, max_chars: usize) -> Result<(), ScheduleError> {
     if s.len() > max_chars.saturating_mul(4) {
         return Err(ScheduleError::invalid(field));
     }
@@ -234,17 +221,17 @@ fn check_limit(limit: u32) -> Result<i64, ScheduleError> {
 }
 
 /// A reminder's canonical stored form (rule text and exceptions as the engine writes them).
-struct Parts {
-    title: String,
-    start_local: String,
-    time_zone: String,
-    rrule: Option<String>,
-    exdates_json: String,
-    spec: RecurrenceSpec,
+pub(super) struct Parts {
+    pub(super) title: String,
+    pub(super) start_local: String,
+    pub(super) time_zone: String,
+    pub(super) rrule: Option<String>,
+    pub(super) exdates_json: String,
+    pub(super) spec: RecurrenceSpec,
 }
 
 impl Parts {
-    fn into_row(
+    pub(super) fn into_row(
         self,
         id: String,
         enabled: bool,
@@ -266,6 +253,7 @@ impl Parts {
             enabled,
             next_fire_at,
             next_fire_key,
+            habit_id: None,
             created_at,
             updated_at,
         }
@@ -274,7 +262,7 @@ impl Parts {
 
 /// Validates the title, then converts and validates the series (same conversion as
 /// `time_validate`). Pure: no disk, no clock.
-fn prepare(
+pub(super) fn prepare(
     title: String,
     start_local: String,
     time_zone: String,
@@ -312,7 +300,7 @@ fn prepare(
 }
 
 /// Cache of the next occurrence after `now`; none for a disabled reminder or a finished series.
-fn cache_for(
+pub(super) fn cache_for(
     spec: &RecurrenceSpec,
     enabled: bool,
     now: Timestamp,

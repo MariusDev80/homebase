@@ -1,7 +1,8 @@
-//! The schedule commands on a real V7 database (spec 6.1, `commands_tests`): every row of the
+//! The schedule commands on a real database at the latest schema (spec 6.1, `commands_tests`): every row of the
 //! table of 4.4, the exact serialisations, the bounds checked before any disk access, the
 //! wake-ups after a commit (CA-R3-3) and the gate shared with the scheduler thread (S5).
 
+use crate::backup::sqlite::supported_schema_version;
 use crate::backup::test_support::{make_database, run};
 use crate::schedule::commands::{
     create_reminder, delete_reminder, delete_session, history_sessions, list_reminders,
@@ -63,7 +64,7 @@ impl Fx {
     fn new() -> Self {
         let dir = TempDir::new().expect("tmp");
         let db = dir.path().join("homebase.db");
-        make_database(&db, 7, false);
+        make_database(&db, supported_schema_version(), false);
         Self::with_db(dir, db)
     }
 
@@ -218,6 +219,7 @@ fn raw_reminder_row(n: u32, title: &str, rrule: Option<&str>) -> ReminderRow {
         enabled: true,
         next_fire_at: None,
         next_fire_key: None,
+        habit_id: None,
         created_at: NOW.to_owned(),
         updated_at: NOW.to_owned(),
     }
@@ -1478,5 +1480,52 @@ fn listing_fifty_old_finished_series_stays_fast() {
             "took {:?}",
             started.elapsed()
         );
+    });
+}
+
+// ---------------------------------------------------------------------------------------------
+// L16: a reminder owned by a habit is invisible to the generic reminder commands
+// ---------------------------------------------------------------------------------------------
+
+#[test]
+fn a_habit_reminder_is_not_found_by_the_generic_reminder_commands() {
+    use crate::schedule::habit_commands::{create_habit, HabitCreateDto, HabitScheduleDto};
+    let fx = Fx::new();
+    run(async {
+        let habit = create_habit(
+            &fx.ctx,
+            HabitCreateDto {
+                id: uuid(1),
+                title: "Méditer".to_owned(),
+                schedule: HabitScheduleDto::Weekly { target: 3 },
+                start_on: "2026-11-09".to_owned(),
+                reminder: Some(crate::schedule::habit_commands::HabitReminderInputDto {
+                    id: uuid(900),
+                    time: "20:00".to_owned(),
+                    days: ["MO", "WE"].map(str::to_owned).to_vec(),
+                    time_zone: PARIS.to_owned(),
+                    enabled: true,
+                }),
+            },
+        )
+        .await
+        .expect("create");
+        let reminder_id = habit.reminder.expect("reminder").reminder_id;
+
+        assert!(list_reminders(&fx.ctx).await.expect("list").is_empty());
+        assert_eq!(
+            err(update_reminder(
+                &fx.ctx,
+                reminder_id.clone(),
+                input_dto("Pirate", "2026-11-20T09:00:00", None, &[], true),
+            )
+            .await),
+            ScheduleError::NotFound
+        );
+        assert!(!delete_reminder(&fx.ctx, reminder_id).await.expect("delete"));
+        assert!(unseen_deliveries(&fx.ctx, 10)
+            .await
+            .expect("unseen")
+            .is_empty());
     });
 }

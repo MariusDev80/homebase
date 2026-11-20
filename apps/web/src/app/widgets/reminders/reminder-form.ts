@@ -1,3 +1,4 @@
+import { WEEKDAYS } from '../../core/habits';
 import { commandErrorDetails } from '../../core/schedule';
 import {
   COUNT_MAX,
@@ -72,7 +73,7 @@ export type Schedule = Omit<ReminderInput, 'title'>;
 export type ScheduleResult = { readonly schedule: Schedule } | { readonly errors: FormErrors };
 export type FormResult = { readonly input: ReminderInput } | { readonly errors: FormErrors };
 
-export const WEEKDAYS: readonly Weekday[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+export { WEEKDAYS };
 export const MAX_YEARS_AHEAD = 10;
 const ERR = 'widgets.reminders.errors.';
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;

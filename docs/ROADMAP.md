@@ -68,8 +68,12 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot W1 : widget Minuteurs (minuteurs, chronos, alarme, historique) (revu ; vérifications manuelles MV3, MV4, MV5 à faire par Marius)
 - [x] (S) Lot W2 : widget Pomodoro (revu ; une seule instance par tableau de bord, phase suivante d'après la dernière séance même la veille ; vérification manuelle MV7 à faire par Marius)
 - [x] (S) Lot W3 : widget Rappels (revu ; vérifications manuelles MV1, MV2, MV10 à MV13 à faire par Marius ; MV1 = critère de sortie de phase)
-- [ ] (O) mini-spec Habitudes (s'appuie sur §4.9 de timers-reminders)
-- [ ] (S) Habit tracker (+ rappels de mise à jour périodique)
+- [x] (O) mini-spec Habitudes (s'appuie sur §4.9 de timers-reminders) (`docs/specs/habits.md`, décisions H1 à H10 validées par Marius le 2026-11-17)
+- [x] (S) Lot H1 (spec habits) : migration V8, stockage, logique pure (revu ; texte de V8 figé le 2026-11-17)
+- [x] (S) Lot H2 : commandes habit_* (revu ; vérification manuelle CA-H2-5 à faire par Marius)
+- [x] (S) Lot H3 : front, données et services (habitudes) (revu ; PV2 à mesurer en H4a)
+- [x] (S) Lot H4a : widget Habitudes (liste, bande, fiche, archivage) (revu ; vérifications manuelles MH1 à MH6 et PV2 à faire par Marius)
+- [x] (S) Lot H4b : historique 5 semaines et statistiques (revu ; vérifications manuelles MH7, MH8 à faire par Marius)
 - [ ] (O) ADR-004 : choix du calendrier (Schedule-X vs FullCalendar) après essai
 - [ ] (S) Calendrier agrégé via `CalendarSource`
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.

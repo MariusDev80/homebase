@@ -1,6 +1,7 @@
-//! SQL storage on a real V7 database (spec 6.1, `store_tests`): temporary file migrated by
-//! `make_database(path, 7, false)`.
+//! SQL storage on a real database at the latest schema (spec 6.1, `store_tests`): temporary file migrated by
+//! `make_database(path, supported_schema_version(), false)`.
 
+use crate::backup::sqlite::supported_schema_version;
 use crate::backup::test_support::{make_database, run};
 use crate::schedule::error::ScheduleError;
 use crate::schedule::reminder::{Outcome, ReminderRow};
@@ -20,7 +21,7 @@ fn uuid(n: u32) -> String {
 fn db() -> (TempDir, std::path::PathBuf) {
     let dir = TempDir::new().expect("tmp");
     let path = dir.path().join("homebase.db");
-    make_database(&path, 7, false);
+    make_database(&path, supported_schema_version(), false);
     (dir, path)
 }
 
@@ -35,6 +36,7 @@ fn reminder(n: u32) -> ReminderRow {
         enabled: true,
         next_fire_at: Some(DUE.to_owned()),
         next_fire_key: Some(KEY.to_owned()),
+        habit_id: None,
         created_at: AT.to_owned(),
         updated_at: AT.to_owned(),
     }

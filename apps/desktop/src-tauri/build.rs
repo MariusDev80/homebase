@@ -49,6 +49,13 @@ fn main() {
                 "session_stop",
                 "session_rename",
                 "session_delete",
+                "habit_list",
+                "habit_create",
+                "habit_update",
+                "habit_set_archived",
+                "habit_delete",
+                "habit_checks",
+                "habit_set_check",
             ])),
     )
     .expect("failed to run tauri-build");

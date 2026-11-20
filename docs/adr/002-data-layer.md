@@ -140,6 +140,8 @@ Les tests de `data/` tournent dans une config Vitest séparée (environnement `n
 
 *Amendement (spec timers-reminders, 2026-11-16)* : pour les index partiels, un nom qui porte un rôle est accepté en dérogation à `<table>_<colonnes>_idx` : `reminder_deliveries_unseen_idx`, `time_sessions_running_idx`, `time_sessions_history_idx`, `time_sessions_one_pomodoro_idx`.
 
+*Amendement (spec habits, 2026-11-17)* : clé naturelle `(habit_id, day_on)` de `habit_checks` ; `created_at` / `updated_at` fournis par l'horloge Rust.
+
 ### 3.4 Schéma V1 (phase 0)
 Trois tables : `settings` (clé/valeur JSON), `dashboards`, `widget_instances`. Rien pour les widgets futurs. SQL exact au §6.3.
 
@@ -638,6 +640,6 @@ Commandes de sauvegarde et de restauration, images, écran d'erreur de démarrag
 ## 7. Points ouverts
 - **O1** (phase 1) : sauvegarde automatique avant migration et message d'erreur natif si une migration échoue au `preload` (au lieu d'une panique). **Partiellement traité (sauvegarde avant migration ; écran d'erreur natif complet en phase 6).**
 - **O2** (phase 2) : accès du planificateur Rust à la base (connexion sqlx séparée sur le même fichier, ou réutilisation de l'état `DbInstances` du plugin), à trancher dans la spec du planificateur. **Partiellement traité : connexion sqlx dédiée par opération en place (spec backup-restore).** **Traité (spec timers-reminders D3) : connexions sqlx dédiées par opération, sérialisées par un verrou unique du module `schedule`.**
-- **O3** (avancé avant la phase 3, décision de Marius du 2026-10-22 : à faire avant le premier contenu externe affiché, RSS ou Markdown) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1. **Avancement partiel (spec timers-reminders, 2026-11-16) : les tables `reminders`, `reminder_deliveries`, `time_sessions` (V7) ne sont accessibles que par des commandes Rust typées ; leurs dépôts TS sont dans `data/tauri/` (garde-fou par test).**
+- **O3** (avancé avant la phase 3, décision de Marius du 2026-10-22 : à faire avant le premier contenu externe affiché, RSS ou Markdown) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1. **Avancement partiel (spec timers-reminders, 2026-11-16) : les tables `reminders`, `reminder_deliveries`, `time_sessions` (V7) ne sont accessibles que par des commandes Rust typées ; leurs dépôts TS sont dans `data/tauri/` (garde-fou par test).** *Amendement (spec habits, 2026-11-17)* : `habits`, `habit_checks` (V8) : commandes Rust typées seulement.
 - **O4** (phase 6, E2E Playwright) : tests contre l'application Tauri (`tauri-driver`) ou un `SqlExecutor` navigateur (sql.js). Le front hors Tauri n'a pas de base aujourd'hui.
 - **O5** (clos : ADR-001 l.87 y répond) : alignement avec l'ADR-001 sur le format de `widget_type` et la représentation de la config versionnée, à faire **avant** la fusion de V1 sur `main`.

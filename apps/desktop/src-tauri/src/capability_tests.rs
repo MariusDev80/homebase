@@ -74,6 +74,13 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-session-stop",
             "allow-session-rename",
             "allow-session-delete",
+            "allow-habit-list",
+            "allow-habit-create",
+            "allow-habit-update",
+            "allow-habit-set-archived",
+            "allow-habit-delete",
+            "allow-habit-checks",
+            "allow-habit-set-check",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",
@@ -219,8 +226,8 @@ fn dialog_plugin_exposes_nothing_to_the_front() {
     }
 }
 
-/// The scheduler shows its notifications from Rust: the front gets the twelve schedule commands and
-/// no `core:`, `notification:` or `autostart:` plugin permission.
+/// The scheduler shows its notifications from Rust: the front gets the twelve schedule commands,
+/// the seven habit commands and no `core:`, `notification:` or `autostart:` plugin permission.
 #[test]
 fn schedule_commands_add_no_plugin_permission() {
     // `default.json` only: `debug.json` keeps its devtools permission.
@@ -245,4 +252,9 @@ fn schedule_commands_add_no_plugin_permission() {
         })
         .count();
     assert_eq!(schedule, 12);
+    let habits = permissions()
+        .iter()
+        .filter(|p| p.as_str().is_some_and(|s| s.starts_with("allow-habit-")))
+        .count();
+    assert_eq!(habits, 7);
 }

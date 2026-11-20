@@ -1,4 +1,8 @@
 //! The only file with SQL on `reminders`, `reminder_deliveries` and `time_sessions` (spec D2).
+//! Reminders owned by a habit (`habit_id` set, spec habits) are invisible to `get_reminder`,
+//! `list_reminders`, `replace_reminder`, `delete_reminder` and `unseen_deliveries`; they are
+//! reachable through the `*_habit_reminder*` functions. The scheduler functions (`due_reminders`,
+//! `enabled_reminders`, `write_cache`, `record_firing*`, `next_due`, `count_reminders`) see all.
 //! Every value is a bound parameter. Functions take a connection: the caller (tick, commands)
 //! opens one per operation with [`connect`] under the module gate (D3) and closes it with
 //! [`close`]. Instants are the stored text form (`time::formats`); this file only stores them.
@@ -92,7 +96,7 @@ macro_rules! reminder_select {
     ($tail:literal) => {
         concat!(
             "SELECT id, title, start_local, time_zone, rrule, exdates, enabled, ",
-            "next_fire_at, next_fire_key, created_at, updated_at ",
+            "next_fire_at, next_fire_key, habit_id, created_at, updated_at ",
             $tail
         )
     };
@@ -124,6 +128,7 @@ fn reminder_from(row: &SqliteRow) -> Result<ReminderRow, ScheduleError> {
         enabled: row.try_get::<i64, _>("enabled")? != 0,
         next_fire_at: row.try_get("next_fire_at")?,
         next_fire_key: row.try_get("next_fire_key")?,
+        habit_id: row.try_get("habit_id")?,
         created_at: row.try_get("created_at")?,
         updated_at: row.try_get("updated_at")?,
     })
@@ -189,8 +194,8 @@ pub async fn insert_reminder(
 ) -> Result<(), ScheduleError> {
     sqlx::query(
         "INSERT INTO reminders (id, title, start_local, time_zone, rrule, exdates, enabled, \
-         next_fire_at, next_fire_key, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+         next_fire_at, next_fire_key, created_at, updated_at, habit_id) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
     )
     .bind(&row.id)
     .bind(&row.title)
@@ -203,6 +208,7 @@ pub async fn insert_reminder(
     .bind(row.next_fire_key.as_deref())
     .bind(&row.created_at)
     .bind(&row.updated_at)
+    .bind(row.habit_id.as_deref())
     .execute(conn)
     .await?;
     Ok(())
@@ -233,7 +239,7 @@ pub async fn replace_reminder(
     let result = sqlx::query(
         "UPDATE reminders SET title = ?2, start_local = ?3, time_zone = ?4, rrule = ?5, \
          exdates = ?6, enabled = ?7, next_fire_at = ?8, next_fire_key = ?9, updated_at = ?10 \
-         WHERE id = ?1",
+         WHERE id = ?1 AND habit_id IS NULL",
     )
     .bind(&row.id)
     .bind(&row.title)
@@ -252,7 +258,7 @@ pub async fn replace_reminder(
 
 /// Deletes a reminder; its deliveries go with it (cascade). `false` if absent.
 pub async fn delete_reminder(conn: &mut SqliteConnection, id: &str) -> Result<bool, ScheduleError> {
-    let result = sqlx::query("DELETE FROM reminders WHERE id = ?1")
+    let result = sqlx::query("DELETE FROM reminders WHERE id = ?1 AND habit_id IS NULL")
         .bind(id)
         .execute(conn)
         .await?;
@@ -263,10 +269,12 @@ pub async fn get_reminder(
     conn: &mut SqliteConnection,
     id: &str,
 ) -> Result<Option<ReminderRow>, ScheduleError> {
-    let row = sqlx::query(reminder_select!("FROM reminders WHERE id = ?1"))
-        .bind(id)
-        .fetch_optional(conn)
-        .await?;
+    let row = sqlx::query(reminder_select!(
+        "FROM reminders WHERE id = ?1 AND habit_id IS NULL"
+    ))
+    .bind(id)
+    .fetch_optional(conn)
+    .await?;
     row.as_ref().map(reminder_from).transpose()
 }
 
@@ -275,7 +283,7 @@ pub async fn list_reminders(
     conn: &mut SqliteConnection,
 ) -> Result<Vec<ReminderRow>, ScheduleError> {
     let rows = sqlx::query(reminder_select!(
-        "FROM reminders \
+        "FROM reminders WHERE habit_id IS NULL \
          ORDER BY next_fire_at IS NULL, next_fire_at, title COLLATE NOCASE, id"
     ))
     .fetch_all(conn)
@@ -415,6 +423,113 @@ pub async fn record_firing_detailed(
 }
 
 // ---------------------------------------------------------------------------------------------
+// reminders owned by a habit (spec habits 4.2)
+// ---------------------------------------------------------------------------------------------
+
+/// The reminder owned by `habit_id`, if any.
+pub async fn get_habit_reminder(
+    conn: &mut SqliteConnection,
+    habit_id: &str,
+) -> Result<Option<ReminderRow>, ScheduleError> {
+    let row = sqlx::query(reminder_select!("FROM reminders WHERE habit_id = ?1"))
+        .bind(habit_id)
+        .fetch_optional(conn)
+        .await?;
+    row.as_ref().map(reminder_from).transpose()
+}
+
+/// Every reminder owned by a habit, by owner.
+pub async fn list_habit_reminders(
+    conn: &mut SqliteConnection,
+) -> Result<Vec<ReminderRow>, ScheduleError> {
+    let rows = sqlx::query(reminder_select!(
+        "FROM reminders WHERE habit_id IS NOT NULL ORDER BY habit_id"
+    ))
+    .fetch_all(conn)
+    .await?;
+    rows.iter().map(reminder_from).collect()
+}
+
+/// Same as `replace_reminder` but only for the reminder owned by `row.habit_id`.
+pub async fn replace_habit_reminder(
+    conn: &mut SqliteConnection,
+    row: &ReminderRow,
+) -> Result<bool, ScheduleError> {
+    let result = sqlx::query(
+        "UPDATE reminders SET title = ?2, start_local = ?3, time_zone = ?4, rrule = ?5, \
+         exdates = ?6, enabled = ?7, next_fire_at = ?8, next_fire_key = ?9, updated_at = ?10 \
+         WHERE id = ?1 AND habit_id = ?11",
+    )
+    .bind(&row.id)
+    .bind(&row.title)
+    .bind(&row.start_local)
+    .bind(&row.time_zone)
+    .bind(row.rrule.as_deref())
+    .bind(&row.exdates)
+    .bind(i64::from(row.enabled))
+    .bind(row.next_fire_at.as_deref())
+    .bind(row.next_fire_key.as_deref())
+    .bind(&row.updated_at)
+    .bind(row.habit_id.as_deref())
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Deletes the reminder owned by `habit_id` (its deliveries go with it). `false` if none.
+pub async fn delete_habit_reminder(
+    conn: &mut SqliteConnection,
+    habit_id: &str,
+) -> Result<bool, ScheduleError> {
+    let result = sqlx::query("DELETE FROM reminders WHERE habit_id = ?1")
+        .bind(habit_id)
+        .execute(conn)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Disables the reminder owned by `habit_id` and clears its cache. `false` if none.
+pub async fn disable_habit_reminder(
+    conn: &mut SqliteConnection,
+    habit_id: &str,
+    now: &str,
+) -> Result<bool, ScheduleError> {
+    let result = sqlx::query(
+        "UPDATE reminders SET enabled = 0, next_fire_at = NULL, next_fire_key = NULL, \
+         updated_at = ?2 WHERE habit_id = ?1",
+    )
+    .bind(habit_id)
+    .bind(now)
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Compare-and-write of the derived exceptions and of the cache: only if `next_fire_at` still
+/// equals `expected_cache`. `updated_at` is left alone (derived state, like the cache). Returns
+/// the rows changed.
+pub async fn write_reminder_exdates(
+    conn: &mut SqliteConnection,
+    id: &str,
+    exdates_json: &str,
+    expected_cache: Option<&str>,
+    new_cache: Option<(&str, &str)>,
+) -> Result<u64, ScheduleError> {
+    let result = sqlx::query(
+        "UPDATE reminders SET exdates = ?2, next_fire_at = ?3, next_fire_key = ?4 \
+         WHERE id = ?1 AND habit_id IS NOT NULL AND next_fire_at IS ?5",
+    )
+    .bind(id)
+    .bind(exdates_json)
+    .bind(new_cache.map(|(at, _)| at))
+    .bind(new_cache.map(|(_, key)| key))
+    .bind(expected_cache)
+    .execute(conn)
+    .await?;
+    Ok(result.rows_affected())
+}
+
+// ---------------------------------------------------------------------------------------------
 // deliveries
 // ---------------------------------------------------------------------------------------------
 
@@ -444,7 +559,7 @@ pub async fn unseen_deliveries(
         "SELECT d.reminder_id, r.title, r.time_zone, d.occurrence_key, d.due_at, d.outcome, \
          d.skipped_count, d.seen_at, d.created_at \
          FROM reminder_deliveries d JOIN reminders r ON r.id = d.reminder_id \
-         WHERE d.seen_at IS NULL \
+         WHERE d.seen_at IS NULL AND r.habit_id IS NULL \
          ORDER BY d.created_at DESC, d.reminder_id, d.occurrence_key LIMIT ?1",
     )
     .bind(limit)

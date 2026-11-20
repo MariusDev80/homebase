@@ -2,9 +2,12 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // Spec timers-reminders D2: the front never writes SQL on the tables owned by the Rust scheduler.
+// An optional identifier delimiter is accepted: "habits", 'habits', `habits`, [habits].
 const SQL_ON_TABLE =
-  /\b(from|into|update|join|table)\s+(reminders|reminder_deliveries|time_sessions)\b/i;
-const RUST_ONLY_TABLE = /\b(reminder_deliveries|time_sessions)\b/i;
+  /\b(from|into|update|join|table)\s+["'`[]?(reminders|reminder_deliveries|time_sessions|habits|habit_checks)\b/i;
+const RUST_ONLY_TABLE = /\b(reminder_deliveries|time_sessions|habit_checks)\b/i;
+// `habit_checks` is also the name of a Tauri command: the only file allowed to contain the word.
+const COMMAND_NAME_FILES = ['data/tauri/tauri-habit.repository.ts'];
 
 function sourceFiles(dir: URL): URL[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -20,7 +23,10 @@ describe('schedule SQL guard', () => {
     expect(files.length).toBeGreaterThan(50);
     const offenders = files.flatMap((file) => {
       const text = readFileSync(file, 'utf8');
-      return SQL_ON_TABLE.test(text) || RUST_ONLY_TABLE.test(text) ? [fileURLToPath(file)] : [];
+      const path = fileURLToPath(file).split('\\').join('/');
+      const allowed = COMMAND_NAME_FILES.some((name) => path.endsWith('/' + name));
+      const rustOnly = !allowed && RUST_ONLY_TABLE.test(text);
+      return SQL_ON_TABLE.test(text) || rustOnly ? [path] : [];
     });
     expect(offenders).toEqual([]);
   });
@@ -30,6 +36,14 @@ describe('schedule SQL guard', () => {
     expect(SQL_ON_TABLE.test('insert into Reminders (id)')).toBe(true);
     expect(SQL_ON_TABLE.test('UPDATE  reminders SET x')).toBe(true);
     expect(SQL_ON_TABLE.test('JOIN time_sessions s')).toBe(true);
+    expect(SQL_ON_TABLE.test('DELETE FROM habits')).toBe(true);
+    expect(SQL_ON_TABLE.test('insert into habit_checks')).toBe(true);
+    expect(SQL_ON_TABLE.test('SELECT * FROM "habit_checks"')).toBe(true);
+    expect(SQL_ON_TABLE.test("insert into 'habits' (id)")).toBe(true);
+    expect(SQL_ON_TABLE.test('FROM `habits`')).toBe(true);
+    expect(SQL_ON_TABLE.test('JOIN [habit_checks] c')).toBe(true);
+    expect(RUST_ONLY_TABLE.test('SELECT day_on FROM habit_checks')).toBe(true);
+    expect(SQL_ON_TABLE.test('const habits = []')).toBe(false);
     expect(SQL_ON_TABLE.test('const reminders = []')).toBe(false);
   });
 });

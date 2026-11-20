@@ -626,19 +626,19 @@ fn contiguous_history_beyond_the_supported_version_is_schema_too_new() {
         try_extract(&path).expect_err("refused"),
         BackupError::SchemaTooNew {
             archive: 99,
-            supported: 7
+            supported: 8
         }
     );
     // A schema that also differs from ours stays "too new" (R4).
     let dir = TempDir::new().expect("tmp");
     let path = db_archive(
         &dir,
-        7,
-        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (8, 'x', 1, X'00', 0); CREATE TABLE future (a)",
+        8,
+        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (9, 'x', 1, X'00', 0); CREATE TABLE future (a)",
     );
     assert!(matches!(
         try_extract(&path).expect_err("refused"),
-        BackupError::SchemaTooNew { archive: 8, .. }
+        BackupError::SchemaTooNew { archive: 9, .. }
     ));
 }
 
@@ -1141,7 +1141,10 @@ fn v5_database_migrated_for_real_keeps_todos_and_gets_defaults() {
         Some("2026-10-30T10:00:00.000Z")
     );
     assert_eq!(todo_value(&path, "updated_at").as_deref(), Some(TODO_AT));
-    assert_eq!(schema_of(&path), run(expected_schema(7)).expect("v7"));
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(supported_schema_version())).expect("latest")
+    );
 }
 
 #[test]
@@ -1287,5 +1290,88 @@ fn v6_database_migrated_to_v7_keeps_its_rows_and_gets_the_new_tables() {
     migrate_for_real(&path);
     assert_eq!(todo_value(&path, "due_on").as_deref(), Some("2026-11-02"));
     assert_eq!(todo_value(&path, "updated_at").as_deref(), Some(TODO_AT));
-    assert_eq!(schema_of(&path), run(expected_schema(7)).expect("v7"));
+    assert_eq!(
+        schema_of(&path),
+        run(expected_schema(supported_schema_version())).expect("latest")
+    );
+}
+
+#[test]
+fn expected_schema_of_version_8_matches_a_real_database() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 8, false);
+    let expected = run(expected_schema(8)).expect("expected");
+    assert_eq!(schema_of(&path), expected);
+    let v7 = run(expected_schema(7)).expect("v7");
+    assert_ne!(expected, v7);
+    for table in ["habits", "habit_checks"] {
+        assert!(
+            expected.iter().any(|r| r.1 == table),
+            "{table} missing from the V8 schema"
+        );
+        assert!(
+            !v7.iter().any(|r| r.1 == table),
+            "{table} present in the V7 schema"
+        );
+    }
+    let reminders_sql = |rows: &[SchemaRow]| {
+        rows.iter()
+            .find(|r| r.1 == "reminders")
+            .and_then(|r| r.3.clone())
+            .expect("reminders sql")
+    };
+    assert!(reminders_sql(&expected).contains("habit_id"));
+    assert!(!reminders_sql(&v7).contains("habit_id"));
+}
+
+const REMINDER_ID: &str = "3f0c2a5e-8f0b-4c55-9a43-0d2a1d6c9b22";
+
+#[test]
+fn v7_database_with_a_reminder_migrated_to_v8_keeps_it() {
+    use sqlx::Row;
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 7, true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(&path);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        sqlx::query(concat!(
+            "INSERT INTO reminders (id, title, start_local, time_zone, rrule, exdates, enabled, ",
+            "next_fire_at, next_fire_key, created_at, updated_at) VALUES (?1, 'Appeler', ",
+            "'2026-11-16T09:00:00', 'Europe/Paris', 'FREQ=DAILY', '[]', 1, ",
+            "'2026-11-17T08:00:00.000Z', '2026-11-17T09:00:00', ?2, ?2)"
+        ))
+        .bind(REMINDER_ID)
+        .bind(TODO_AT)
+        .execute(&mut conn)
+        .await
+        .expect("reminder");
+        conn.close().await.expect("close");
+    });
+    migrate_for_real(&path);
+    let (title, habit_id, next_at, next_key): (String, Option<String>, String, String) =
+        run(async {
+            let options = SqliteConnectOptions::new().filename(&path).read_only(true);
+            let mut conn = SqliteConnection::connect_with(&options)
+                .await
+                .expect("open");
+            let row = sqlx::query(
+                "SELECT title, habit_id, next_fire_at, next_fire_key FROM reminders WHERE id = ?1",
+            )
+            .bind(REMINDER_ID)
+            .fetch_one(&mut conn)
+            .await
+            .expect("row");
+            let out = (row.get(0), row.get(1), row.get(2), row.get(3));
+            conn.close().await.expect("close");
+            out
+        });
+    assert_eq!(title, "Appeler");
+    assert_eq!(habit_id, None);
+    assert_eq!(next_at, "2026-11-17T08:00:00.000Z");
+    assert_eq!(next_key, "2026-11-17T09:00:00");
+    assert_eq!(schema_of(&path), run(expected_schema(8)).expect("v8"));
 }

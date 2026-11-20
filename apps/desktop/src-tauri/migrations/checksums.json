@@ -5,5 +5,6 @@
   "V4__dashboard_icon.sql": "60d505dee850207ac11aaca91013d301ad0643d64c071ba5bd1d1c97aa1df3fe",
   "V5__dashboard_theme.sql": "ec2ec0128e2a8dd8787efaac61b9648af514e46414bcceabacee7053acf2fa1d",
   "V6__todo_details.sql": "12679edaece401983de4288a51d203812b50ce9864bed6befe9f9790571e66a7",
-  "V7__timers_reminders.sql": "4310f6714e652770ef35fabb69b8f686deb8a1b6b94baf845d807c3484d941b9"
+  "V7__timers_reminders.sql": "4310f6714e652770ef35fabb69b8f686deb8a1b6b94baf845d807c3484d941b9",
+  "V8__habits.sql": "4d0e66fd84a1e4772ff990f8734ecc0543bdab02624281ae7c9f92f059f6ff27"
 }

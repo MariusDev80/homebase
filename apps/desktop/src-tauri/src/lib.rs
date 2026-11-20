@@ -47,6 +47,13 @@ fn invoke_handler<R: tauri::Runtime>(
         schedule::commands::session_stop,
         schedule::commands::session_rename,
         schedule::commands::session_delete,
+        schedule::habit_commands::habit_list,
+        schedule::habit_commands::habit_create,
+        schedule::habit_commands::habit_update,
+        schedule::habit_commands::habit_set_archived,
+        schedule::habit_commands::habit_delete,
+        schedule::habit_commands::habit_checks,
+        schedule::habit_commands::habit_set_check,
     ]
 }
 
@@ -83,6 +90,13 @@ fn invoke_handler<R: tauri::Runtime>(
         schedule::commands::session_stop,
         schedule::commands::session_rename,
         schedule::commands::session_delete,
+        schedule::habit_commands::habit_list,
+        schedule::habit_commands::habit_create,
+        schedule::habit_commands::habit_update,
+        schedule::habit_commands::habit_set_archived,
+        schedule::habit_commands::habit_delete,
+        schedule::habit_commands::habit_checks,
+        schedule::habit_commands::habit_set_check,
     ]
 }
 
@@ -281,6 +295,13 @@ mod tests {
             "schedule::commands::session_stop",
             "schedule::commands::session_rename",
             "schedule::commands::session_delete",
+            "schedule::habit_commands::habit_list",
+            "schedule::habit_commands::habit_create",
+            "schedule::habit_commands::habit_update",
+            "schedule::habit_commands::habit_set_archived",
+            "schedule::habit_commands::habit_delete",
+            "schedule::habit_commands::habit_checks",
+            "schedule::habit_commands::habit_set_check",
         ] {
             assert_eq!(
                 production.matches(&format!("        {command},")).count(),
@@ -321,6 +342,13 @@ mod tests {
             "session_stop",
             "session_rename",
             "session_delete",
+            "habit_list",
+            "habit_create",
+            "habit_update",
+            "habit_set_archived",
+            "habit_delete",
+            "habit_checks",
+            "habit_set_check",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }

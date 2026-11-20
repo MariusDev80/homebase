@@ -148,7 +148,7 @@ fn freq_name(freq: Freq) -> &'static str {
     }
 }
 
-fn weekday_name(day: Weekday) -> &'static str {
+pub(crate) fn weekday_name(day: Weekday) -> &'static str {
     match day {
         Weekday::Mo => "MO",
         Weekday::Tu => "TU",
@@ -160,7 +160,7 @@ fn weekday_name(day: Weekday) -> &'static str {
     }
 }
 
-fn parse_weekday(text: &str) -> Option<Weekday> {
+pub(crate) fn parse_weekday(text: &str) -> Option<Weekday> {
     Some(match text {
         "MO" => Weekday::Mo,
         "TU" => Weekday::Tu,

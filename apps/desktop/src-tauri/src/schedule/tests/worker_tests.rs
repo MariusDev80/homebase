@@ -1,6 +1,7 @@
 //! The scheduler thread (spec 6.1, `worker_tests`): wake-up, stop, bounded shutdown and retry
 //! after an error, with short injected durations.
 
+use crate::backup::sqlite::supported_schema_version;
 use crate::backup::test_support::{make_database, run};
 use crate::schedule::notice::Toast;
 use crate::schedule::notifier::Notifier;
@@ -45,6 +46,7 @@ fn due_reminder() -> ReminderRow {
         enabled: true,
         next_fire_at: Some(NOW.to_owned()),
         next_fire_key: Some("2026-11-16T09:00:00".to_owned()),
+        habit_id: None,
         created_at: "2026-11-01T00:00:00.000Z".to_owned(),
         updated_at: "2026-11-01T00:00:00.000Z".to_owned(),
     }
@@ -94,7 +96,7 @@ fn the_signal_reports_timeout_wake_and_stop() {
 fn wake_triggers_a_pass_within_a_second_while_max_sleep_is_an_hour() {
     let dir = TempDir::new().expect("tmp");
     let db = dir.path().join("homebase.db");
-    make_database(&db, 7, false);
+    make_database(&db, supported_schema_version(), false);
     let (ctx, notifier) = ctx(&db);
     std::thread::scope(|scope| {
         let worker = scope.spawn(|| {
@@ -122,7 +124,7 @@ fn wake_triggers_a_pass_within_a_second_while_max_sleep_is_an_hour() {
 fn a_loop_stopped_before_it_starts_does_nothing() {
     let dir = TempDir::new().expect("tmp");
     let db = dir.path().join("homebase.db");
-    make_database(&db, 7, false);
+    make_database(&db, supported_schema_version(), false);
     insert_due(&db);
     let (ctx, notifier) = ctx(&db);
     ctx.signal.stop();
@@ -136,7 +138,7 @@ fn a_loop_stopped_before_it_starts_does_nothing() {
 fn shutdown_stops_and_joins_a_sleeping_thread() {
     let dir = TempDir::new().expect("tmp");
     let db = dir.path().join("homebase.db");
-    make_database(&db, 7, false);
+    make_database(&db, supported_schema_version(), false);
     let (ctx, _notifier) = ctx(&db);
     let state = SchedulerState::new(ctx);
     worker::spawn(&state);
@@ -187,7 +189,7 @@ fn a_failed_pass_is_retried_after_the_error_delay() {
         assert!(notifier.shown.lock().expect("lock").is_empty());
         // Built elsewhere, then put in place at once: the retry cannot see a half-made base.
         let staged = dir.path().join("staged.db");
-        make_database(&staged, 7, false);
+        make_database(&staged, supported_schema_version(), false);
         insert_due(&staged);
         std::fs::rename(&staged, &db).expect("move into place");
         let seen = wait_for_toasts(&notifier, Duration::from_secs(10));
@@ -236,7 +238,7 @@ impl Clock for CountingClock {
 fn a_disabled_line_with_a_past_cache_does_not_make_the_loop_spin() {
     let dir = TempDir::new().expect("tmp");
     let db = dir.path().join("homebase.db");
-    make_database(&db, 7, false);
+    make_database(&db, supported_schema_version(), false);
     run(async {
         let mut conn = store::connect(&db).await.expect("connect");
         sqlx::query("PRAGMA ignore_check_constraints = ON")
@@ -294,7 +296,7 @@ impl Notifier for PanicOnce {
 fn a_panicking_pass_is_retried_and_the_next_pass_works() {
     let dir = TempDir::new().expect("tmp");
     let db = dir.path().join("homebase.db");
-    make_database(&db, 7, false);
+    make_database(&db, supported_schema_version(), false);
     insert_due(&db);
     let notifier = Arc::new(PanicOnce::default());
     let ctx = SchedulerCtx {
