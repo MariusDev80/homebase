@@ -1,6 +1,6 @@
 # ADR-004 : Calendrier agrégé (bibliothèque d'affichage, `CalendarEvent`, sources)
 
-- **Statut** : **proposé** (2026-11-20). La décision de bibliothèque (§3.1) est **conditionnée à l'essai du §4**. Le §3.2 est indépendant de la bibliothèque : il peut être accepté tout de suite.
+- **Statut** : **proposé** (2026-11-20) ; décisions D1 à D10 validées par Marius le 2026-11-20, telles que recommandées. La bibliothèque (§3.1, D1) reste **conditionnée à l'essai du §4**. Le §3.2 est indépendant de la bibliothèque.
 - **Auteur** : architect (Opus)
 - **Liens** : `docs/PLAN.md` §2 (ligne « Calendrier »), §5, §9 point 2 ; `docs/ROADMAP.md` phase 2 ; ADR-001 §3.1 (R1 à R4), §3.2 (`loadCalendarSource` et son amendement timers-reminders), §7.1 ; ADR-003 §3.2, §3.4, §3.5.4, §3.6, §3.7, §3.10 ; `docs/DESIGN.md` §2, §3, §4, §5 ; `docs/SECURITY-NOTES.md` ; `docs/specs/habits.md` (H6) ; `docs/specs/timers-reminders.md`
 - **Ce qui suit** : après l'essai, l'architecte passe cet ADR en « accepté », amende le §3.1 avec les mesures et rédige `docs/specs/calendar.md` (lots). Le lot « sources » (§3.2) peut démarrer avant.
@@ -9,7 +9,7 @@
 
 ---
 
-## 0. Décisions à valider par Marius
+## 0. Décisions validées par Marius (2026-11-20)
 
 Chaque ligne donne la **recommandation** de l'architecte. Une réponse différente modifie les sections citées.
 
