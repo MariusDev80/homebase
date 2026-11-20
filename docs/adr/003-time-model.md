@@ -23,7 +23,7 @@ Homebase manipulera plusieurs sortes de temps :
 | Timers, pomodoro, sessions « en cours depuis X » | 2 | instants + durées |
 | Rappels datés (« le 3 novembre à 9 h ») | 2 | **heure murale + fuseau** |
 | Rappels récurrents (« chaque lundi à 9 h ») | 2 | heure murale + fuseau + RRULE |
-| Habitudes (jours cochés, jours attendus) | 2 | dates murales + RRULE sur des dates |
+| Habitudes (jours cochés, jours attendus) | 2 | dates murales + RRULE sur des dates. *Amendement (spec habits, 2026-11-17)* : dates murales ; jours de la semaine ou N fois par semaine ISO (pas de RRULE, spec habits D2) |
 | Calendrier agrégé (`CalendarSource`) | 2 | occurrences sur une plage |
 
 Contraintes : application Windows mono-utilisateur, sans serveur, SQLite, front Angular 21 (WebView2), planificateur de rappels en Rust (phase 2). Exigences du PLAN : stockage UTC + fuseau IANA, récurrence RRULE, aucun calcul de date « à la main », tests obligatoires sur les changements d'heure, et **un seul moteur de vérité** pour l'expansion des occurrences qui déclenchent des notifications : le Rust.
@@ -145,6 +145,8 @@ Un élément planifié a **exactement une** ancre :
 - **datée** : `start_on` (élément « toute la journée »), sans fuseau.
 
 Plus, optionnellement : `rrule` (sans préfixe `RRULE:` ni `DTSTART`, sous-ensemble §3.5) et `exdates` (tableau JSON d'heures murales pour une ancre horodatée, de dates pour une ancre datée). Sans `rrule`, l'élément est ponctuel. L'instant d'un élément ponctuel horodaté n'est **pas stocké** : il est résolu à la lecture (§3.3). **Seules les ancres horodatées déclenchent des notifications** (§3.5.5).
+
+*Amendement (spec timers-reminders, 2026-11-16)* : `reminders` n'admet qu'une ancre horodatée (colonnes `NOT NULL`, sans `start_on` ni contrainte d'ancre exclusive) : une ancre datée ne sonne jamais (§3.5.5).
 
 #### 3.1.3 Fragments SQL normatifs (à recopier dans chaque migration qui crée une colonne temporelle)
 `<c>` désigne la colonne. Tables `STRICT`, type `TEXT`. Le `IS` (et non `=`) est indispensable : un `CHECK` qui vaut `NULL` **passe**. Le modificateur `'+0 seconds'` est indispensable : sans lui, `strftime` renvoie `T24:00:00` tel quel (V13).
@@ -279,6 +281,8 @@ Le premier contrôle en échec détermine le code :
 - `COUNT` est appliqué **avant** les exceptions : `COUNT=5` + 1 exception = 4 occurrences.
 - `UNTIL` est **inclusif**, comparé à l'**instant résolu**. L'interface propose « jusqu'au <date> inclus » et calcule `UNTIL = startOfDay(date + 1 jour, fuseau de l'élément) − 1 s` en UTC. Ex. : quotidien à 23:30 Paris jusqu'au 31/12/2026 inclus → `UNTIL=20261231T225959Z`.
 
+*Amendement (spec habits, 2026-11-17)* : les `exdates` d'un rappel d'habitude sont dérivées des jours cochés.
+
 #### 3.5.4 Sémantique de l'expansion (Rust, moteur unique)
 Entrée : spec, plage `[from, to)`, fuseau d'affichage de la plage, limite.
 1. **Expansion flottante** : la crate reçoit `DTSTART` = heure murale nominale de l'ancre (minuit pour une ancre datée) **déguisée en UTC** (`rrule::Tz::UTC`), et la règle construite par le builder à partir de la structure validée, **sans `UNTIL`**. En UTC, ni trou ni pli. Les dates invalides sont ignorées par la crate (RFC, D2).
@@ -291,8 +295,17 @@ Une ancre sans règle suit le même chemin. **Clé d'occurrence** = heure murale
 
 Limites : plage ≤ **400 jours** et `from < to` (sinon `invalid_range`) ; `limit` 1..1000 (défaut 500) ; entrées IPC bornées (§3.8).
 
+*Amendement (lot B, 2026-11-16)* : précisions d'implémentation, sans changement de résultat.
+- `limit` égal à 0 ou supérieur à 1000 → `out_of_range` (valeur = la limite). Plus de 366 `exdates`, ou une exception de plus de 19 caractères (longueur d'une heure murale) → `invalid_exdate`, contrôlé avant toute copie ou tri.
+- Une erreur interne de la crate `rrule` à la construction de la règle (non attendue après validation) est traduite en `invalid_rule` avec le code `invalid_value`.
+- L'itération est bornée par `UNTIL` : pour un `UNTIL` instant, la borne haute est `min(hi, heure murale de UNTIL + 1 jour)` ; pour un `UNTIL` date, `UNTIL + 1 jour`. Un `UNTIL` proche de l'ancre ne provoque donc pas d'`expansion_limit` quand la plage est lointaine. `next_after` s'arrête à la première occurrence strictement postérieure (heures nominales croissantes, une occurrence par jour au plus).
+- Le codec accepte en entrée les parties dans un ordre quelconque, `INTERVAL=1` et un `BYDAY` non trié, puis produit la forme canonique (§3.5.1) ; `parseDateRule` (§3.9) exige en plus que le texte soit déjà canonique.
+- Le champ `part` des erreurs de règle (nom de la partie fautive) est vérifié par les vecteurs `ruleCodec` des deux côtés quand il y figure.
+
 #### 3.5.5 Prochaine occurrence et notifications
 `next_after(spec, after)` (Rust) renvoie la première occurrence **strictement après** `after`, cherchée sur **10 ans** au plus (au-delà : « aucune »). Elle n'est définie que pour une **ancre horodatée** ; pour une ancre datée elle renvoie `TimeError::NotSchedulable`. Décision : **une ancre datée ne déclenche jamais de notification** (sinon le Rust devrait connaître le fuseau utilisateur pour savoir quand commence la journée). Un rappel d'habitude « à 20 h » est donc une ancre horodatée ; une habitude « tous les lundis » sans heure n'est qu'affichée.
+
+*Amendement (spec timers-reminders, 2026-11-16)* : `next_after` est utilisée par le planificateur ; le rattrapage compte les occurrences manquées par `expand` sur au plus 399 jours.
 
 ### 3.6 Horloge injectable et interdiction du calcul à la main
 **TS**
@@ -300,6 +313,7 @@ Limites : plage ≤ **400 jours** et `from < to` (sinon `invalid_range`) ; `limi
 - **Amendement ADR-002** : le jeton `CLOCK` est déclaré dans `data/data.providers.ts` (seul fichier de `data/` qui importe Angular ; `data/` ne peut pas importer `core/`) : `new InjectionToken<Clock>('CLOCK', { providedIn: 'root', factory: () => systemClock })`. Les fabriques des trois repositories utilisent `inject(CLOCK)` au lieu de `systemClock` en dur. `data/index.ts` l'exporte ; `core/time` le réexporte avec `nowInstant(clock)`. Ainsi, fournir `ManualClock` comme `CLOCK` pilote aussi `created_at` / `updated_at`.
 - Toute arithmétique de date passe par `core/time`. Interdits hors `core/time/**` et `data/clock.ts` (ESLint, §8.3) : toute référence à `Date` hors position de type, les accesseurs `get*/set*` de date, `getTimezoneOffset`, `toLocaleDateString/TimeString`, `Intl.DateTimeFormat` (y compris `Intl['DateTimeFormat']` et la déstructuration), `Temporal.Now` (y compris via alias ou `Temporal['Now']`), l'import de `temporal-polyfill`, `DatePipe`, `formatDate`, `CommonModule`. `*.spec.ts` et `**/testing/**` sont exemptés de la règle `Date` (fakes existants) mais pas de `Temporal.Now`.
 - Les ticks d'interface ne font que déclencher un recalcul depuis `clock.nowIso()`.
+- *Amendement (spec habits, 2026-11-17)* : `isoWeekday` et `startOfIsoWeek` sont ajoutées dans `core/time`.
 
 **Rust**
 - `trait Clock: Send + Sync { fn now(&self) -> jiff::Timestamp; }`, `SystemClock`, `FixedClock` (test).
@@ -361,6 +375,7 @@ Deux commandes **pures** (aucun accès disque, réseau ni état), **asynchrones*
 
 ### 3.10 Ce qui reste pour la phase 2 et l'ADR-004
 **Spec planificateur (phase 2, Opus)** : boucle (réveil à intervalle borné, ≤ 30 s, comparé à `Clock::now()` pour survivre à la veille et aux changements d'horloge) ; rattrapage au démarrage (recommandation : une notification pour la **dernière** occurrence manquée par élément, plus un résumé) ; table des déclenchements avec unicité `(élément, clé d'occurrence)` ; cache `next_fire_at` ; accès Rust à la base (ADR-002 O2) ; plugin single-instance ; modèle des timers ; édition « cette occurrence / les suivantes / toutes ».
+*Amendement (spec timers-reminders, 2026-11-16)* : traité par `docs/specs/timers-reminders.md` (thread borné à 30 s, rattrapage D6, table `reminder_deliveries`, cache `next_fire_at`, connexions sqlx, timers D7, édition D12).
 **ADR-004** : bibliothèque calendrier, champs visuels de `CalendarEvent`, conversion vers la lib, début de semaine (lundi en `fr`).
 
 ---

@@ -1,0 +1,276 @@
+<p role="status" class="sr-only" data-testid="timers-finished-status">
+  {{ finishedAnnouncement() }}
+</p>
+@switch (view()) {
+  @case ('history') {
+    <app-timer-history (closed)="closePanel()" />
+  }
+  @case ('detail') {
+    @if (detailId(); as id) {
+      <app-stopwatch-detail
+        [sessionId]="id"
+        [instanceId]="ctx.instanceId"
+        (closed)="closePanel()"
+      />
+    }
+  }
+  @default {
+    <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto" data-testid="timers-main">
+      @if (unavailable()) {
+        <p role="alert" class="flash flash-danger" data-testid="timers-unavailable">
+          <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+          {{ 'common.desktopOnly' | transloco }}
+        </p>
+      } @else if (loadError()) {
+        <p role="alert" class="flash flash-danger" data-testid="timers-load-error">
+          <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+          {{ 'widgets.timers.errors.load' | transloco }}
+        </p>
+      }
+      @if (actionMessage(); as key) {
+        <p role="alert" class="flash flash-danger" data-testid="timers-action-error">
+          <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+          {{ key | transloco: { max: sessionMax } }}
+        </p>
+      }
+
+      <section class="flex flex-col gap-1" aria-labelledby="timers-running-{{ ctx.instanceId }}">
+        <div class="flex items-center gap-2">
+          <h3
+            class="m-0 min-w-0 flex-1 text-xs font-semibold text-fg-muted focus:outline-none"
+            id="timers-running-{{ ctx.instanceId }}"
+            tabindex="-1"
+            data-focus-key="running-heading"
+          >
+            {{ 'widgets.timers.running' | transloco }}
+          </h3>
+          <button
+            type="button"
+            class="btn btn-invisible btn-compact"
+            data-testid="timers-history"
+            data-focus-key="history"
+            (click)="openHistory()"
+          >
+            <i class="pi pi-history" aria-hidden="true"></i>
+            {{ 'widgets.timers.history' | transloco }}
+          </button>
+        </div>
+        @if (rows().length === 0) {
+          <p class="m-0 text-fg-muted" data-testid="timers-empty">
+            {{ 'widgets.timers.empty' | transloco }}
+          </p>
+        } @else {
+          <ul class="m-0 list-none p-0" data-testid="timers-list">
+            @for (row of rows(); track row.id) {
+              <li
+                class="box-row flex items-center gap-2"
+                data-testid="timers-row"
+                [attr.data-row-id]="row.id"
+              >
+                <div class="min-w-0 flex-1">
+                  @if (row.kind === 'stopwatch') {
+                    <button
+                      type="button"
+                      class="btn btn-invisible btn-compact max-w-full"
+                      data-testid="timers-row-open"
+                      [attr.data-focus-key]="'detail-' + row.id"
+                      [attr.aria-label]="'widgets.timers.detailsOf' | transloco: { name: row.name }"
+                      (click)="openDetail(row.id)"
+                    >
+                      <span class="truncate" data-testid="timers-row-name">{{ row.name }}</span>
+                    </button>
+                    <p class="m-0 truncate text-xs text-fg-muted" data-testid="timers-row-since">
+                      {{ row.since }} · {{ row.detail }}
+                    </p>
+                  } @else {
+                    <p class="m-0 truncate" data-testid="timers-row-name">{{ row.name }}</p>
+                    <p class="m-0 truncate text-xs text-fg-muted" data-testid="timers-row-detail">
+                      {{ row.detail }}
+                    </p>
+                  }
+                </div>
+                <span class="text-xl font-semibold tabular-nums" data-testid="timers-row-clock">{{
+                  row.clock
+                }}</span>
+                @if (row.finished) {
+                  <span class="text-attention" data-testid="timers-row-finished">
+                    {{ 'widgets.timers.finished' | transloco }}
+                  </span>
+                } @else {
+                  <button
+                    type="button"
+                    class="btn btn-compact"
+                    data-testid="timers-row-stop"
+                    [attr.aria-label]="'widgets.timers.stopOf' | transloco: { name: row.name }"
+                    (click)="stop(row.id)"
+                  >
+                    {{ 'widgets.timers.stop' | transloco }}
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="flex flex-col gap-2" aria-labelledby="timers-start-{{ ctx.instanceId }}">
+        <h3 class="m-0 text-xs font-semibold text-fg-muted" id="timers-start-{{ ctx.instanceId }}">
+          {{ 'widgets.timers.startTitle' | transloco }}
+        </h3>
+        <div
+          class="flex flex-wrap gap-1"
+          role="group"
+          [attr.aria-label]="'widgets.timers.presets' | transloco"
+        >
+          @for (preset of presets; track preset) {
+            <button
+              type="button"
+              class="btn btn-compact"
+              data-testid="timers-preset"
+              (click)="usePreset(preset)"
+            >
+              {{ 'widgets.timers.presetMinutes' | transloco: { m: preset } }}
+            </button>
+          }
+        </div>
+        <div class="flex flex-wrap items-end gap-2">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold" [for]="ids.minutes">{{
+              'widgets.timers.minutes' | transloco
+            }}</label>
+            <input
+              type="number"
+              class="field w-20"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              data-testid="timers-minutes"
+              [id]="ids.minutes"
+              [attr.max]="maxMinutes"
+              [attr.aria-invalid]="durationError() !== null"
+              [attr.aria-describedby]="durationError() ? ids.minutes + '-error' : null"
+              [value]="minutes()"
+              (input)="onMinutes($event)"
+            />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold" [for]="ids.seconds">{{
+              'widgets.timers.seconds' | transloco
+            }}</label>
+            <input
+              type="number"
+              class="field w-20"
+              min="0"
+              max="59"
+              step="1"
+              inputmode="numeric"
+              data-testid="timers-seconds"
+              [id]="ids.seconds"
+              [attr.aria-invalid]="durationError() !== null"
+              [attr.aria-describedby]="durationError() ? ids.minutes + '-error' : null"
+              [value]="seconds()"
+              (input)="onSeconds($event)"
+            />
+          </div>
+        </div>
+        @if (durationError(); as key) {
+          <p class="field-error" data-testid="timers-duration-error" [id]="ids.minutes + '-error'">
+            {{ key | transloco: { max: maxMinutes } }}
+          </p>
+        }
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold" [for]="ids.label">{{
+            'widgets.timers.label' | transloco
+          }}</label>
+          <input
+            type="text"
+            class="field w-full"
+            autocomplete="off"
+            data-testid="timers-label"
+            [id]="ids.label"
+            [attr.maxlength]="labelMax"
+            [value]="label()"
+            (input)="onLabel($event)"
+          />
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="btn btn-primary"
+            data-testid="timers-start"
+            [disabled]="busy() || unavailable()"
+            (click)="startTimer()"
+          >
+            {{ 'widgets.timers.start' | transloco }}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            data-testid="timers-start-stopwatch"
+            [disabled]="busy() || unavailable()"
+            (click)="startStopwatch()"
+          >
+            {{ 'widgets.timers.startStopwatch' | transloco }}
+          </button>
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-2" aria-labelledby="timers-alarm-{{ ctx.instanceId }}">
+        <h3 class="m-0 text-xs font-semibold text-fg-muted" id="timers-alarm-{{ ctx.instanceId }}">
+          {{ 'widgets.timers.alarm' | transloco }}
+        </h3>
+        <div class="flex flex-wrap items-end gap-2">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-semibold" [for]="ids.alarmTime">{{
+              'widgets.timers.alarmTime' | transloco
+            }}</label>
+            <input
+              type="time"
+              class="field"
+              data-testid="timers-alarm-time"
+              [id]="ids.alarmTime"
+              [attr.aria-invalid]="alarmError() === 'widgets.timers.errors.alarmTime'"
+              [value]="alarmTime()"
+              (input)="onAlarmTime($event)"
+            />
+          </div>
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <label class="text-xs font-semibold" [for]="ids.alarmLabel">{{
+              'widgets.timers.label' | transloco
+            }}</label>
+            <input
+              type="text"
+              class="field w-full"
+              autocomplete="off"
+              data-testid="timers-alarm-label"
+              [id]="ids.alarmLabel"
+              [attr.maxlength]="labelMax"
+              [value]="alarmLabel()"
+              (input)="onAlarmLabel($event)"
+            />
+          </div>
+          <button
+            type="button"
+            class="btn"
+            data-testid="timers-alarm-set"
+            [disabled]="alarmBusy() || unavailable()"
+            (click)="setAlarm()"
+          >
+            {{ 'widgets.timers.alarmSetAction' | transloco }}
+          </button>
+        </div>
+        @if (alarmError(); as key) {
+          <p class="field-error" role="alert" data-testid="timers-alarm-error">
+            {{ key | transloco }}
+          </p>
+        }
+        <div role="status" class="text-xs text-fg-muted" data-testid="timers-alarm-message">
+          <p class="m-0" data-testid="timers-alarm-text">{{ alarmMessage() }}</p>
+          @if (alarmNote()) {
+            <p class="m-0" data-testid="timers-alarm-note">{{ alarmNote() }}</p>
+          }
+        </div>
+      </section>
+    </div>
+  }
+}

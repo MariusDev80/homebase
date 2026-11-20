@@ -1,0 +1,401 @@
+<div
+  role="group"
+  class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+  data-testid="reminder-form"
+  [attr.aria-label]="
+    (isNew() ? 'widgets.reminders.formTitleNew' : 'widgets.reminders.formTitleEdit') | transloco
+  "
+  (keydown.escape)="cancel()"
+>
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-invisible btn-compact"
+      data-testid="reminder-back"
+      (click)="cancel()"
+    >
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      {{ 'widgets.reminders.back' | transloco }}
+    </button>
+  </div>
+  @if (unreadable()) {
+    <p class="flash flash-attention" data-testid="reminder-unreadable">
+      {{ 'widgets.reminders.unreadable' | transloco }}
+    </p>
+  }
+  <h3 class="m-0 text-base font-semibold">
+    {{
+      (isNew() ? 'widgets.reminders.formTitleNew' : 'widgets.reminders.formTitleEdit') | transloco
+    }}
+  </h3>
+
+  @if (formError(); as key) {
+    <p role="alert" class="flash flash-danger" data-testid="reminder-form-error">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      {{ key | transloco }}
+    </p>
+  }
+
+  <div class="flex flex-col gap-1">
+    <label class="text-xs font-semibold" [for]="id('title')">{{
+      'widgets.reminders.fields.title' | transloco
+    }}</label>
+    <input
+      type="text"
+      class="field w-full"
+      autocomplete="off"
+      data-field="title"
+      data-testid="reminder-title"
+      [id]="id('title')"
+      [attr.maxlength]="titleMax"
+      [attr.aria-invalid]="errors().title ? 'true' : null"
+      [attr.aria-describedby]="errors().title ? id('title-error') : null"
+      [value]="state().title"
+      (input)="onTitle($event)"
+    />
+    @if (errors().title; as key) {
+      <p class="field-error" data-testid="reminder-error-title" [id]="id('title-error')">
+        {{ key | transloco }}
+      </p>
+    }
+  </div>
+
+  <div class="flex flex-wrap gap-3">
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold" [for]="id('date')">{{
+        'widgets.reminders.fields.date' | transloco
+      }}</label>
+      <input
+        type="date"
+        class="field"
+        data-field="date"
+        data-testid="reminder-date"
+        [id]="id('date')"
+        [attr.aria-invalid]="errors().date ? 'true' : null"
+        [attr.aria-describedby]="errors().date ? id('date-error') : null"
+        [value]="state().date"
+        (input)="onDate($event)"
+      />
+      @if (errors().date; as key) {
+        <p class="field-error" data-testid="reminder-error-date" [id]="id('date-error')">
+          {{ key | transloco }}
+        </p>
+      }
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold" [for]="id('time')">{{
+        'widgets.reminders.fields.time' | transloco
+      }}</label>
+      <input
+        type="time"
+        step="60"
+        class="field"
+        data-field="time"
+        data-testid="reminder-time"
+        [id]="id('time')"
+        [attr.aria-invalid]="errors().time ? 'true' : null"
+        [attr.aria-describedby]="errors().time ? id('time-error') : null"
+        [value]="state().time"
+        (input)="onTime($event)"
+      />
+      @if (errors().time; as key) {
+        <p class="field-error" data-testid="reminder-error-time" [id]="id('time-error')">
+          {{ key | transloco }}
+        </p>
+      }
+    </div>
+  </div>
+  <p class="m-0 text-xs text-fg-muted" data-testid="reminder-zone">{{ zoneText() }}</p>
+  @for (warning of warnings(); track warning) {
+    <p class="flash flash-attention" data-testid="reminder-warning">{{ warning }}</p>
+  }
+
+  <div class="flex flex-col gap-1">
+    <label class="text-xs font-semibold" [for]="id('repeat')">{{
+      'widgets.reminders.fields.repeat' | transloco
+    }}</label>
+    <select
+      class="field w-full"
+      data-field="repeat"
+      data-testid="reminder-repeat"
+      [id]="id('repeat')"
+      [attr.aria-invalid]="errors().repeat ? 'true' : null"
+      [attr.aria-describedby]="errors().repeat ? id('repeat-error') : null"
+      [disabled]="state().repeat === 'custom'"
+      (change)="onRepeat($event)"
+    >
+      @for (choice of choices(); track choice) {
+        <option [value]="choice" [selected]="choice === state().repeat">
+          {{ repeatLabel(choice) }}
+        </option>
+      }
+    </select>
+    @if (errors().repeat; as key) {
+      <p class="field-error" data-testid="reminder-error-repeat" [id]="id('repeat-error')">
+        {{ key | transloco }}
+      </p>
+    }
+  </div>
+
+  @if (state().repeat === 'custom') {
+    <p
+      class="m-0 text-xs text-fg-muted"
+      data-testid="reminder-custom"
+      [attr.aria-describedby]="customError() ? id('custom-error') : null"
+    >
+      {{ 'widgets.reminders.customHint' | transloco }}
+      <code>{{ state().customRule }}</code>
+      ({{ customLabel() }})
+    </p>
+    @if (customError(); as key) {
+      <p class="field-error" data-testid="reminder-error-custom" [id]="id('custom-error')">
+        {{ key | transloco }}
+      </p>
+    }
+  }
+
+  @if (recurring()) {
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold" [for]="id('interval')">{{
+        'widgets.reminders.fields.interval' | transloco
+      }}</label>
+      <div class="flex items-center gap-2">
+        <input
+          type="text"
+          inputmode="numeric"
+          class="field w-20"
+          autocomplete="off"
+          data-field="interval"
+          data-testid="reminder-interval"
+          [id]="id('interval')"
+          [attr.aria-invalid]="errors().interval ? 'true' : null"
+          [attr.aria-describedby]="errors().interval ? id('interval-error') : null"
+          [value]="state().interval"
+          (input)="onInterval($event)"
+        />
+        <span class="text-fg-muted">
+          {{ 'widgets.reminders.intervalUnit.' + intervalUnit() | transloco }}
+          ({{ 'widgets.reminders.intervalRange' | transloco: { max: intervalMax() } }})
+        </span>
+      </div>
+      @if (errors().interval; as key) {
+        <p class="field-error" data-testid="reminder-error-interval" [id]="id('interval-error')">
+          {{ key | transloco }}
+        </p>
+      }
+    </div>
+
+    @if (state().repeat === 'weekly') {
+      <fieldset class="m-0 flex flex-col gap-1 border-0 p-0" data-field-group="weekdays">
+        <legend class="p-0 text-xs font-semibold">
+          {{ 'widgets.reminders.fields.weekdays' | transloco }}
+        </legend>
+        <div
+          class="flex flex-wrap gap-2"
+          data-field="weekdays-group"
+          [attr.aria-describedby]="errors().weekdays ? id('weekdays-error') : null"
+        >
+          @for (day of weekdays; track day) {
+            <label class="flex items-center gap-1">
+              <input
+                type="checkbox"
+                [attr.data-field]="$first ? 'weekdays' : null"
+                [attr.data-testid]="'reminder-weekday-' + day"
+                [attr.aria-label]="'widgets.reminders.weekdays.' + day | transloco"
+                [attr.aria-invalid]="errors().weekdays ? 'true' : null"
+                [attr.aria-describedby]="errors().weekdays ? id('weekdays-error') : null"
+                [checked]="state().weekdays.includes(day)"
+                (change)="onWeekday(day, $event)"
+              />
+              <span aria-hidden="true">{{
+                'widgets.reminders.weekdaysShort.' + day | transloco
+              }}</span>
+            </label>
+          }
+        </div>
+        @if (errors().weekdays; as key) {
+          <p class="field-error" data-testid="reminder-error-weekdays" [id]="id('weekdays-error')">
+            {{ key | transloco }}
+          </p>
+        }
+      </fieldset>
+    }
+
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold" [for]="id('end')">{{
+        'widgets.reminders.fields.end' | transloco
+      }}</label>
+      <select
+        class="field w-full"
+        data-testid="reminder-end"
+        [id]="id('end')"
+        (change)="onEnd($event)"
+      >
+        @for (end of ends; track end) {
+          <option [value]="end" [selected]="end === state().end">
+            {{ 'widgets.reminders.end.' + end | transloco }}
+          </option>
+        }
+      </select>
+    </div>
+
+    @if (state().end === 'count') {
+      <div class="flex flex-col gap-1">
+        <label class="text-xs font-semibold" [for]="id('count')">{{
+          'widgets.reminders.fields.count' | transloco
+        }}</label>
+        <input
+          type="text"
+          inputmode="numeric"
+          class="field w-24"
+          autocomplete="off"
+          data-field="count"
+          data-testid="reminder-count"
+          [id]="id('count')"
+          [attr.aria-invalid]="errors().count ? 'true' : null"
+          [attr.aria-describedby]="errors().count ? id('count-error') : null"
+          [value]="state().count"
+          (input)="onCount($event)"
+        />
+        @if (errors().count; as key) {
+          <p class="field-error" data-testid="reminder-error-count" [id]="id('count-error')">
+            {{ key | transloco }}
+          </p>
+        }
+      </div>
+    }
+
+    @if (state().end === 'until') {
+      <div class="flex flex-col gap-1">
+        <label class="text-xs font-semibold" [for]="id('until')">{{
+          'widgets.reminders.fields.until' | transloco
+        }}</label>
+        <input
+          type="date"
+          class="field"
+          data-field="until"
+          data-testid="reminder-until"
+          [id]="id('until')"
+          [attr.aria-invalid]="errors().until ? 'true' : null"
+          [attr.aria-describedby]="errors().until ? id('until-error') : null"
+          [value]="state().until"
+          (input)="onUntil($event)"
+        />
+        @if (errors().until; as key) {
+          <p class="field-error" data-testid="reminder-error-until" [id]="id('until-error')">
+            {{ key | transloco }}
+          </p>
+        }
+      </div>
+    }
+  }
+
+  <label class="flex items-center gap-2">
+    <input
+      type="checkbox"
+      role="switch"
+      class="switch"
+      data-testid="reminder-enabled"
+      [checked]="state().enabled"
+      (change)="onEnabled($event)"
+    />
+    {{ 'widgets.reminders.fields.enabled' | transloco }}
+  </label>
+
+  @if (state().enabled) {
+    <section class="flex flex-col gap-1" data-testid="reminder-preview">
+      <h4 class="m-0 text-xs font-semibold">{{ 'widgets.reminders.preview' | transloco }}</h4>
+      @if (previewLabels().length > 0) {
+        <ul class="m-0 list-none p-0 text-fg-muted">
+          @for (label of previewLabels(); track $index) {
+            <li class="tabular-nums" data-testid="reminder-preview-item">{{ label }}</li>
+          }
+        </ul>
+      } @else {
+        <p class="m-0 text-fg-muted">{{ 'widgets.reminders.previewEmpty' | transloco }}</p>
+      }
+    </section>
+  }
+
+  <div class="flex flex-wrap items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-primary"
+      data-testid="reminder-save"
+      [disabled]="busy()"
+      (click)="save()"
+    >
+      {{ 'widgets.reminders.save' | transloco }}
+    </button>
+    <button type="button" class="btn" data-testid="reminder-cancel" (click)="cancel()">
+      {{ 'widgets.reminders.cancel' | transloco }}
+    </button>
+    @if (confirmingDiscard()) {
+      <span class="flex items-center gap-2" role="group" data-testid="reminder-discard">
+        <span>{{ 'widgets.reminders.discardQuestion' | transloco }}</span>
+        <button
+          type="button"
+          class="btn btn-danger btn-compact"
+          data-testid="reminder-discard-confirm"
+          (click)="closed.emit('cancelled')"
+        >
+          {{ 'widgets.reminders.discard' | transloco }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-compact"
+          data-testid="reminder-keep"
+          (click)="keepEditing()"
+        >
+          {{ 'widgets.reminders.keepEditing' | transloco }}
+        </button>
+      </span>
+    }
+    @if (canSkip()) {
+      <button
+        type="button"
+        class="btn"
+        data-testid="reminder-skip"
+        [disabled]="busy()"
+        (click)="skipNext()"
+      >
+        {{ skipLabel() }}
+      </button>
+    }
+    @if (!isNew()) {
+      @if (confirmingDelete()) {
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-testid="reminder-delete-confirm"
+          [disabled]="busy()"
+          (click)="remove()"
+        >
+          {{ 'widgets.reminders.confirmDelete' | transloco }}
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-testid="reminder-delete-cancel"
+          (click)="cancelDelete()"
+        >
+          {{ 'widgets.reminders.cancel' | transloco }}
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-testid="reminder-delete"
+          (click)="askDelete()"
+        >
+          {{ 'widgets.reminders.delete' | transloco }}
+        </button>
+      }
+    }
+  </div>
+  <p class="m-0 text-xs text-fg-muted" role="status" data-testid="reminder-skip-note">
+    @if (skipNote(); as key) {
+      {{ key | transloco }}
+    }
+  </p>
+</div>
