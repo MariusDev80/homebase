@@ -192,6 +192,8 @@ export interface ImportPreview {
   readonly futureVersions: number;
   /** The file predates themes (format 1 or 2): every dashboard gets the default theme. */
   readonly resetsThemes: boolean;
+  /** The file predates dashboard icons (format 1): every dashboard gets the default icon. */
+  readonly resetsIcons: boolean;
   /** Current dashboards absent from the file. */
   readonly removedDashboards: number;
   /** Current instances absent from the file (including those of removed dashboards). */

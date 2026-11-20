@@ -15,6 +15,7 @@ const preview = (over: Partial<ImportPreview> = {}): ImportPreview => ({
   unknownTypes: [],
   futureVersions: 0,
   resetsThemes: false,
+  resetsIcons: false,
   removedDashboards: 1,
   removedWidgets: 3,
   replacedWidgets: 2,
@@ -108,6 +109,7 @@ describe('ConfigTransferSettingsComponent', () => {
     q('config-import')?.click();
     await settle();
     expect(el.querySelector('[data-testid="info-themes-reset"]')).toBeNull();
+    expect(el.querySelector('[data-testid="info-icons-reset"]')).toBeNull();
     q('config-cancel')?.click();
     await settle();
   });
@@ -118,6 +120,14 @@ describe('ConfigTransferSettingsComponent', () => {
     q('config-import')?.click();
     await settle();
     expect(text('info-themes-reset')).toContain('les thèmes des tableaux seront remis par défaut');
+  });
+
+  it('announces that icons will be reset for a format 1 file', async () => {
+    const { q, text, transfer, settle } = await setup();
+    transfer.pickAndAnalyze.mockResolvedValue(ok({ resetsThemes: true, resetsIcons: true }));
+    q('config-import')?.click();
+    await settle();
+    expect(text('info-icons-reset')).toContain('les icônes des tableaux seront remises par défaut');
   });
 
   it('lists the validation problems, signals truncation, and offers no confirmation', async () => {

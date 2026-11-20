@@ -189,6 +189,7 @@ describe('ConfigTransferService', () => {
           ['{"cardBody":"lavender","cardHeader":"sky"}', 1],
         ]);
         expect(analysis.preview.resetsThemes).toBe(false);
+        expect(analysis.preview.resetsIcons).toBe(false);
         expect(analysis.plan.dashboards[0].widgets[0].grid).toEqual({ x: 0, y: 0, w: 2, h: 2 });
       }
     });
