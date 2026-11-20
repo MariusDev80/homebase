@@ -82,6 +82,14 @@ describe('SettingsPage system section', () => {
     expect(system.setAutostart).toHaveBeenCalledWith(true);
   });
 
+  it('explains that reminders ring while Homebase runs in the tray', async () => {
+    setup({ available: true, autostart: false });
+    const fixture = await render();
+    const help = fixture.nativeElement.querySelector('[data-testid="autostart-help"]');
+    expect(help?.textContent).toContain('Quitter');
+    expect(fixture.nativeElement.textContent).not.toContain('expérimental');
+  });
+
   it('disables controls outside Tauri', async () => {
     const system = setup({ available: false });
     const fixture = await render();

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-time-expand"
+description = "Enables the time_expand command without any pre-configured scope."
+commands.allow = ["time_expand"]
+
+[[permission]]
+identifier = "deny-time-expand"
+description = "Denies the time_expand command without any pre-configured scope."
+commands.deny = ["time_expand"]

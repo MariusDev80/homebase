@@ -130,6 +130,9 @@ const TEST_NOTIFICATION_DELAY_SECS = 10;
               />
               {{ 'settings.system.autostart' | transloco }}
             </label>
+            <p class="text-xs text-fg-muted" data-testid="autostart-help">
+              {{ 'settings.system.autostartHelp' | transloco }}
+            </p>
             @if (error()) {
               <p role="alert" class="flash flash-danger">
                 <i class="pi pi-exclamation-circle" aria-hidden="true"></i>

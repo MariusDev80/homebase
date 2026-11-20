@@ -5,7 +5,7 @@ import { providePrimeNG } from 'primeng/config';
 import { routes } from './app.routes';
 import { TranslatedTitleStrategy, provideAppI18n } from './core/i18n';
 import { HomebasePreset, SettingsThemePreferenceStore, THEME_PREFERENCE_STORE } from './core/theme';
-import { provideTime } from './core/time';
+import { provideTime } from './core/time/time-zone';
 import { provideDataLayer } from './data';
 import { provideAllWidgets } from './widgets/widgets.providers';
 

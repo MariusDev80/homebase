@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-time-validate"
+description = "Enables the time_validate command without any pre-configured scope."
+commands.allow = ["time_validate"]
+
+[[permission]]
+identifier = "deny-time-validate"
+description = "Denies the time_validate command without any pre-configured scope."
+commands.deny = ["time_validate"]

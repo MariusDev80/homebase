@@ -1,0 +1,53 @@
+<section class="flex flex-col gap-2" data-testid="habit-history">
+  <h4 class="m-0 text-xs font-semibold">{{ 'widgets.habits.historyTitle' | transloco }}</h4>
+
+  @if (error(); as key) {
+    <p role="alert" class="flash flash-danger" data-testid="habit-history-error">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      {{ key | transloco }}
+    </p>
+  }
+
+  <div class="flex min-w-0 flex-col gap-1 overflow-x-auto">
+    <div class="flex gap-1" aria-hidden="true" data-testid="habit-history-header">
+      @for (code of weekdays; track code) {
+        <span class="w-6 text-center text-xs text-fg-muted">{{ initial(code) }}</span>
+      }
+    </div>
+    <div
+      role="group"
+      class="flex flex-col gap-1"
+      data-testid="habit-history-grid"
+      [attr.aria-label]="'widgets.habits.historyOf' | transloco: { title: habit().title }"
+      (keydown)="onKeydown($event)"
+      (focusout)="onFocusOut($event)"
+    >
+      @for (week of weeks(); track week[0].day) {
+        <div class="flex gap-1" data-testid="habit-history-week">
+          @for (cell of week; track cell.day) {
+            <button
+              type="button"
+              data-testid="habit-history-cell"
+              [attr.data-cell]="cellKey(cell)"
+              [attr.data-day]="cell.day"
+              [class]="cellClass(cell)"
+              [attr.aria-pressed]="cell.done"
+              [attr.aria-label]="cell.label"
+              [attr.tabindex]="tabIndexOf(cell)"
+              [disabled]="cell.beforeStart || cellPending(cell)"
+              (focus)="setRoving(cell)"
+              (click)="toggle(cell)"
+            >
+              @if (cell.done) {
+                <i class="pi pi-check" aria-hidden="true"></i>
+              }
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <p class="m-0" data-testid="habit-history-streak">{{ streakText() }}</p>
+  <p class="m-0" data-testid="habit-history-rate">{{ rate() }}</p>
+</section>

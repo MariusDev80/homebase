@@ -21,3 +21,13 @@ export function addDays(date: LocalDateIso, days: number): LocalDateIso {
 export function daysBetween(from: LocalDateIso, to: LocalDateIso): number {
   return parseLocalDate(from).until(parseLocalDate(to), { largestUnit: 'days' }).days;
 }
+
+/** ISO weekday of a date: 1 = Monday ... 7 = Sunday. */
+export function isoWeekday(date: LocalDateIso): 1 | 2 | 3 | 4 | 5 | 6 | 7 {
+  return parseLocalDate(date).dayOfWeek as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+}
+
+/** The Monday of the ISO week that contains `date`. */
+export function startOfIsoWeek(date: LocalDateIso): LocalDateIso {
+  return addDays(date, 1 - isoWeekday(date));
+}

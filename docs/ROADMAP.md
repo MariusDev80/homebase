@@ -58,12 +58,23 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius) ; y inclure `Ctrl+K` vers un autre tableau, le clic sur un résultat de recherche d'un autre tableau, la suppression du tableau courant, une tâche répétée cochée puis annulée
 
 ## Phase 2 : Temps
-- [ ] (S) Audit des dépendances au vert (job CI rouge depuis le 2026-11-12) : `tokio` 1.54.1 (RUSTSEC-2026-0384, PR Dependabot #13) ; `libsqlite3-sys` 0.30.1 (RUSTSEC-2026-0459, imposé par `sqlx` 0.8 via `tauri-plugin-sql` 2.6 : évaluer l'exposition de Homebase, puis exception justifiée en attendant le plugin) ; `rsa` 0.9.10 (RUSTSEC-2023-0071, absent du build Windows : exception justifiée)
-- [ ] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec
-- [ ] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage)
-- [ ] (S) Timers/alarmes, pomodoro, session « en cours depuis X » + historique
-- [ ] (S) Rappels datés/récurrents (rrule) + notifications natives + zone de notification + démarrage automatique
-- [ ] (S) Habit tracker (+ rappels de mise à jour périodique)
+- [x] (S) Audit des dépendances Rust (reliquat phase 1 bis) : tokio 1.54.1 ; RUSTSEC-2026-0459 (libsqlite3-sys, correctif seulement via tauri-plugin-sql 3 alpha) et RUSTSEC-2023-0071 (rsa, absent du binaire) ignorés dans `.cargo/audit.toml` avec justification et condition de levée
+- [x] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec (vérification manuelle CA-B7 à faire par Marius)
+- [x] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage) (`docs/specs/timers-reminders.md`, décisions M1 à M12 validées par Marius le 2026-11-16)
+- [x] (S) Lot R1 (spec timers-reminders) : migration V7, stockage et planification pure (revu ; texte de V7 figé le 2026-11-16, index unique « un seul pomodoro » ajouté à la revue)
+- [x] (S) Lot R2 : passage du planificateur, boucle, notifications, câblage (revu ; vérification manuelle CA-R2-4 à faire par Marius)
+- [x] (S) Lot R3 : commandes Tauri reminder_* et session_* (revu ; vérification manuelle CA-R3-4 à faire par Marius)
+- [x] (S) Lot R4 : démarrage réduit, autostart --minimized, Réglages (relu ; vérifications manuelles MV8, MV9 à faire par Marius)
+- [x] (S) Lot F1 : dépôts data/tauri, services core (rappels, sessions, horloge d'affichage) (revu ; bundle initial 490,32 kB, sous main ; vérifier à la main que WebView2 passe en « hidden » fenêtre réduite dans la zone de notification)
+- [x] (S) Lot W1 : widget Minuteurs (minuteurs, chronos, alarme, historique) (revu ; vérifications manuelles MV3, MV4, MV5 à faire par Marius)
+- [x] (S) Lot W2 : widget Pomodoro (revu ; une seule instance par tableau de bord, phase suivante d'après la dernière séance même la veille ; vérification manuelle MV7 à faire par Marius)
+- [x] (S) Lot W3 : widget Rappels (revu ; vérifications manuelles MV1, MV2, MV10 à MV13 à faire par Marius ; MV1 = critère de sortie de phase)
+- [x] (O) mini-spec Habitudes (s'appuie sur §4.9 de timers-reminders) (`docs/specs/habits.md`, décisions H1 à H10 validées par Marius le 2026-11-17)
+- [x] (S) Lot H1 (spec habits) : migration V8, stockage, logique pure (revu ; texte de V8 figé le 2026-11-17)
+- [x] (S) Lot H2 : commandes habit_* (revu ; vérification manuelle CA-H2-5 à faire par Marius)
+- [x] (S) Lot H3 : front, données et services (habitudes) (revu ; PV2 à mesurer en H4a)
+- [x] (S) Lot H4a : widget Habitudes (liste, bande, fiche, archivage) (revu ; vérifications manuelles MH1 à MH6 et PV2 à faire par Marius)
+- [x] (S) Lot H4b : historique 5 semaines et statistiques (revu ; vérifications manuelles MH7, MH8 à faire par Marius)
 - [ ] (O) ADR-004 : choix du calendrier (Schedule-X vs FullCalendar) après essai
 - [ ] (S) Calendrier agrégé via `CalendarSource`
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.

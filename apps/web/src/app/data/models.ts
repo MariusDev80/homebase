@@ -1,5 +1,5 @@
 import { JsonObject } from './json';
-import type { InstantIso, LocalDateIso } from './time-formats';
+import type { InstantIso, LocalDateIso, LocalDateTimeIso, TimeZoneId } from './time-formats';
 
 export const DEFAULT_DASHBOARD_ICON = 'th-large';
 /** Same shape as the CHECK of V4. The closed list lives in core/dashboard/dashboard-icons.ts. */
@@ -185,3 +185,123 @@ export interface TodoChanges {
   /** undefined keeps the current value. Bound as 1/0, never as a JS boolean (ADR-002 F13). */
   important?: boolean;
 }
+
+// Timers and reminders (spec timers-reminders 4.7). Rows are owned by the Rust scheduler: the
+// front only reads and writes them through typed commands (data/tauri).
+
+export type ReminderStatus = 'scheduled' | 'finished' | 'disabled' | 'invalid';
+
+export interface Reminder {
+  readonly id: string;
+  readonly title: string;
+  readonly startLocal: LocalDateTimeIso;
+  readonly timeZone: TimeZoneId;
+  readonly rrule: string | null;
+  readonly exdates: readonly LocalDateTimeIso[];
+  readonly enabled: boolean;
+  readonly nextFireAt: InstantIso | null;
+  readonly nextFireKey: LocalDateTimeIso | null;
+  readonly status: ReminderStatus;
+  readonly createdAt: InstantIso;
+  readonly updatedAt: InstantIso;
+}
+
+export interface ReminderInput {
+  readonly title: string;
+  readonly startLocal: LocalDateTimeIso;
+  readonly timeZone: TimeZoneId;
+  readonly rrule: string | null;
+  readonly exdates: readonly LocalDateTimeIso[];
+  readonly enabled: boolean;
+}
+
+export type DeliveryOutcome = 'on_time' | 'late' | 'missed';
+
+export interface ReminderDelivery {
+  readonly reminderId: string;
+  readonly title: string;
+  readonly timeZone: TimeZoneId;
+  readonly occurrenceKey: LocalDateTimeIso;
+  readonly dueAt: InstantIso;
+  readonly outcome: DeliveryOutcome;
+  readonly skippedCount: number;
+  readonly seenAt: InstantIso | null;
+  readonly createdAt: InstantIso;
+}
+
+export type TimeSessionKind =
+  'stopwatch' | 'countdown' | 'pomodoro_work' | 'pomodoro_short_break' | 'pomodoro_long_break';
+
+export interface TimeSession {
+  readonly id: string;
+  readonly kind: TimeSessionKind;
+  readonly label: string;
+  readonly startedAt: InstantIso;
+  readonly endsAt: InstantIso | null;
+  readonly endedAt: InstantIso | null;
+  readonly endReason: 'completed' | 'stopped' | null;
+  readonly createdAt: InstantIso;
+  readonly updatedAt: InstantIso;
+}
+
+export type WeekdayCode = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
+
+export type HabitSchedule =
+  | { readonly kind: 'days'; readonly days: readonly WeekdayCode[] }
+  | { readonly kind: 'weekly'; readonly target: number };
+
+export interface HabitReminderInput {
+  /** HH:MM */
+  readonly time: string;
+  readonly days: readonly WeekdayCode[];
+  readonly timeZone: TimeZoneId;
+  readonly enabled: boolean;
+}
+
+export interface HabitReminder extends HabitReminderInput {
+  readonly reminderId: string;
+  readonly nextFireAt: InstantIso | null;
+  readonly nextFireKey: LocalDateTimeIso | null;
+  readonly status: ReminderStatus;
+}
+
+export interface HabitInput {
+  readonly title: string;
+  readonly schedule: HabitSchedule;
+  readonly startOn: LocalDateIso;
+  readonly reminder: HabitReminderInput | null;
+}
+
+export interface Habit extends Omit<HabitInput, 'reminder'> {
+  readonly id: string;
+  readonly archivedAt: InstantIso | null;
+  readonly reminder: HabitReminder | null;
+  readonly createdAt: InstantIso;
+  readonly updatedAt: InstantIso;
+}
+
+export interface HabitCheck {
+  readonly habitId: string;
+  readonly dayOn: LocalDateIso;
+}
+
+/** Mirrors MAX_HABITS, TITLE_MAX_CHARS and HABIT_RANGE_MAX_DAYS of `schedule/mod.rs`. */
+export const HABIT_LIMITS = { maxHabits: 100, titleMaxChars: 200, historyDays: 400 } as const;
+
+/**
+ * Bounds enforced by the Rust scheduler; they MUST stay equal to the constants of
+ * `apps/desktop/src-tauri/src/schedule/mod.rs` (the Rust is authoritative, the front only mirrors
+ * them for fakes and form hints). Texts are counted in code points.
+ */
+export const SCHEDULE_LIMITS = {
+  maxReminders: 1000,
+  maxRunningSessions: 20,
+  titleMaxChars: 200,
+  labelMaxChars: 100,
+  durationMinMs: 1_000,
+  durationMaxMs: 86_400_000,
+  /** Largest `limit` of the delivery and history reads. */
+  listMaxLimit: 200,
+  /** ADR-003 section 3.5.3. */
+  maxExdates: 366,
+} as const;

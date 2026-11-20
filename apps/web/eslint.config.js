@@ -6,7 +6,14 @@ const angular = require('angular-eslint');
 const prettier = require('eslint-config-prettier');
 
 /** Builds the no-restricted-imports options (test-only modules are always restricted). */
-function restrict({ plugin, internals, temporal = true }) {
+function restrict({
+  plugin,
+  internals,
+  temporal = true,
+  tauriApi = false,
+  timeBarrel = false,
+  tauriRepos = false,
+}) {
   const paths = [
     { name: 'better-sqlite3', message: 'Test-only dependency (data/testing).' },
     {
@@ -25,6 +32,19 @@ function restrict({ plugin, internals, temporal = true }) {
     });
   }
   const patterns = [{ group: ['node:*'], message: 'Node built-ins are test-only.' }];
+  if (tauriApi) {
+    patterns.push({
+      group: ['@tauri-apps/api', '@tauri-apps/api/*'],
+      message: 'Inside data/, only data/tauri/** may import the Tauri API (timers-reminders D2).',
+    });
+  }
+  if (timeBarrel) {
+    patterns.push({
+      regex: '(^|/)core/time/?$',
+      message:
+        'Initial bundle: esbuild puts in the initial chunk every module re-exported by a barrel imported from main. Import the real file (core/time/time-zone, ...).',
+    });
+  }
   if (temporal) {
     patterns.push({
       group: ['temporal-polyfill', 'temporal-polyfill/*'],
@@ -33,7 +53,11 @@ function restrict({ plugin, internals, temporal = true }) {
   }
   if (internals) {
     patterns.push({
-      group: ['**/data/sqlite/**', '**/data/testing/**'],
+      group: [
+        '**/data/sqlite/**',
+        '**/data/testing/**',
+        ...(tauriRepos ? [] : ['**/data/tauri/**']),
+      ],
       message: 'Import from the data layer public API (data/index.ts) instead.',
     });
   }
@@ -118,7 +142,27 @@ module.exports = defineConfig([
     },
   },
   {
+    // Specs may build the Rust-command repositories (e.g. the injection tokens test).
+    files: ['src/**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        restrict({ plugin: true, internals: true, tauriRepos: true }),
+      ],
+    },
+  },
+  {
     files: ['src/app/data/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        restrict({ plugin: true, internals: false, tauriApi: true }),
+      ],
+    },
+  },
+  {
+    // The Rust-command repositories: the only part of data/ that reaches the Tauri API.
+    files: ['src/app/data/tauri/**/*.ts'],
     rules: {
       'no-restricted-imports': ['error', restrict({ plugin: true, internals: false })],
     },
@@ -126,7 +170,20 @@ module.exports = defineConfig([
   {
     files: ['src/app/data/sqlite/tauri-sql-executor.ts'],
     rules: {
-      'no-restricted-imports': ['error', restrict({ plugin: false, internals: false })],
+      'no-restricted-imports': [
+        'error',
+        restrict({ plugin: false, internals: false, tauriApi: true }),
+      ],
+    },
+  },
+  {
+    // Entry files: the initial bundle must not pull core/time through its barrel.
+    files: ['src/app/app.config.ts', 'src/main.ts', 'src/app/app.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        restrict({ plugin: true, internals: true, timeBarrel: true }),
+      ],
     },
   },
   {

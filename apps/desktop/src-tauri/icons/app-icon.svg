@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Homebase app icon: a house (home) whose walls are a widget grid (dashboard).
+       Source for `npx tauri icon apps/desktop/src-tauri/icons/app-icon.svg`. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4493f8" />
+      <stop offset="1" stop-color="#0550ae" />
+    </linearGradient>
+  </defs>
+
+  <rect x="32" y="32" width="960" height="960" rx="216" fill="url(#bg)" />
+
+  <!-- Roof -->
+  <polyline points="232,476 512,236 792,476" fill="none" stroke="#ffffff" stroke-width="84"
+    stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Walls -->
+  <rect x="300" y="508" width="424" height="324" rx="56" fill="#ffffff" />
+
+  <!-- Widget grid: one wide card on top, two cards below -->
+  <rect x="348" y="556" width="328" height="96" rx="20" fill="url(#bg)" />
+  <rect x="348" y="684" width="148" height="100" rx="20" fill="url(#bg)" />
+  <rect x="528" y="684" width="148" height="100" rx="20" fill="url(#bg)" />
+</svg>
