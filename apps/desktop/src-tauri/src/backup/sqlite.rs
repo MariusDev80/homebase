@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn supported_version_is_latest_migration() {
-        assert_eq!(supported_schema_version(), 6);
+        assert_eq!(supported_schema_version(), 7);
     }
 
     #[test]

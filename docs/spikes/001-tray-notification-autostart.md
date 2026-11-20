@@ -2,6 +2,8 @@
 
 Statut : implémenté, vérification manuelle à faire par Marius (notification, tray, autostart ne sont pas testables automatiquement).
 
+Suite (spec timers-reminders, 2026-11-16) : planificateur réel dans `docs/specs/timers-reminders.md` ; un toast sans nom de son est muet (V13) ; démarrage automatique avec `--minimized`.
+
 ## Ce qui a été fait
 
 - `apps/desktop/src-tauri/src/spike.rs` : commandes `schedule_test_notification(delay_secs)` (borne 1..=3600, sinon `SpikeError::DelayOutOfRange` sérialisable `{kind, min, max, got}`), `get_autostart`, `set_autostart`. Validation dans la fonction pure `validate_delay` (testée : 0, 1, 3600, 3601). Titre et corps de la notification fixés en Rust (français), jamais issus d'une saisie.

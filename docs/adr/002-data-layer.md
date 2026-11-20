@@ -136,6 +136,10 @@ Les tests de `data/` tournent dans une config Vitest séparée (environnement `n
 | FK | toujours indexées côté enfant. Les futures tables de données d'un widget rattachées à une instance référencent `widget_instances(id) ON DELETE CASCADE` |
 | Paramètres SQL | toujours liés (`$1`, `$2`…), jamais de valeur concaténée. Les identifiants dynamiques (tri) viennent d'une liste fermée en dur. Pas de `$` suivi d'un chiffre dans un littéral SQL (contrainte de l'adaptateur de test) |
 
+*Amendement (spec timers-reminders, 2026-11-16)* : exceptions justifiées pour les tables `reminders`, `reminder_deliveries` et `time_sessions` (V7) : clé naturelle `(reminder_id, occurrence_key)` pour `reminder_deliveries` ; `created_at` / `updated_at` de ces tables fournis par l'horloge Rust (`time::clock::Clock`, même format).
+
+*Amendement (spec timers-reminders, 2026-11-16)* : pour les index partiels, un nom qui porte un rôle est accepté en dérogation à `<table>_<colonnes>_idx` : `reminder_deliveries_unseen_idx`, `time_sessions_running_idx`, `time_sessions_history_idx`, `time_sessions_one_pomodoro_idx`.
+
 ### 3.4 Schéma V1 (phase 0)
 Trois tables : `settings` (clé/valeur JSON), `dashboards`, `widget_instances`. Rien pour les widgets futurs. SQL exact au §6.3.
 
@@ -160,6 +164,8 @@ Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoq
 *Amendement (spec dashboard-theme)* : `Dashboard.theme` (`JsonObject`) et `Dashboard.themeVersion` ; `NewDashboard.theme?` / `themeVersion?` (recopiés tels quels dans l'`INSERT` de création, par exemple pour le tableau « (suite) ») ; `DashboardRepository.updateTheme(id, theme, themeVersion)` (une instruction ; `not_found` ; `invalid_input` au-delà de 4 096 points de code ou pour une version non entière ou < 1). `update(id, { name, icon })` ne touche pas au thème.
 
 *Amendement (spec todo-details)* : `Todo.description`, `Todo.rrule`, `Todo.important` ; `TodoChanges.description?`, `rrule?`, `important?` (lié en 1/0 ; une règle exige une échéance : `invalid_input` dans la même modification, `constraint` sinon ; effacer l'échéance efface la règle dans la même instruction) ; `TodoRepository.shiftRepeatDue(id, fromDueOn, toDueOn)` (comparer-et-écrire en une instruction : `conflict` si l'échéance, la règle ou l'état ont changé ; `not_found` ; `constraint` pour une date cible bien formée mais impossible, ex. 2026-02-30). Le dépôt ne calcule aucune date : la prochaine échéance vient de `core/time` (que `data/` ne peut pas importer). `setCompleted` ignore la règle. `search` porte aussi sur la description et renvoie un `excerpt`.
+
+*Amendement (spec timers-reminders, 2026-11-16)* : dépôts adossés à des commandes Rust (`ReminderRepository`, `TimeSessionRepository`), erreurs Rust traduites en `DataError` (spec timers-reminders §4.7).
 
 ### 3.6 Capabilities Tauri
 Strict nécessaire pour le front : **`sql:allow-execute`** et **`sql:allow-select`**. **Pas** de `sql:default` (qui ajouterait `allow-load` et `allow-close`, inutiles avec `preload` + `Database.get`, F14 et F15).
@@ -196,7 +202,7 @@ Négatives et coûts :
 | R8. SQLite embarquée par sqlx plus ancienne que 3.38 (S1) | V1 échoue (STRICT, `json_valid`, `UPDATE FROM`) | Critère A10 : contrôle de `sqlite_version()` au premier lancement |
 | R9. better-sqlite3 sans binaire précompilé pour la version de Node | `test:data` ne s'installe pas | Build Tools C++ déjà présents. Repli `node:sqlite` (même interface `SqlExecutor`) |
 | R10. Écarts entre la SQLite de better-sqlite3 et celle de sqlx | Un test passe sous Node mais échoue en production | SQL standard SQLite, versions récentes des deux côtés, critère A10 au lancement réel |
-| R11. Deux instances de l'application sur la même base | Écritures concurrentes (supportées en WAL), doublons de notifications en phase 2 | Plugin single-instance à prévoir en phase 2 (hors ADR) |
+| R11. Deux instances de l'application sur la même base | Écritures concurrentes (supportées en WAL), doublons de notifications en phase 2 | Plugin single-instance à prévoir en phase 2 (hors ADR). **Clos (spec timers-reminders, 2026-11-16) : instance unique en place, planificateur unique.** |
 | R12. Antivirus ou outil de synchro qui verrouille `homebase.db` | Erreurs `busy` | `busy_timeout` 5 s, `DataError('busy')`. Ne pas placer la base dans un dossier synchronisé (OneDrive) |
 | R13. Mise en correspondance des erreurs par message (S3) fragile | Mauvaise catégorie d'erreur | Repli `unknown`. Tests de mapping sous Node. Vérification manuelle sous Tauri (A11) |
 
@@ -631,7 +637,7 @@ Commandes de sauvegarde et de restauration, images, écran d'erreur de démarrag
 
 ## 7. Points ouverts
 - **O1** (phase 1) : sauvegarde automatique avant migration et message d'erreur natif si une migration échoue au `preload` (au lieu d'une panique). **Partiellement traité (sauvegarde avant migration ; écran d'erreur natif complet en phase 6).**
-- **O2** (phase 2) : accès du planificateur Rust à la base (connexion sqlx séparée sur le même fichier, ou réutilisation de l'état `DbInstances` du plugin), à trancher dans la spec du planificateur. **Partiellement traité : connexion sqlx dédiée par opération en place (spec backup-restore).**
-- **O3** (avancé avant la phase 3, décision de Marius du 2026-10-22 : à faire avant le premier contenu externe affiché, RSS ou Markdown) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1.
+- **O2** (phase 2) : accès du planificateur Rust à la base (connexion sqlx séparée sur le même fichier, ou réutilisation de l'état `DbInstances` du plugin), à trancher dans la spec du planificateur. **Partiellement traité : connexion sqlx dédiée par opération en place (spec backup-restore).** **Traité (spec timers-reminders D3) : connexions sqlx dédiées par opération, sérialisées par un verrou unique du module `schedule`.**
+- **O3** (avancé avant la phase 3, décision de Marius du 2026-10-22 : à faire avant le premier contenu externe affiché, RSS ou Markdown) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1. **Avancement partiel (spec timers-reminders, 2026-11-16) : les tables `reminders`, `reminder_deliveries`, `time_sessions` (V7) ne sont accessibles que par des commandes Rust typées ; leurs dépôts TS sont dans `data/tauri/` (garde-fou par test).**
 - **O4** (phase 6, E2E Playwright) : tests contre l'application Tauri (`tauri-driver`) ou un `SqlExecutor` navigateur (sql.js). Le front hors Tauri n'a pas de base aujourd'hui.
 - **O5** (clos : ADR-001 l.87 y répond) : alignement avec l'ADR-001 sur le format de `widget_type` et la représentation de la config versionnée, à faire **avant** la fusion de V1 sur `main`.

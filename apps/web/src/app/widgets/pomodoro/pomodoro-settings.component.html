@@ -1,0 +1,65 @@
+<div
+  role="group"
+  class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+  data-testid="pomodoro-settings"
+  [attr.aria-label]="'widgets.pomodoro.settings' | transloco"
+  (keydown.escape)="back()"
+>
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-invisible btn-compact"
+      data-testid="pomodoro-settings-back"
+      (click)="back()"
+    >
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      {{ 'widgets.pomodoro.back' | transloco }}
+    </button>
+    <span
+      role="status"
+      class="min-w-0 flex-1 truncate text-xs text-fg-muted"
+      data-testid="pomodoro-settings-status"
+    >
+      @if (saveState() === 'error') {
+        <span class="text-danger" data-testid="pomodoro-settings-error">
+          {{ 'widgets.pomodoro.errors.save' | transloco }}
+        </span>
+      } @else if (saveState() === 'saving') {
+        {{ 'widgets.pomodoro.saving' | transloco }}
+      } @else if (saveState() === 'saved') {
+        {{ 'widgets.pomodoro.saved' | transloco }}
+      }
+    </span>
+  </div>
+
+  @for (field of fields; track field.key) {
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold" [for]="'pomodoro-' + field.key + '-' + instanceId">
+        {{ 'widgets.pomodoro.fields.' + field.key | transloco }}
+      </label>
+      <input
+        type="text"
+        class="field w-24"
+        inputmode="numeric"
+        [id]="'pomodoro-' + field.key + '-' + instanceId"
+        [attr.data-testid]="'pomodoro-setting-' + field.key"
+        [attr.aria-invalid]="invalid().has(field.key)"
+        [attr.aria-describedby]="
+          invalid().has(field.key) ? 'pomodoro-' + field.key + '-' + instanceId + '-error' : null
+        "
+        [value]="drafts()[field.key]"
+        (input)="onInput(field.key, $event)"
+        (blur)="onBlur()"
+      />
+      @if (invalid().has(field.key)) {
+        <p
+          class="field-error"
+          [id]="'pomodoro-' + field.key + '-' + instanceId + '-error'"
+          [attr.data-testid]="'pomodoro-setting-error-' + field.key"
+        >
+          {{ 'widgets.pomodoro.errors.range' | transloco: { min: field.min, max: field.max } }}
+        </p>
+      }
+    </div>
+  }
+</div>

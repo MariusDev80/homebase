@@ -146,6 +146,8 @@ Un élément planifié a **exactement une** ancre :
 
 Plus, optionnellement : `rrule` (sans préfixe `RRULE:` ni `DTSTART`, sous-ensemble §3.5) et `exdates` (tableau JSON d'heures murales pour une ancre horodatée, de dates pour une ancre datée). Sans `rrule`, l'élément est ponctuel. L'instant d'un élément ponctuel horodaté n'est **pas stocké** : il est résolu à la lecture (§3.3). **Seules les ancres horodatées déclenchent des notifications** (§3.5.5).
 
+*Amendement (spec timers-reminders, 2026-11-16)* : `reminders` n'admet qu'une ancre horodatée (colonnes `NOT NULL`, sans `start_on` ni contrainte d'ancre exclusive) : une ancre datée ne sonne jamais (§3.5.5).
+
 #### 3.1.3 Fragments SQL normatifs (à recopier dans chaque migration qui crée une colonne temporelle)
 `<c>` désigne la colonne. Tables `STRICT`, type `TEXT`. Le `IS` (et non `=`) est indispensable : un `CHECK` qui vaut `NULL` **passe**. Le modificateur `'+0 seconds'` est indispensable : sans lui, `strftime` renvoie `T24:00:00` tel quel (V13).
 
@@ -291,8 +293,17 @@ Une ancre sans règle suit le même chemin. **Clé d'occurrence** = heure murale
 
 Limites : plage ≤ **400 jours** et `from < to` (sinon `invalid_range`) ; `limit` 1..1000 (défaut 500) ; entrées IPC bornées (§3.8).
 
+*Amendement (lot B, 2026-11-16)* : précisions d'implémentation, sans changement de résultat.
+- `limit` égal à 0 ou supérieur à 1000 → `out_of_range` (valeur = la limite). Plus de 366 `exdates`, ou une exception de plus de 19 caractères (longueur d'une heure murale) → `invalid_exdate`, contrôlé avant toute copie ou tri.
+- Une erreur interne de la crate `rrule` à la construction de la règle (non attendue après validation) est traduite en `invalid_rule` avec le code `invalid_value`.
+- L'itération est bornée par `UNTIL` : pour un `UNTIL` instant, la borne haute est `min(hi, heure murale de UNTIL + 1 jour)` ; pour un `UNTIL` date, `UNTIL + 1 jour`. Un `UNTIL` proche de l'ancre ne provoque donc pas d'`expansion_limit` quand la plage est lointaine. `next_after` s'arrête à la première occurrence strictement postérieure (heures nominales croissantes, une occurrence par jour au plus).
+- Le codec accepte en entrée les parties dans un ordre quelconque, `INTERVAL=1` et un `BYDAY` non trié, puis produit la forme canonique (§3.5.1) ; `parseDateRule` (§3.9) exige en plus que le texte soit déjà canonique.
+- Le champ `part` des erreurs de règle (nom de la partie fautive) est vérifié par les vecteurs `ruleCodec` des deux côtés quand il y figure.
+
 #### 3.5.5 Prochaine occurrence et notifications
 `next_after(spec, after)` (Rust) renvoie la première occurrence **strictement après** `after`, cherchée sur **10 ans** au plus (au-delà : « aucune »). Elle n'est définie que pour une **ancre horodatée** ; pour une ancre datée elle renvoie `TimeError::NotSchedulable`. Décision : **une ancre datée ne déclenche jamais de notification** (sinon le Rust devrait connaître le fuseau utilisateur pour savoir quand commence la journée). Un rappel d'habitude « à 20 h » est donc une ancre horodatée ; une habitude « tous les lundis » sans heure n'est qu'affichée.
+
+*Amendement (spec timers-reminders, 2026-11-16)* : `next_after` est utilisée par le planificateur ; le rattrapage compte les occurrences manquées par `expand` sur au plus 399 jours.
 
 ### 3.6 Horloge injectable et interdiction du calcul à la main
 **TS**
@@ -361,6 +372,7 @@ Deux commandes **pures** (aucun accès disque, réseau ni état), **asynchrones*
 
 ### 3.10 Ce qui reste pour la phase 2 et l'ADR-004
 **Spec planificateur (phase 2, Opus)** : boucle (réveil à intervalle borné, ≤ 30 s, comparé à `Clock::now()` pour survivre à la veille et aux changements d'horloge) ; rattrapage au démarrage (recommandation : une notification pour la **dernière** occurrence manquée par élément, plus un résumé) ; table des déclenchements avec unicité `(élément, clé d'occurrence)` ; cache `next_fire_at` ; accès Rust à la base (ADR-002 O2) ; plugin single-instance ; modèle des timers ; édition « cette occurrence / les suivantes / toutes ».
+*Amendement (spec timers-reminders, 2026-11-16)* : traité par `docs/specs/timers-reminders.md` (thread borné à 30 s, rattrapage D6, table `reminder_deliveries`, cache `next_fire_at`, connexions sqlx, timers D7, édition D12).
 **ADR-004** : bibliothèque calendrier, champs visuels de `CalendarEvent`, conversion vers la lib, début de semaine (lundi en `fr`).
 
 ---

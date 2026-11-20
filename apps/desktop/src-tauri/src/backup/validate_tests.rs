@@ -626,19 +626,19 @@ fn contiguous_history_beyond_the_supported_version_is_schema_too_new() {
         try_extract(&path).expect_err("refused"),
         BackupError::SchemaTooNew {
             archive: 99,
-            supported: 6
+            supported: 7
         }
     );
     // A schema that also differs from ours stays "too new" (R4).
     let dir = TempDir::new().expect("tmp");
     let path = db_archive(
         &dir,
-        6,
-        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (7, 'x', 1, X'00', 0); CREATE TABLE future (a)",
+        7,
+        "INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time) VALUES (8, 'x', 1, X'00', 0); CREATE TABLE future (a)",
     );
     assert!(matches!(
         try_extract(&path).expect_err("refused"),
-        BackupError::SchemaTooNew { archive: 7, .. }
+        BackupError::SchemaTooNew { archive: 8, .. }
     ));
 }
 
@@ -1119,7 +1119,7 @@ fn expected_schema_of_version_6_matches_a_real_database() {
 }
 
 #[test]
-fn v5_database_migrated_to_v6_keeps_todos_and_gets_defaults() {
+fn v5_database_migrated_for_real_keeps_todos_and_gets_defaults() {
     let dir = TempDir::new().expect("tmp");
     let path = dir.path().join("homebase.db");
     make_database(&path, 5, true);
@@ -1141,7 +1141,7 @@ fn v5_database_migrated_to_v6_keeps_todos_and_gets_defaults() {
         Some("2026-10-30T10:00:00.000Z")
     );
     assert_eq!(todo_value(&path, "updated_at").as_deref(), Some(TODO_AT));
-    assert_eq!(schema_of(&path), run(expected_schema(6)).expect("v6"));
+    assert_eq!(schema_of(&path), run(expected_schema(7)).expect("v7"));
 }
 
 #[test]
@@ -1248,4 +1248,44 @@ fn archive_at_the_supported_version_made_by_the_real_migrator_is_accepted() {
         "{\"cardBody\":\"rose\",\"cardHeader\":\"default\"}"
     );
     assert_eq!(dashboard_int(&dest.join("homebase.db"), "theme_version"), 1);
+}
+
+#[test]
+fn expected_schema_of_version_7_matches_a_real_database() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 7, false);
+    let expected = run(expected_schema(7)).expect("expected");
+    assert_eq!(schema_of(&path), expected);
+    let v6 = run(expected_schema(6)).expect("v6");
+    assert_ne!(expected, v6);
+    for table in ["reminders", "reminder_deliveries", "time_sessions"] {
+        assert!(
+            expected.iter().any(|r| r.1 == table),
+            "{table} missing from the V7 schema"
+        );
+        assert!(
+            !v6.iter().any(|r| r.1 == table),
+            "{table} present in the V6 schema"
+        );
+    }
+}
+
+#[test]
+fn v6_database_migrated_to_v7_keeps_its_rows_and_gets_the_new_tables() {
+    let dir = TempDir::new().expect("tmp");
+    let path = dir.path().join("homebase.db");
+    make_database(&path, 6, true);
+    run(async {
+        let options = SqliteConnectOptions::new().filename(&path);
+        let mut conn = SqliteConnection::connect_with(&options)
+            .await
+            .expect("open");
+        seed_todo(&mut conn).await;
+        conn.close().await.expect("close");
+    });
+    migrate_for_real(&path);
+    assert_eq!(todo_value(&path, "due_on").as_deref(), Some("2026-11-02"));
+    assert_eq!(todo_value(&path, "updated_at").as_deref(), Some(TODO_AT));
+    assert_eq!(schema_of(&path), run(expected_schema(7)).expect("v7"));
 }

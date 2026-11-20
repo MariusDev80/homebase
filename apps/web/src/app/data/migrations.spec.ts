@@ -68,8 +68,11 @@ describe('migrations', () => {
       expect(tables.map((t) => t.name)).toEqual([
         'dashboards',
         'notes',
+        'reminder_deliveries',
+        'reminders',
         'settings',
         'shortcuts',
+        'time_sessions',
         'todo_lists',
         'todos',
         'widget_instances',
@@ -315,6 +318,178 @@ describe('migrations', () => {
       } finally {
         v5.close();
         v6.close();
+      }
+    });
+  });
+
+  describe('V7 (reminders, reminder_deliveries, time_sessions)', () => {
+    const AT = '2026-01-01T00:00:00.000Z';
+    const DUE = '2026-11-16T08:00:00.000Z';
+    const KEY = '2026-11-16T09:00:00';
+    const END = '2026-11-16T07:10:00.000Z';
+    const R1 = '00000000-0000-4000-8000-000000000001';
+    const S1 = '00000000-0000-4000-8000-000000000011';
+    const S2 = '00000000-0000-4000-8000-000000000012';
+
+    type Db = ReturnType<typeof createTestDatabase>;
+
+    interface ReminderParams {
+      id?: string;
+      exdates?: string;
+      enabled?: number;
+      at?: string | null;
+      key?: string | null;
+    }
+
+    const insertReminder = (db: Db, p: ReminderParams = {}) =>
+      db.execute(
+        "INSERT INTO reminders (id, title, start_local, time_zone, rrule, exdates, enabled, next_fire_at, next_fire_key, created_at, updated_at) VALUES ($1, 'T', '2026-11-16T09:00:00', 'Europe/Paris', 'FREQ=DAILY', $2, $3, $4, $5, $6, $6)",
+        [
+          p.id ?? R1,
+          p.exdates ?? '[]',
+          p.enabled ?? 1,
+          p.at === undefined ? DUE : p.at,
+          p.key === undefined ? KEY : p.key,
+          AT,
+        ],
+      );
+
+    const insertSession = (
+      db: Db,
+      kind: string,
+      ends: string | null,
+      ended: string | null,
+      reason: string | null,
+      id = S1,
+    ) =>
+      db.execute(
+        "INSERT INTO time_sessions (id, kind, label, started_at, ends_at, ended_at, end_reason, created_at, updated_at) VALUES ($1, $2, '', '2026-11-16T07:00:00.000Z', $3, $4, $5, $6, $6)",
+        [id, kind, ends, ended, reason, AT],
+      );
+
+    const insertDelivery = (db: Db, outcome = 'late', skipped = 6) =>
+      db.execute(
+        'INSERT INTO reminder_deliveries (reminder_id, occurrence_key, due_at, outcome, skipped_count, seen_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NULL, $6, $6)',
+        [R1, KEY, DUE, outcome, skipped, AT],
+      );
+
+    const refused = (promise: Promise<unknown>, label: string) =>
+      expect(promise, label).rejects.toMatchObject({ kind: 'constraint' });
+
+    it('accepts a valid row in each table', async () => {
+      const db = createTestDatabase();
+      try {
+        await insertReminder(db);
+        await insertDelivery(db);
+        await insertSession(db, 'countdown', END, null, null);
+        await insertSession(db, 'stopwatch', null, null, null, S2);
+        expect(await db.select('SELECT COUNT(*) AS n FROM reminders')).toEqual([{ n: 1 }]);
+        expect(await db.select('SELECT COUNT(*) AS n FROM time_sessions')).toEqual([{ n: 2 }]);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('checks reminders', async () => {
+      const db = createTestDatabase();
+      try {
+        await refused(insertReminder(db, { enabled: 0 }), 'disabled with a cache');
+        await refused(insertReminder(db, { key: null }), 'cache without key');
+        await refused(insertReminder(db, { at: null }), 'key without cache');
+        await refused(insertReminder(db, { exdates: 'x' }), 'exdates not JSON');
+        await refused(insertReminder(db, { exdates: '{}' }), 'exdates not an array');
+        await refused(insertReminder(db, { id: 'BAD' }), 'malformed id');
+        await insertReminder(db, { enabled: 0, at: null, key: null });
+      } finally {
+        db.close();
+      }
+    });
+
+    it('checks time_sessions', async () => {
+      const db = createTestDatabase();
+      try {
+        await refused(insertSession(db, 'stopwatch', END, null, null), 'stopwatch with an end');
+        await refused(insertSession(db, 'countdown', null, null, null), 'countdown without end');
+        await refused(
+          insertSession(db, 'countdown', '2026-11-16T07:00:00.000Z', null, null),
+          'ends_at not after started_at',
+        );
+        await refused(
+          insertSession(db, 'countdown', END, '2026-11-16T07:11:00.000Z', 'completed'),
+          'completed with ended_at different from ends_at',
+        );
+        await refused(insertSession(db, 'countdown', END, END, null), 'ended_at without reason');
+        await refused(insertSession(db, 'alarm', END, null, null), 'unknown kind');
+        await insertSession(db, 'countdown', END, END, 'completed');
+      } finally {
+        db.close();
+      }
+    });
+
+    it('allows a single running pomodoro (safety-net index)', async () => {
+      const db = createTestDatabase();
+      try {
+        await insertSession(db, 'pomodoro_work', END, null, null, S1);
+        await expect(
+          insertSession(db, 'pomodoro_short_break', END, null, null, S2),
+        ).rejects.toMatchObject({ kind: 'conflict' });
+        await insertSession(db, 'pomodoro_work', END, END, 'completed', S2);
+        await insertSession(
+          db,
+          'countdown',
+          END,
+          null,
+          null,
+          '00000000-0000-4000-8000-000000000013',
+        );
+      } finally {
+        db.close();
+      }
+    });
+
+    it('checks reminder_deliveries, keys them by occurrence and cascades on delete', async () => {
+      const db = createTestDatabase();
+      try {
+        await refused(insertDelivery(db), 'delivery of an unknown reminder');
+        await insertReminder(db);
+        await refused(insertDelivery(db, 'skipped'), 'unknown outcome');
+        await refused(insertDelivery(db, 'late', -1), 'negative skipped count');
+        await refused(insertDelivery(db, 'late', 1001), 'skipped count above 1000');
+        await insertDelivery(db);
+        await expect(insertDelivery(db, 'on_time', 0)).rejects.toMatchObject({ kind: 'conflict' });
+        await db.execute('DELETE FROM reminders WHERE id = $1', [R1]);
+        expect(await db.select('SELECT COUNT(*) AS n FROM reminder_deliveries')).toEqual([
+          { n: 0 },
+        ]);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('migrates a V6 database with data into V7 without loss', async () => {
+      const db = createTestDatabase(6);
+      try {
+        await db.execute(
+          "INSERT INTO dashboards (id, name, sort_order, created_at, updated_at) VALUES ('00000000-0000-4000-8000-0000000000d1', 'Home', 0, $1, $1)",
+          [AT],
+        );
+        await db.execute(
+          "INSERT INTO settings (key, value, created_at, updated_at) VALUES ('theme', '\"dark\"', $1, $1)",
+          [AT],
+        );
+        const dashboards = await db.select('SELECT * FROM dashboards');
+        const settings = await db.select('SELECT * FROM settings');
+        const v7 = listMigrationFiles().find((m) => m.version === 7);
+        expect(v7?.name).toBe('timers_reminders');
+        db.exec('BEGIN');
+        db.exec(v7?.sql ?? '');
+        db.exec('COMMIT');
+        expect(await db.select('SELECT * FROM dashboards')).toEqual(dashboards);
+        expect(await db.select('SELECT * FROM settings')).toEqual(settings);
+        expect(await db.select('PRAGMA integrity_check')).toEqual([{ integrity_check: 'ok' }]);
+        expect(await db.select('PRAGMA foreign_key_check')).toEqual([]);
+      } finally {
+        db.close();
       }
     });
   });

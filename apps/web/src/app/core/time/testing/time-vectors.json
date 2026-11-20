@@ -159,6 +159,1869 @@
       "expected": "2026-09-06T04:00:00.000Z"
     }
   ],
+  "ruleCodec": [
+    {
+      "id": "K-DAILY",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY",
+      "canonical": "FREQ=DAILY"
+    },
+    {
+      "id": "K-DAILY-INTERVAL-1-DROPPED",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=1",
+      "canonical": "FREQ=DAILY"
+    },
+    {
+      "id": "K-DAILY-INTERVAL-2",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=2",
+      "canonical": "FREQ=DAILY;INTERVAL=2"
+    },
+    {
+      "id": "K-DAILY-INTERVAL-366",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=366",
+      "canonical": "FREQ=DAILY;INTERVAL=366"
+    },
+    {
+      "id": "K-WEEKLY-INTERVAL-52",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;INTERVAL=52",
+      "canonical": "FREQ=WEEKLY;INTERVAL=52"
+    },
+    {
+      "id": "K-MONTHLY-INTERVAL-11",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;INTERVAL=11",
+      "canonical": "FREQ=MONTHLY;INTERVAL=11"
+    },
+    {
+      "id": "K-YEARLY-INTERVAL-10",
+      "anchorKind": "date-time",
+      "input": "FREQ=YEARLY;INTERVAL=10",
+      "canonical": "FREQ=YEARLY;INTERVAL=10"
+    },
+    {
+      "id": "K-WEEKLY",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY",
+      "canonical": "FREQ=WEEKLY"
+    },
+    {
+      "id": "K-WEEKLY-SORT",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=WE,MO",
+      "canonical": "FREQ=WEEKLY;BYDAY=MO,WE"
+    },
+    {
+      "id": "K-WEEKLY-ALL-DAYS",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=SU,SA,FR,TH,WE,TU,MO",
+      "canonical": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU"
+    },
+    {
+      "id": "K-WEEKLY-INTERVAL-BYDAY",
+      "anchorKind": "date",
+      "input": "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
+      "canonical": "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR"
+    },
+    {
+      "id": "K-MONTHLY",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY",
+      "canonical": "FREQ=MONTHLY"
+    },
+    {
+      "id": "K-MONTHLY-FIRST",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=1MO",
+      "canonical": "FREQ=MONTHLY;BYDAY=1MO"
+    },
+    {
+      "id": "K-MONTHLY-SECOND",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=2TU",
+      "canonical": "FREQ=MONTHLY;BYDAY=2TU"
+    },
+    {
+      "id": "K-MONTHLY-FOURTH",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=4SU",
+      "canonical": "FREQ=MONTHLY;BYDAY=4SU"
+    },
+    {
+      "id": "K-MONTHLY-LAST-FRIDAY",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=-1FR",
+      "canonical": "FREQ=MONTHLY;BYDAY=-1FR"
+    },
+    {
+      "id": "K-MONTHLY-BYMONTHDAY-1",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=1",
+      "canonical": "FREQ=MONTHLY;BYMONTHDAY=1"
+    },
+    {
+      "id": "K-MONTHLY-BYMONTHDAY-31",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=31",
+      "canonical": "FREQ=MONTHLY;BYMONTHDAY=31"
+    },
+    {
+      "id": "K-MONTHLY-LAST-DAY",
+      "anchorKind": "date",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=-1",
+      "canonical": "FREQ=MONTHLY;BYMONTHDAY=-1"
+    },
+    {
+      "id": "K-MONTHLY-INTERVAL-LAST-DAY",
+      "anchorKind": "date",
+      "input": "FREQ=MONTHLY;INTERVAL=11;BYMONTHDAY=-1",
+      "canonical": "FREQ=MONTHLY;INTERVAL=11;BYMONTHDAY=-1"
+    },
+    {
+      "id": "K-YEARLY",
+      "anchorKind": "date",
+      "input": "FREQ=YEARLY",
+      "canonical": "FREQ=YEARLY"
+    },
+    {
+      "id": "K-COUNT-1",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=1",
+      "canonical": "FREQ=DAILY;COUNT=1"
+    },
+    {
+      "id": "K-COUNT-1000",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=1000",
+      "canonical": "FREQ=DAILY;COUNT=1000"
+    },
+    {
+      "id": "K-UNTIL-INSTANT",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231T225959Z",
+      "canonical": "FREQ=DAILY;UNTIL=20261231T225959Z"
+    },
+    {
+      "id": "K-UNTIL-DATE",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=20261231",
+      "canonical": "FREQ=DAILY;UNTIL=20261231"
+    },
+    {
+      "id": "K-UNTIL-LEAP-DAY",
+      "anchorKind": "date",
+      "input": "FREQ=YEARLY;UNTIL=20280229",
+      "canonical": "FREQ=YEARLY;UNTIL=20280229"
+    },
+    {
+      "id": "K-UNTIL-MIN-BOUND",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=19000101",
+      "canonical": "FREQ=DAILY;UNTIL=19000101"
+    },
+    {
+      "id": "K-UNTIL-MAX-BOUND",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=21991231",
+      "canonical": "FREQ=DAILY;UNTIL=21991231"
+    },
+    {
+      "id": "K-FULL-ORDER",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO;UNTIL=20261231T225959Z",
+      "canonical": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO;UNTIL=20261231T225959Z"
+    },
+    {
+      "id": "K-TOO-LONG",
+      "anchorKind": "date-time",
+      "input": "FREQ=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "error": "too_long"
+    },
+    {
+      "id": "K-EMPTY",
+      "anchorKind": "date-time",
+      "input": "",
+      "error": "syntax"
+    },
+    {
+      "id": "K-RRULE-PREFIX",
+      "anchorKind": "date-time",
+      "input": "RRULE:FREQ=DAILY",
+      "error": "syntax"
+    },
+    {
+      "id": "K-LOWERCASE",
+      "anchorKind": "date-time",
+      "input": "freq=daily",
+      "error": "syntax"
+    },
+    {
+      "id": "K-LOWERCASE-VALUE",
+      "anchorKind": "date-time",
+      "input": "FREQ=daily",
+      "error": "invalid_value",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-TRAILING-SEMICOLON",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;",
+      "error": "syntax"
+    },
+    {
+      "id": "K-LEADING-SPACE",
+      "anchorKind": "date-time",
+      "input": " FREQ=DAILY",
+      "error": "syntax"
+    },
+    {
+      "id": "K-EMPTY-VALUE",
+      "anchorKind": "date-time",
+      "input": "FREQ=",
+      "error": "syntax"
+    },
+    {
+      "id": "K-NO-EQUALS",
+      "anchorKind": "date-time",
+      "input": "FREQ",
+      "error": "syntax"
+    },
+    {
+      "id": "K-DOUBLE-EQUALS",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY=1",
+      "error": "syntax"
+    },
+    {
+      "id": "K-DOUBLE-SEMICOLON",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;;COUNT=2",
+      "error": "syntax"
+    },
+    {
+      "id": "K-DIGIT-IN-KEY",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT2=3",
+      "error": "syntax"
+    },
+    {
+      "id": "K-EXRULE",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;EXRULE=FREQ=DAILY",
+      "error": "syntax"
+    },
+    {
+      "id": "K-DUP-FREQ",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;FREQ=WEEKLY",
+      "error": "duplicate_part",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-DUP-COUNT",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=2;COUNT=3",
+      "error": "duplicate_part",
+      "part": "COUNT"
+    },
+    {
+      "id": "K-DUP-BEFORE-UNSUPPORTED",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;WKST=SU;WKST=MO",
+      "error": "duplicate_part",
+      "part": "WKST"
+    },
+    {
+      "id": "K-WKST",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;WKST=SU",
+      "error": "unsupported_part",
+      "part": "WKST"
+    },
+    {
+      "id": "K-BYHOUR",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;BYHOUR=9",
+      "error": "unsupported_part",
+      "part": "BYHOUR"
+    },
+    {
+      "id": "K-BYMINUTE",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;BYMINUTE=0",
+      "error": "unsupported_part",
+      "part": "BYMINUTE"
+    },
+    {
+      "id": "K-BYSECOND",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;BYSECOND=0",
+      "error": "unsupported_part",
+      "part": "BYSECOND"
+    },
+    {
+      "id": "K-BYMONTH",
+      "anchorKind": "date-time",
+      "input": "FREQ=YEARLY;BYMONTH=3",
+      "error": "unsupported_part",
+      "part": "BYMONTH"
+    },
+    {
+      "id": "K-BYYEARDAY",
+      "anchorKind": "date-time",
+      "input": "FREQ=YEARLY;BYYEARDAY=100",
+      "error": "unsupported_part",
+      "part": "BYYEARDAY"
+    },
+    {
+      "id": "K-BYWEEKNO",
+      "anchorKind": "date-time",
+      "input": "FREQ=YEARLY;BYWEEKNO=10",
+      "error": "unsupported_part",
+      "part": "BYWEEKNO"
+    },
+    {
+      "id": "K-BYSETPOS",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYSETPOS=1",
+      "error": "unsupported_part",
+      "part": "BYSETPOS"
+    },
+    {
+      "id": "K-RDATE",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;RDATE=20261231",
+      "error": "unsupported_part",
+      "part": "RDATE"
+    },
+    {
+      "id": "K-UNSUPPORTED-BEFORE-MISSING-FREQ",
+      "anchorKind": "date-time",
+      "input": "WKST=SU",
+      "error": "unsupported_part",
+      "part": "WKST"
+    },
+    {
+      "id": "K-MISSING-FREQ",
+      "anchorKind": "date-time",
+      "input": "INTERVAL=2",
+      "error": "missing_freq",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-MISSING-FREQ-COUNT",
+      "anchorKind": "date",
+      "input": "COUNT=3;BYDAY=MO",
+      "error": "missing_freq",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-HOURLY",
+      "anchorKind": "date-time",
+      "input": "FREQ=HOURLY",
+      "error": "invalid_value",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-MINUTELY",
+      "anchorKind": "date-time",
+      "input": "FREQ=MINUTELY",
+      "error": "invalid_value",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-SECONDLY",
+      "anchorKind": "date-time",
+      "input": "FREQ=SECONDLY",
+      "error": "invalid_value",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-INTERVAL-0",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=0",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-INTERVAL-LEADING-ZERO",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=02",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-INTERVAL-NEGATIVE",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=-1",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-INTERVAL-PLUS",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=+2",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-INTERVAL-TEXT",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=two",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-INTERVAL-HUGE",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=99999999999",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-DAILY-INTERVAL-367",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;INTERVAL=367",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-WEEKLY-INTERVAL-53",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;INTERVAL=53",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-MONTHLY-INTERVAL-12",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;INTERVAL=12",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-YEARLY-INTERVAL-11",
+      "anchorKind": "date-time",
+      "input": "FREQ=YEARLY;INTERVAL=11",
+      "error": "invalid_value",
+      "part": "INTERVAL"
+    },
+    {
+      "id": "K-COUNT-0",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=0",
+      "error": "invalid_value",
+      "part": "COUNT"
+    },
+    {
+      "id": "K-COUNT-1001",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=1001",
+      "error": "invalid_value",
+      "part": "COUNT"
+    },
+    {
+      "id": "K-COUNT-LEADING-ZERO",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=03",
+      "error": "invalid_value",
+      "part": "COUNT"
+    },
+    {
+      "id": "K-BYMONTHDAY-0",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=0",
+      "error": "invalid_value",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYMONTHDAY-32",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=32",
+      "error": "invalid_value",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYMONTHDAY-MINUS-2",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=-2",
+      "error": "invalid_value",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYMONTHDAY-LEADING-ZERO",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=01",
+      "error": "invalid_value",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYMONTHDAY-LIST",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYMONTHDAY=1,15",
+      "error": "invalid_value",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYDAY-UNKNOWN-DAY",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=XX",
+      "error": "invalid_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-LOWERCASE",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=mo",
+      "error": "invalid_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-EMPTY-TOKEN",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=MO,",
+      "error": "invalid_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-ORDINAL-5",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=5TU",
+      "error": "invalid_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-ORDINAL-0",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=0TU",
+      "error": "invalid_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-ORDINAL-MINUS-2",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=-2TU",
+      "error": "invalid_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-ORDINAL-PLUS",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=+2TU",
+      "error": "invalid_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-UNTIL-INVALID-DATE",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20260230",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-INVALID-DATE-DATED",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=20260230",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-BAD-TIME",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231T246000Z",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-HOUR-24",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231T240000Z",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-SECOND-60",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231T235960Z",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-BEFORE-1900",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=18991231",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-AFTER-2199",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=22000101",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-DASHED",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=2026-12-31",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-LOWERCASE-Z",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231T225959z",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-SPACE",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231 225959Z",
+      "error": "invalid_value",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-FREQ-BEFORE-INTERVAL",
+      "anchorKind": "date-time",
+      "input": "FREQ=HOURLY;INTERVAL=0",
+      "error": "invalid_value",
+      "part": "FREQ"
+    },
+    {
+      "id": "K-DUP-BYDAY",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=MO,MO",
+      "error": "duplicate_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-DUP-BYDAY-ORDINAL",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=2TU,2TU",
+      "error": "duplicate_value",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-DAILY",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;BYDAY=MO",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYDAY-YEARLY",
+      "anchorKind": "date-time",
+      "input": "FREQ=YEARLY;BYDAY=MO",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-WEEKLY-ORDINAL",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=2TU",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-WEEKLY-MIXED-ORDINAL",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=MO,2TU",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-MONTHLY-NO-ORDINAL",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=MO",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-MONTHLY-MIXED-ORDINAL",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=MO,2TU",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-MONTHLY-TWO-ORDINALS",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=2TU,3WE",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    },
+    {
+      "id": "K-BYMONTHDAY-YEARLY",
+      "anchorKind": "date-time",
+      "input": "FREQ=YEARLY;BYMONTHDAY=1",
+      "error": "part_not_allowed",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYMONTHDAY-WEEKLY",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYMONTHDAY=1",
+      "error": "part_not_allowed",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYMONTHDAY-DAILY",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;BYMONTHDAY=-1",
+      "error": "part_not_allowed",
+      "part": "BYMONTHDAY"
+    },
+    {
+      "id": "K-BYDAY-AND-BYMONTHDAY",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=2TU;BYMONTHDAY=1",
+      "error": "conflicting_parts"
+    },
+    {
+      "id": "K-COUNT-AND-UNTIL",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=3;UNTIL=20261231T225959Z",
+      "error": "count_and_until"
+    },
+    {
+      "id": "K-COUNT-AND-UNTIL-DATED",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;COUNT=3;UNTIL=20261231",
+      "error": "count_and_until"
+    },
+    {
+      "id": "K-UNTIL-NOT-UTC",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231T225959",
+      "error": "until_not_utc",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-DATE-ON-TIMED",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;UNTIL=20261231",
+      "error": "until_kind_mismatch",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-INSTANT-ON-DATED",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=20261231T000000Z",
+      "error": "until_kind_mismatch",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-UNTIL-LOCAL-ON-DATED",
+      "anchorKind": "date",
+      "input": "FREQ=DAILY;UNTIL=20261231T000000",
+      "error": "until_kind_mismatch",
+      "part": "UNTIL"
+    },
+    {
+      "id": "K-REORDERED",
+      "anchorKind": "date-time",
+      "input": "FREQ=DAILY;COUNT=3;INTERVAL=2",
+      "canonical": "FREQ=DAILY;INTERVAL=2;COUNT=3"
+    },
+    {
+      "id": "K-REORDERED-FULL",
+      "anchorKind": "date-time",
+      "input": "UNTIL=20261231T225959Z;BYDAY=WE,MO;INTERVAL=2;FREQ=WEEKLY",
+      "canonical": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;UNTIL=20261231T225959Z"
+    },
+    {
+      "id": "K-MONTHLY-THIRD",
+      "anchorKind": "date-time",
+      "input": "FREQ=MONTHLY;BYDAY=3WE",
+      "canonical": "FREQ=MONTHLY;BYDAY=3WE"
+    },
+    {
+      "id": "K-WEEKLY-ORDINAL-3",
+      "anchorKind": "date-time",
+      "input": "FREQ=WEEKLY;BYDAY=3WE",
+      "error": "part_not_allowed",
+      "part": "BYDAY"
+    }
+  ],
+  "expand": [
+    {
+      "id": "E-GAP",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2027-03-27T02:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2027-03-01T00:00:00.000Z",
+        "to": "2027-04-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2027-03-27T02:30:00",
+          "start": "2027-03-27T01:30:00.000Z"
+        },
+        {
+          "key": "2027-03-28T02:30:00",
+          "start": "2027-03-28T01:30:00.000Z"
+        },
+        {
+          "key": "2027-03-29T02:30:00",
+          "start": "2027-03-29T00:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-GAP-EXDATE",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2027-03-27T02:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": ["2027-03-28T02:30:00"],
+      "range": {
+        "from": "2027-03-01T00:00:00.000Z",
+        "to": "2027-04-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2027-03-27T02:30:00",
+          "start": "2027-03-27T01:30:00.000Z"
+        },
+        {
+          "key": "2027-03-29T02:30:00",
+          "start": "2027-03-29T00:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-FOLD-DAILY",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-24T02:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-10-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-10-24T02:30:00",
+          "start": "2026-10-24T00:30:00.000Z"
+        },
+        {
+          "key": "2026-10-25T02:30:00",
+          "start": "2026-10-25T00:30:00.000Z"
+        },
+        {
+          "key": "2026-10-26T02:30:00",
+          "start": "2026-10-26T01:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-0900-ACROSS-FOLD",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-24T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-10-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-10-24T09:00:00",
+          "start": "2026-10-24T07:00:00.000Z"
+        },
+        {
+          "key": "2026-10-25T09:00:00",
+          "start": "2026-10-25T08:00:00.000Z"
+        },
+        {
+          "key": "2026-10-26T09:00:00",
+          "start": "2026-10-26T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-WEEKLY-DTSTART-NOMATCH",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-20T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=WEEKLY;BYDAY=WE,MO;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-10-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-10-21T09:00:00",
+          "start": "2026-10-21T07:00:00.000Z"
+        },
+        {
+          "key": "2026-10-26T09:00:00",
+          "start": "2026-10-26T08:00:00.000Z"
+        },
+        {
+          "key": "2026-10-28T09:00:00",
+          "start": "2026-10-28T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-WEEKLY-INTERVAL-2",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-02T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TH;COUNT=4",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2027-01-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-02T09:00:00",
+          "start": "2026-11-02T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-05T09:00:00",
+          "start": "2026-11-05T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-16T09:00:00",
+          "start": "2026-11-16T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-19T09:00:00",
+          "start": "2026-11-19T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-MONTHLY-31",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-01-31T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=MONTHLY;BYMONTHDAY=31;COUNT=4",
+      "exdates": [],
+      "range": {
+        "from": "2026-01-01T00:00:00.000Z",
+        "to": "2027-01-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-01-31T09:00:00",
+          "start": "2026-01-31T08:00:00.000Z"
+        },
+        {
+          "key": "2026-03-31T09:00:00",
+          "start": "2026-03-31T07:00:00.000Z"
+        },
+        {
+          "key": "2026-05-31T09:00:00",
+          "start": "2026-05-31T07:00:00.000Z"
+        },
+        {
+          "key": "2026-07-31T09:00:00",
+          "start": "2026-07-31T07:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-MONTHLY-LAST-DAY-DATED",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2028-01-31"
+      },
+      "rrule": "FREQ=MONTHLY;BYMONTHDAY=-1;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2028-01-01T00:00:00.000Z",
+        "to": "2028-06-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2028-01-31",
+          "date": "2028-01-31"
+        },
+        {
+          "key": "2028-02-29",
+          "date": "2028-02-29"
+        },
+        {
+          "key": "2028-03-31",
+          "date": "2028-03-31"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-YEARLY-FEB-29-2028",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2028-02-29"
+      },
+      "rrule": "FREQ=YEARLY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2028-01-01T00:00:00.000Z",
+        "to": "2028-12-31T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2028-02-29",
+          "date": "2028-02-29"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-YEARLY-FEB-29-2032",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2028-02-29"
+      },
+      "rrule": "FREQ=YEARLY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2032-01-01T00:00:00.000Z",
+        "to": "2032-12-31T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2032-02-29",
+          "date": "2032-02-29"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-YEARLY-FEB-29-2036",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2028-02-29"
+      },
+      "rrule": "FREQ=YEARLY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2036-01-01T00:00:00.000Z",
+        "to": "2036-12-31T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2036-02-29",
+          "date": "2036-02-29"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-YEARLY-FEB-29-EXHAUSTED",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2028-02-29"
+      },
+      "rrule": "FREQ=YEARLY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2040-01-01T00:00:00.000Z",
+        "to": "2040-12-31T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [],
+      "truncated": false
+    },
+    {
+      "id": "E-LAST-FRIDAY",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-30T18:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=MONTHLY;BYDAY=-1FR;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-10-01T00:00:00.000Z",
+        "to": "2027-01-31T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-10-30T18:00:00",
+          "start": "2026-10-30T17:00:00.000Z"
+        },
+        {
+          "key": "2026-11-27T18:00:00",
+          "start": "2026-11-27T17:00:00.000Z"
+        },
+        {
+          "key": "2026-12-25T18:00:00",
+          "start": "2026-12-25T17:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-UNTIL-UTC",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-12-29T23:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;UNTIL=20261231T225959Z",
+      "exdates": [],
+      "range": {
+        "from": "2026-12-01T00:00:00.000Z",
+        "to": "2027-01-10T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-12-29T23:30:00",
+          "start": "2026-12-29T22:30:00.000Z"
+        },
+        {
+          "key": "2026-12-30T23:30:00",
+          "start": "2026-12-30T22:30:00.000Z"
+        },
+        {
+          "key": "2026-12-31T23:30:00",
+          "start": "2026-12-31T22:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-UNTIL-NAIVE",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-12-29T23:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;UNTIL=20261231T000000Z",
+      "exdates": [],
+      "range": {
+        "from": "2026-12-01T00:00:00.000Z",
+        "to": "2027-01-10T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-12-29T23:30:00",
+          "start": "2026-12-29T22:30:00.000Z"
+        },
+        {
+          "key": "2026-12-30T23:30:00",
+          "start": "2026-12-30T22:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-UNTIL-ON-FOLD-OCCURRENCE",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-23T02:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;UNTIL=20261025T003000Z",
+      "exdates": [],
+      "range": {
+        "from": "2026-10-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-10-23T02:30:00",
+          "start": "2026-10-23T00:30:00.000Z"
+        },
+        {
+          "key": "2026-10-24T02:30:00",
+          "start": "2026-10-24T00:30:00.000Z"
+        },
+        {
+          "key": "2026-10-25T02:30:00",
+          "start": "2026-10-25T00:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-COUNT-AND-EXDATE",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-02T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=5",
+      "exdates": ["2026-11-04T09:00:00"],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-02T09:00:00",
+          "start": "2026-11-02T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-03T09:00:00",
+          "start": "2026-11-03T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-05T09:00:00",
+          "start": "2026-11-05T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-06T09:00:00",
+          "start": "2026-11-06T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-DUPLICATE-EXDATES",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-02T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": ["2026-11-03T09:00:00", "2026-11-03T09:00:00"],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-02T09:00:00",
+          "start": "2026-11-02T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-04T09:00:00",
+          "start": "2026-11-04T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-COUNT-WINDOW",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-01T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-02T11:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-03T09:00:00",
+          "start": "2026-11-03T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-IN-RANGE",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-10-25"
+      },
+      "rrule": null,
+      "exdates": [],
+      "range": {
+        "from": "2026-10-25T22:30:00.000Z",
+        "to": "2026-10-26T22:30:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-10-25",
+          "date": "2026-10-25"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-ENDS-AT-FROM",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-10-25"
+      },
+      "rrule": null,
+      "exdates": [],
+      "range": {
+        "from": "2026-10-25T23:00:00.000Z",
+        "to": "2026-10-26T22:30:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-STARTS-AT-TO",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-10-26"
+      },
+      "rrule": null,
+      "exdates": [],
+      "range": {
+        "from": "2026-10-20T00:00:00.000Z",
+        "to": "2026-10-25T23:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-UNTIL",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-11-01"
+      },
+      "rrule": "FREQ=DAILY;UNTIL=20261103",
+      "exdates": [],
+      "range": {
+        "from": "2026-10-25T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-01",
+          "date": "2026-11-01"
+        },
+        {
+          "key": "2026-11-02",
+          "date": "2026-11-02"
+        },
+        {
+          "key": "2026-11-03",
+          "date": "2026-11-03"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-EXDATE",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-11-01"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": ["2026-11-02"],
+      "range": {
+        "from": "2026-10-25T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-01",
+          "date": "2026-11-01"
+        },
+        {
+          "key": "2026-11-03",
+          "date": "2026-11-03"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-WEEKLY",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-11-02"
+      },
+      "rrule": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=4",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-02",
+          "date": "2026-11-02"
+        },
+        {
+          "key": "2026-11-06",
+          "date": "2026-11-06"
+        },
+        {
+          "key": "2026-11-09",
+          "date": "2026-11-09"
+        },
+        {
+          "key": "2026-11-13",
+          "date": "2026-11-13"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-POINT-FOLD",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-25T02:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": null,
+      "exdates": [],
+      "range": {
+        "from": "2026-10-25T00:00:00.000Z",
+        "to": "2026-10-26T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-10-25T02:30:00",
+          "start": "2026-10-25T00:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-POINT-OUT-OF-RANGE",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-25T02:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": null,
+      "exdates": [],
+      "range": {
+        "from": "2026-10-26T00:00:00.000Z",
+        "to": "2026-10-27T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [],
+      "truncated": false
+    },
+    {
+      "id": "E-POINT-EXCLUDED",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-10-25T02:30:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": null,
+      "exdates": ["2026-10-25T02:30:00"],
+      "range": {
+        "from": "2026-10-25T00:00:00.000Z",
+        "to": "2026-10-26T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [],
+      "truncated": false
+    },
+    {
+      "id": "E-TRUNCATED",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-01T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 5,
+      "expected": [
+        {
+          "key": "2026-11-01T09:00:00",
+          "start": "2026-11-01T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-02T09:00:00",
+          "start": "2026-11-02T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-03T09:00:00",
+          "start": "2026-11-03T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-04T09:00:00",
+          "start": "2026-11-04T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-05T09:00:00",
+          "start": "2026-11-05T08:00:00.000Z"
+        }
+      ],
+      "truncated": true
+    },
+    {
+      "id": "E-NOT-TRUNCATED-EXACT-LIMIT",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-01T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=2",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 2,
+      "expected": [
+        {
+          "key": "2026-11-01T09:00:00",
+          "start": "2026-11-01T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-02T09:00:00",
+          "start": "2026-11-02T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-MONTHLY-SECOND-TUESDAY",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-10T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=MONTHLY;BYDAY=2TU;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2027-03-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-10T09:00:00",
+          "start": "2026-11-10T08:00:00.000Z"
+        },
+        {
+          "key": "2026-12-08T09:00:00",
+          "start": "2026-12-08T08:00:00.000Z"
+        },
+        {
+          "key": "2027-01-12T09:00:00",
+          "start": "2027-01-12T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-NEW-YORK-GAP",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-03-07T02:30:00",
+        "timeZone": "America/New_York"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-03-01T00:00:00.000Z",
+        "to": "2026-04-01T00:00:00.000Z",
+        "timeZone": "America/New_York"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-03-07T02:30:00",
+          "start": "2026-03-07T07:30:00.000Z"
+        },
+        {
+          "key": "2026-03-08T02:30:00",
+          "start": "2026-03-08T07:30:00.000Z"
+        },
+        {
+          "key": "2026-03-09T02:30:00",
+          "start": "2026-03-09T06:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-RANGE-401-DAYS",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-01T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY",
+      "exdates": [],
+      "range": {
+        "from": "2026-01-01T00:00:00.000Z",
+        "to": "2027-02-06T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "error": "invalid_range"
+    },
+    {
+      "id": "E-RANGE-EMPTY",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-01T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": null,
+      "exdates": [],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-11-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "error": "invalid_range"
+    },
+    {
+      "id": "E-RANGE-REVERSED",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-01T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": null,
+      "exdates": [],
+      "range": {
+        "from": "2026-11-02T00:00:00.000Z",
+        "to": "2026-11-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "error": "invalid_range"
+    },
+    {
+      "id": "E-EXPANSION-LIMIT",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "1900-01-01T00:00:00",
+        "timeZone": "UTC"
+      },
+      "rrule": "FREQ=DAILY",
+      "exdates": [],
+      "range": {
+        "from": "2199-01-01T00:00:00.000Z",
+        "to": "2199-02-01T00:00:00.000Z",
+        "timeZone": "UTC"
+      },
+      "limit": 10,
+      "error": "expansion_limit"
+    },
+    {
+      "id": "E-TIMED-OTHER-RANGE-ZONE",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-02T23:30:00",
+        "timeZone": "America/New_York"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-03T05:00:00.000Z",
+        "to": "2026-11-05T05:00:00.000Z",
+        "timeZone": "Asia/Tokyo"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-03T23:30:00",
+          "start": "2026-11-04T04:30:00.000Z"
+        },
+        {
+          "key": "2026-11-04T23:30:00",
+          "start": "2026-11-05T04:30:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-TIMED-EARLY-BOUNDARY-OTHER-ZONE",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "2026-11-02T09:00:00",
+        "timeZone": "Europe/Paris"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-02T08:00:00.000Z",
+        "to": "2026-11-04T08:00:00.000Z",
+        "timeZone": "Pacific/Auckland"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-02T09:00:00",
+          "start": "2026-11-02T08:00:00.000Z"
+        },
+        {
+          "key": "2026-11-03T09:00:00",
+          "start": "2026-11-03T08:00:00.000Z"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-AUCKLAND",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-11-10"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-10T12:00:00.000Z",
+        "to": "2026-11-11T09:00:00.000Z",
+        "timeZone": "Pacific/Auckland"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-11",
+          "date": "2026-11-11"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-AUCKLAND-NEXT-LOCAL-DAY",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-11-10"
+      },
+      "rrule": "FREQ=DAILY;COUNT=3",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-10T11:00:00.000Z",
+        "to": "2026-11-10T11:30:00.000Z",
+        "timeZone": "Pacific/Auckland"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-11",
+          "date": "2026-11-11"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "id": "E-UNTIL-BOUNDS-ITERATION",
+      "anchor": {
+        "kind": "date-time",
+        "startLocal": "1900-01-01T00:00:00",
+        "timeZone": "UTC"
+      },
+      "rrule": "FREQ=DAILY;UNTIL=19010101T000000Z",
+      "exdates": [],
+      "range": {
+        "from": "2199-01-01T00:00:00.000Z",
+        "to": "2199-02-01T00:00:00.000Z",
+        "timeZone": "UTC"
+      },
+      "limit": 10,
+      "expected": [],
+      "truncated": false
+    },
+    {
+      "id": "E-ALL-DAY-UNTIL-BOUNDS-ITERATION",
+      "anchor": {
+        "kind": "date",
+        "startOn": "1900-01-01"
+      },
+      "rrule": "FREQ=DAILY;UNTIL=19010101",
+      "exdates": [],
+      "range": {
+        "from": "2199-01-01T00:00:00.000Z",
+        "to": "2199-02-01T00:00:00.000Z",
+        "timeZone": "UTC"
+      },
+      "limit": 10,
+      "expected": [],
+      "truncated": false
+    }
+  ],
   "dateNext": [
     {
       "id": "N1-DAILY-TODAY",

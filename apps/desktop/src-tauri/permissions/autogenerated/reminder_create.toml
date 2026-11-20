@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-reminder-create"
+description = "Enables the reminder_create command without any pre-configured scope."
+commands.allow = ["reminder_create"]
+
+[[permission]]
+identifier = "deny-reminder-create"
+description = "Denies the reminder_create command without any pre-configured scope."
+commands.deny = ["reminder_create"]

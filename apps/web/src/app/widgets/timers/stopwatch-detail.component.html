@@ -1,0 +1,90 @@
+@let s = session();
+<div
+  role="group"
+  class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+  data-testid="stopwatch-detail"
+  [attr.aria-label]="'widgets.timers.detail.group' | transloco: { name: s?.label || defaultName() }"
+  (keydown.escape)="back()"
+>
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-invisible btn-compact"
+      data-testid="stopwatch-detail-back"
+      (click)="back()"
+    >
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      {{ 'widgets.timers.detail.back' | transloco }}
+    </button>
+    <span
+      role="status"
+      class="min-w-0 flex-1 truncate text-xs text-fg-muted"
+      data-testid="stopwatch-detail-status"
+    >
+      @if (saveState() === 'error') {
+        <span class="text-danger" data-testid="stopwatch-detail-error">
+          {{ errorKey() | transloco }}
+        </span>
+      } @else if (saveState() === 'saving') {
+        {{ 'widgets.timers.detail.saving' | transloco }}
+      } @else if (saveState() === 'saved') {
+        {{ 'widgets.timers.detail.saved' | transloco }}
+      }
+    </span>
+  </div>
+
+  @if (s) {
+    <div class="flex flex-col gap-1">
+      <label for="stopwatch-detail-label-{{ instanceId() }}" class="text-xs font-semibold">
+        {{ 'widgets.timers.label' | transloco }}
+      </label>
+      <input
+        id="stopwatch-detail-label-{{ instanceId() }}"
+        type="text"
+        class="field w-full"
+        autocomplete="off"
+        data-testid="stopwatch-detail-label"
+        [attr.maxlength]="labelMax"
+        [placeholder]="defaultName()"
+        [value]="labelValue()"
+        (input)="onInput($event)"
+        (blur)="onBlur()"
+      />
+    </div>
+
+    <dl class="m-0 flex flex-col gap-1 text-sm">
+      <div class="flex items-baseline justify-between gap-2">
+        <dt class="text-fg-muted">{{ 'widgets.timers.detail.started' | transloco }}</dt>
+        <dd class="m-0" data-testid="stopwatch-detail-started">{{ startedText() }}</dd>
+      </div>
+      <div class="flex items-baseline justify-between gap-2">
+        <dt class="text-fg-muted">{{ 'widgets.timers.detail.elapsed' | transloco }}</dt>
+        <dd class="m-0 text-xl font-semibold tabular-nums" data-testid="stopwatch-detail-elapsed">
+          {{ elapsed() }}
+        </dd>
+      </div>
+    </dl>
+
+    @if (past().length > 0) {
+      <section
+        class="flex flex-col gap-1"
+        aria-labelledby="stopwatch-detail-past-{{ instanceId() }}"
+      >
+        <h3
+          class="m-0 text-xs font-semibold text-fg-muted"
+          id="stopwatch-detail-past-{{ instanceId() }}"
+        >
+          {{ 'widgets.timers.detail.past' | transloco }}
+        </h3>
+        <ul class="m-0 list-none p-0" data-testid="stopwatch-detail-past">
+          @for (row of past(); track row.id) {
+            <li class="box-row flex items-center justify-between gap-2 text-sm">
+              <span>{{ row.start }}</span>
+              <span class="tabular-nums">{{ row.duration }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  }
+</div>

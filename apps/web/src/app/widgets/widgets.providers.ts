@@ -2,8 +2,11 @@ import type { Provider } from '@angular/core';
 import { provideWidget } from '../core/widgets';
 import { helloWidget } from './hello/hello.definition';
 import { notesWidget } from './notes/notes.definition';
+import { pomodoroWidget } from './pomodoro/pomodoro.definition';
+import { remindersWidget } from './reminders/reminders.definition';
 import { searchWidget } from './search/search.definition';
 import { shortcutsWidget } from './shortcuts/shortcuts.definition';
+import { timersWidget } from './timers/timers.definition';
 import { todoWidget } from './todo/todo.definition';
 import { weatherWidget } from './weather/weather.definition';
 
@@ -12,8 +15,11 @@ export function provideAllWidgets(): Provider[] {
   return [
     provideWidget(helloWidget),
     provideWidget(notesWidget),
+    provideWidget(pomodoroWidget),
+    provideWidget(remindersWidget),
     provideWidget(searchWidget),
     provideWidget(shortcutsWidget),
+    provideWidget(timersWidget),
     provideWidget(todoWidget),
     provideWidget(weatherWidget),
   ];

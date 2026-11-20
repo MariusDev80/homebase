@@ -1,6 +1,5 @@
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-#[allow(dead_code)] // used from ADR-003 lot B
 pub enum TimeError {
     InvalidInstant {
         value: String,

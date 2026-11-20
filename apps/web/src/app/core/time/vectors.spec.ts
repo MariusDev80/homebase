@@ -1,4 +1,5 @@
 import { nextOccurrenceAfter, parseDateRule } from './date-rule';
+import { parseRecurrenceRule } from './recurrence';
 import vectors from './testing/time-vectors.json';
 import {
   classifyLocal,
@@ -28,6 +29,15 @@ describe('shared time vectors (ADR-003 section 8.6)', () => {
 
   it.each(vectors.startOfDay)('startOfDay $id', (v) => {
     expect(startOfDay(v.date, v.timeZone), v.id).toBe(v.expected);
+  });
+
+  it.each(vectors.ruleCodec)('ruleCodec $id', (v) => {
+    const result = parseRecurrenceRule(v.input, v.anchorKind as 'date-time' | 'date');
+    if ('error' in v) {
+      expect(result.ok ? 'ok' : result.code, v.id).toBe(v.error);
+    } else {
+      expect(result.ok && result.canonical, v.id).toBe(v.canonical);
+    }
   });
 
   it.each(vectors.dateNext)('dateNext $id', (v) => {

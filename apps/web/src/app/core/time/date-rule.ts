@@ -1,5 +1,6 @@
 import { MAX_LOCAL_DATE, type LocalDateIso } from '../../data';
 import { addDays, compareLocalDates, daysBetween } from './local-date';
+import { INTERVAL_MAX, parseRecurrenceRule } from './recurrence';
 import { Temporal } from './temporal';
 import { TimeError } from './time-error';
 import { formatLocalDate, parseLocalDate } from './time-format';
@@ -17,19 +18,12 @@ export interface DateRule {
   readonly lastDayOfMonth: boolean;
 }
 
-export const DATE_RULE_INTERVAL_MAX: Readonly<Record<DateRuleFreq, number>> = {
-  DAILY: 366,
-  WEEKLY: 52,
-  MONTHLY: 11,
-  YEARLY: 10,
-};
+export const DATE_RULE_INTERVAL_MAX: Readonly<Record<DateRuleFreq, number>> = INTERVAL_MAX;
 
 const MAX_ITERATIONS = 1000;
 const MAX_YEAR = 2199;
 const MAX_MONTH = 12;
 const DAYS_PER_WEEK = 7;
-const RULE_PATTERN =
-  /^FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)(?:;INTERVAL=([1-9]\d{0,2}))?(;BYMONTHDAY=-1)?$/;
 
 function isValidRule(rule: DateRule): boolean {
   const max = DATE_RULE_INTERVAL_MAX[rule.freq] as number | undefined;
@@ -42,18 +36,18 @@ function isValidRule(rule: DateRule): boolean {
   );
 }
 
-/** Canonical text of the subset only (D2); null for anything else. */
+/** Canonical text of the subset only (D2); null for anything else. Built on the full codec
+ *  (ADR-003 3.9): parse as a dated anchor, then restrict to the date-only subset. */
 export function parseDateRule(text: string): DateRule | null {
-  const match = RULE_PATTERN.exec(text);
-  if (match === null) return null;
-  const rule: DateRule = {
-    freq: match[1] as DateRuleFreq,
-    interval: match[2] === undefined ? 1 : Number(match[2]),
-    lastDayOfMonth: match[3] !== undefined,
-  };
-  // Canonical only: INTERVAL=1 is refused, and so is anything out of the per-frequency bounds.
-  if (!isValidRule(rule) || formatDateRule(rule) !== text) return null;
-  return rule;
+  const parsed = parseRecurrenceRule(text, 'date');
+  // Canonical only: the codec also accepts INTERVAL=1 or a reordered text, the subset does not.
+  if (!parsed.ok || parsed.canonical !== text) return null;
+  const { rule } = parsed;
+  if (rule.byDay.length > 0 || rule.byNthWeekday !== null || rule.end.kind !== 'never') {
+    return null;
+  }
+  if (rule.byMonthDay !== null && rule.byMonthDay !== -1) return null;
+  return { freq: rule.freq, interval: rule.interval, lastDayOfMonth: rule.byMonthDay === -1 };
 }
 
 /** Canonical text (INTERVAL omitted when 1). */
