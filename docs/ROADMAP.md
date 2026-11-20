@@ -57,6 +57,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [ ] (S) Tests Playwright des parcours critiques (navigation, ajout de widget, géométrie de la grille), tâche séparée après cette refonte (décision de Marius)
 
 ## Phase 2 : Temps
+- [x] (S) Audit des dépendances Rust (reliquat phase 1 bis) : tokio 1.54.1 ; RUSTSEC-2026-0459 (libsqlite3-sys, correctif seulement via tauri-plugin-sql 3 alpha) et RUSTSEC-2023-0071 (rsa, absent du binaire) ignorés dans `.cargo/audit.toml` avec justification et condition de levée
 - [x] (S) ADR-003 lot B : module Rust `time` (jiff + rrule), codec RRULE TS, moteur d'expansion, commandes Tauri `time_expand`/`time_validate`, `CalendarSource` ; vecteurs `dateNext` (spec todo-details) exécutés aussi côté Rust ; `parseDateRule` rebasé sur le codec (vérification manuelle CA-B7 à faire par Marius)
 - [x] (O) Spec timers/pomodoro et planificateur de rappels (Rust, rattrapage au démarrage) (`docs/specs/timers-reminders.md`, décisions M1 à M12 validées par Marius le 2026-11-16)
 - [x] (S) Lot R1 (spec timers-reminders) : migration V7, stockage et planification pure (revu ; texte de V7 figé le 2026-11-16, index unique « un seul pomodoro » ajouté à la revue)
