@@ -407,6 +407,7 @@ describe('parseConfigImport: dashboard themes (format 3)', () => {
     expect(value.plan.dashboards[0].theme).toBe('{"cardBody":"lavender","cardHeader":"default"}');
     expect(value.plan.dashboards[0].themeVersion).toBe(1);
     expect(value.resetsThemes).toBe(false);
+    expect(value.resetsIcons).toBe(false);
   });
 
   it('normalizes an empty object and keeps an unknown tint as is', () => {
@@ -433,6 +434,7 @@ describe('parseConfigImport: dashboard themes (format 3)', () => {
       expect(value.plan.dashboards[0].theme, String(format)).toBe(DEFAULTS);
       expect(value.plan.dashboards[0].themeVersion).toBe(1);
       expect(value.resetsThemes).toBe(true);
+      expect(value.resetsIcons).toBe(format === 1);
     }
   });
 
@@ -980,6 +982,7 @@ describe('buildImportPreview', () => {
       unknownTypes: ['mystery'],
       futureVersions: 2,
       resetsThemes: true,
+      resetsIcons: true,
     };
   }
 
@@ -1012,6 +1015,7 @@ describe('buildImportPreview', () => {
       unknownTypes: ['mystery'],
       futureVersions: 2,
       resetsThemes: true,
+      resetsIcons: true,
       removedDashboards: 0,
       removedWidgets: 0,
       replacedWidgets: 0,

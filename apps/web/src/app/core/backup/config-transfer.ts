@@ -163,6 +163,8 @@ export interface ParsedConfigImport {
   readonly futureVersions: number;
   /** The file predates themes (format 1 or 2). */
   readonly resetsThemes: boolean;
+  /** The file predates dashboard icons (format 1). */
+  readonly resetsIcons: boolean;
 }
 
 export type ParseConfigImportResult =
@@ -590,6 +592,7 @@ function analyse(
       unknownTypes: [...unknownTypes].sort(),
       futureVersions,
       resetsThemes: doc.formatVersion === 1 || doc.formatVersion === 2,
+      resetsIcons: doc.formatVersion === 1,
     },
   };
 }
@@ -631,6 +634,7 @@ export function buildImportPreview(
     unknownTypes: parsed.unknownTypes,
     futureVersions: parsed.futureVersions,
     resetsThemes: parsed.resetsThemes,
+    resetsIcons: parsed.resetsIcons,
     removedDashboards: current.dashboards.filter((d) => !fileDashboards.has(d.id)).length,
     removedWidgets,
     replacedWidgets,
