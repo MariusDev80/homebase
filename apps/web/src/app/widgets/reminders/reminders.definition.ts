@@ -21,4 +21,6 @@ export const remindersWidget = defineWidget<RemindersConfig>({
   },
   // Documentation only: notifications come from the Rust scheduler (ADR-001 amendment).
   permissions: ['notifications'],
+  loadCalendarSource: () =>
+    import('./reminders.calendar-source').then((m) => m.RemindersCalendarSource),
 });

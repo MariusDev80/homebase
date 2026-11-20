@@ -15,7 +15,7 @@ import {
 import { TodoRepository } from '../repositories';
 import { excerptAround, likeContains, validSearch } from '../search';
 import { SqlExecutor } from '../sql-executor';
-import { hasLocalDateShape } from '../time-formats';
+import { hasLocalDateShape, type LocalDateIso } from '../time-formats';
 import {
   TODO_COLUMNS,
   TODO_LIST_COLUMNS,
@@ -27,6 +27,7 @@ import {
 
 export const TODO_LIST_NAME_MAX = 80;
 export const TODO_REORDER_MAX = 1000;
+export const TODO_DUE_LIMIT_MAX = 1000;
 
 /** Exported for tests only (not re-exported by data/index.ts). */
 export const REORDER_TODOS_SQL = `UPDATE todos
@@ -50,6 +51,11 @@ FROM todos AS t JOIN todo_lists AS l ON l.id = t.list_id
 WHERE t.title LIKE $1 ESCAPE '\\' OR t.description LIKE $1 ESCAPE '\\'
 ORDER BY (t.completed_at IS NOT NULL), (t.title LIKE $1 ESCAPE '\\') DESC, t.updated_at DESC, t.id
 LIMIT $2`;
+
+const LIST_DUE_SQL = `SELECT ${TODO_COLUMNS} FROM todos
+WHERE completed_at IS NULL AND due_on IS NOT NULL AND due_on >= $1 AND due_on <= $2
+ORDER BY due_on, sort_order, id
+LIMIT $3`;
 
 function validTitle(title: string): string {
   const trimmed = title.trim();
@@ -256,6 +262,30 @@ export class SqliteTodoRepository implements TodoRepository {
       [listId],
     );
     return result.rowsAffected;
+  }
+
+  async listDue(
+    range: { readonly fromOn: LocalDateIso; readonly toOn: LocalDateIso },
+    limit: number,
+  ): Promise<Todo[]> {
+    if (!hasLocalDateShape(range.fromOn) || !hasLocalDateShape(range.toOn)) {
+      throw new DataError('invalid_input', 'Due range bounds must be YYYY-MM-DD dates');
+    }
+    if (range.fromOn > range.toOn) {
+      throw new DataError('invalid_input', 'Due range start must not be after its end');
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > TODO_DUE_LIMIT_MAX) {
+      throw new DataError(
+        'invalid_input',
+        `Due limit must be an integer from 1 to ${TODO_DUE_LIMIT_MAX}`,
+      );
+    }
+    const rows = await this.executor.select<TodoRow>(LIST_DUE_SQL, [
+      range.fromOn,
+      range.toOn,
+      limit,
+    ]);
+    return rows.map(toTodo);
   }
 
   async search(query: string, limit: number): Promise<TodoSearchHit[]> {

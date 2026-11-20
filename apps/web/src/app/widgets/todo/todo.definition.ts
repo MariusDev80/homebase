@@ -15,6 +15,7 @@ export const todoWidget = defineWidget<TodoConfig>({
     migrations: {},
   },
   permissions: [],
+  loadCalendarSource: () => import('./todo.calendar-source').then((m) => m.TodoCalendarSource),
   // The list and its tasks are deleted with the widget (ADR-001 amendment: removeConfirmKey).
   removeConfirmKey: 'widgets.todo.removeConfirm',
 });

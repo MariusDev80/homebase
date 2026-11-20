@@ -321,8 +321,8 @@ Critères :
   - forme de l'`id` ; ton `accent` ; `timeZone` du rappel ;
   - un `expand` en échec ne saute que son rappel ; un rejet de `list()` rejette la source.
 - **CA-C1-5** `todo.calendar-source.spec.ts` (`ManualClock` au 2026-11-18 à Paris) : le 2026-11-17 donne `danger`, les 18 et 19 donnent `neutral` ; `listDue` est appelé avec `rangeLocalDates` et 1000.
-- **CA-C1-6** `npm run lint` : frontières vertes, aucun import statique de source par `core/`. `npm run web:build` : total initial **inchangé** (±0,2 kB).
-- **PV-C1** (P5) : en `npm run dev`, 100 rappels quotidiens créés par la console, puis `listEvents` sur 42 jours chronométré. Rapporter la durée ; au-delà de 300 ms, s'arrêter et rapporter (repli : commande Rust groupée).
+- **CA-C1-6** `npm run lint` : frontières vertes, aucun import statique de source par `core/`. `npm run web:build` : total initial inchangé hors `loadCalendarSource` : au plus +1 kB pour les deux définitions (ADR-004 R9 ; mesuré +0,73 kB, accepté le 2026-11-20 par le coordinateur).
+- **PV-C1** (P5) : en `npm run dev`, `window.__hbCalendar` (outil de développement, absent de la production) : `await __hbCalendar.seedReminders(100)` puis `await __hbCalendar.measure(42)`, ensuite `clearSeeded()`, puis la même mesure à **1000** rappels (limite `SCHEDULE_LIMITS.maxReminders`). Rapporter les deux durées ; au-delà de 300 ms, s'arrêter et rapporter (repli : commande Rust groupée).
 
 ### Lot C2 : widget, Agenda, Mois, panneau Jour
 Fichiers :
@@ -439,7 +439,9 @@ En `npm run dev` avec quelques rappels et tâches, puis sur l'exe de `npm run bu
 | R4. Charge IPC (P5) | Ouverture lente | PV-C1 ; commande groupée en repli |
 | R5. Total initial proche de 500 kB (ADR-004 R9) | Avertissement de build | Définition seule dans l'initial ; arbitrage en fin de phase |
 | R6. D11 refusée | Le défaut 1 dépend des hooks de la vue liste | Repli T1 bis, MC1 |
+| R7. `listDue` sans index sur `due_on` (balayage de la table) | Lenteur avec beaucoup de tâches | Index partiel possible : `todos_due_active_idx ON todos (due_on, sort_order, id) WHERE completed_at IS NULL AND due_on IS NOT NULL`. Nouvelle migration seulement si la mesure l'exige |
 
+- **PV0** (à trancher en C2) Ordre des tâches d'un même jour : `listDue` départage par `sort_order` puis `id`, mais l'agrégateur trie les `all-day` d'un jour par `id` seulement, donc le `sort_order` de la liste est perdu. Décider si l'Agenda doit le conserver (champ de tri dans `CalendarEvent`) ou si l'ordre par `id` suffit.
 - **PV1** P1 à P4, par les critères cités.
 - **PV2** Le niveau des titres (`h3`) suit celui de l'en-tête de carte de `widget-host` : à vérifier en C2.
 - **PV3** Montage de l'essai (§2, note) : relevé par le coordinateur avant la suppression de la branche ; écarts rapportés par l'implémenteur en début de C2.

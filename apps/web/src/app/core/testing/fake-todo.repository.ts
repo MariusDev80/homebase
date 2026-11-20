@@ -10,6 +10,7 @@ import { excerptAround, validSearch } from '../../data/search';
 import { isValidLocalDate } from '../time';
 import type {
   Clock,
+  LocalDateIso,
   NewTodo,
   NewTodoList,
   Todo,
@@ -174,6 +175,32 @@ export class FakeTodoRepository implements TodoRepository {
     const before = this.items.length;
     this.items = this.items.filter((t) => t.id !== id);
     return this.items.length < before;
+  }
+
+  async listDue(
+    range: { readonly fromOn: LocalDateIso; readonly toOn: LocalDateIso },
+    limit: number,
+  ): Promise<Todo[]> {
+    this.record(`listDue:${range.fromOn}:${range.toOn}:${limit}`);
+    if (!hasLocalDateShape(range.fromOn) || !hasLocalDateShape(range.toOn)) {
+      throw new DataError('invalid_input', 'Due range bounds must be YYYY-MM-DD dates');
+    }
+    if (range.fromOn > range.toOn) {
+      throw new DataError('invalid_input', 'Due range start must not be after its end');
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
+      throw new DataError('invalid_input', 'Due limit must be an integer from 1 to 1000');
+    }
+    return this.items
+      .filter((t) => t.completedAt === null && t.dueOn !== null)
+      .filter((t) => (t.dueOn ?? '') >= range.fromOn && (t.dueOn ?? '') <= range.toOn)
+      .sort(
+        (a, b) =>
+          (a.dueOn ?? '').localeCompare(b.dueOn ?? '') ||
+          a.sortOrder - b.sortOrder ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      )
+      .slice(0, limit);
   }
 
   async reorder(listId: string, ids: readonly string[]): Promise<void> {
