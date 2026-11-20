@@ -353,7 +353,7 @@ describe('parseConfigImport: names (HB_TRIM and code points)', () => {
   const nameOf = (name: string) => expectOk(mutated((d) => (d.dashboards[0].name = name))).plan;
 
   it('normalises edge whitespace, U+0085 and U+FEFF once', () => {
-    expect(nameOf(' \u0085Accueil﻿ ').dashboards[0].name).toBe('Accueil');
+    expect(nameOf(' \u0085Accueil\uFEFF\u00A0').dashboards[0].name).toBe('Accueil');
     // Re-exporting the normalised name and parsing it again changes nothing.
     const again = expectOk(
       mutated((d) => (d.dashboards[0].name = nameOf('\u0085Accueil').dashboards[0].name)),
@@ -362,7 +362,7 @@ describe('parseConfigImport: names (HB_TRIM and code points)', () => {
   });
 
   it('keeps inner whitespace', () => {
-    expect(nameOf('a b c').dashboards[0].name).toBe('a b c');
+    expect(nameOf('a b\u00A0c').dashboards[0].name).toBe('a b\u00A0c');
   });
 
   it('accepts 100 accents or 100 emoji and refuses 101', () => {
@@ -376,7 +376,7 @@ describe('parseConfigImport: names (HB_TRIM and code points)', () => {
   });
 
   it('refuses empty and whitespace-only names', () => {
-    for (const name of ['', '   ', '\u0085', '﻿　']) {
+    for (const name of ['', '   ', '\u0085', '\uFEFF\u3000']) {
       expect(issuesOf(mutated((d) => (d.dashboards[0].name = name)))).toEqual([
         'invalid_name@dashboards[0].name',
       ]);
@@ -785,14 +785,14 @@ describe('parseConfigImport: refused files', () => {
 
   it('never shows a long or bidirectional key coming from the file', () => {
     const long = 'a'.repeat(300);
-    const bidi = 'k‮evil';
+    const bidi = 'k\u202Eevil';
     for (const key of [long, bidi, 'été']) {
       const result = mutated((d) => (d.settings = { [key]: 1 }));
       expect(issuesOf(result)).toEqual(['invalid_setting_key@settings']);
       expect(JSON.stringify(result)).not.toContain(key);
     }
     const unknownField = mutated((d) => Object.assign(d.dashboards[0], { [bidi]: 1 }));
-    expect(JSON.stringify(unknownField)).not.toContain('‮');
+    expect(JSON.stringify(unknownField)).not.toContain('\u202E');
     expect(issuesOf(mutated((d) => (d.settings = { ['a'.repeat(40)]: 1 })))).toEqual([]);
   });
 
