@@ -49,6 +49,11 @@ const tintPairs = (t) => [
   [`tint-${t}-muted`, 'bg-subtle', TEXT], // buttons, flash banners inside a tinted body
   [`tint-${t}-muted`, 'bg-inset', TEXT], // fields (placeholder) inside a tinted body
   ...MEANINGS.map((m) => [`on-tint-${m}`, `tint-${t}-body`, TEXT]),
+  // Agenda day headers (box-subheader): the "Aujourd'hui" pill border is accent on the card header.
+  // The accent text on a tinted header is below 4.5:1 in light mode (spec calendar-occurrences
+  // 3.3 fallback): the pill text is fg, so only the graphic ratio is required.
+  ['accent', `tint-${t}-header`, GRAPHIC],
+  ['on-tint-accent', `tint-${t}-header`, GRAPHIC],
   ['focus', `tint-${t}-body`, GRAPHIC],
   ['focus', `tint-${t}-header`, GRAPHIC],
   [`tint-${t}-border`, `tint-${t}-header`, SEPARATOR],

@@ -33,6 +33,17 @@ export type CalendarEventTime =
   /** lastOn is inclusive (>= startOn); the calendar library adapter converts to an exclusive end. */
   | { readonly kind: 'all-day'; readonly startOn: LocalDateIso; readonly lastOn: LocalDateIso };
 
+/** Optional semantic status (ADR-004 3.2.1 amendment). Drives the wording ("en retard", "fait"...),
+ *  never the tone alone. */
+export type CalendarEventStatus = 'overdue' | 'projected' | 'done' | 'planned';
+
+export const CALENDAR_STATUSES: readonly CalendarEventStatus[] = [
+  'overdue',
+  'projected',
+  'done',
+  'planned',
+];
+
 export interface CalendarEvent {
   /** `${sourceType}:${sourceId}:${occurrenceKey ?? ''}`: stable between two calls. */
   readonly id: string;
@@ -44,6 +55,8 @@ export interface CalendarEvent {
   readonly title: string;
   readonly time: CalendarEventTime;
   readonly tone: CalendarTone;
+  /** Absent: an ordinary event. */
+  readonly status?: CalendarEventStatus;
 }
 
 export interface CalendarSource {

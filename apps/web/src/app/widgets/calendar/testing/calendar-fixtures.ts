@@ -1,6 +1,6 @@
-import type { CalendarEvent, CalendarTone } from '../../../core/calendar';
+import type { CalendarEvent, CalendarEventStatus, CalendarTone } from '../../../core/calendar';
 
-// Fixtures F1 to F11 of ADR-004 section 4.1 (Paris UTC+1, Santiago UTC-3 in November 2026).
+// Fixtures F1 to F11 of ADR-004 section 4.1 (F12 to F17: calendar-occurrences spec 3.3) (Paris UTC+1, Santiago UTC-3 in November 2026).
 
 export const F8_TITLE = '<img src=x onerror=alert(1)>';
 export const F9_TITLE = `F9 ${'x'.repeat(196)}`;
@@ -29,6 +29,7 @@ function allDay(
   lastOn: string,
   title: string,
   tone: CalendarTone,
+  status?: CalendarEventStatus,
 ): CalendarEvent {
   return {
     id: `todo:${key}:`,
@@ -38,14 +39,15 @@ function allDay(
     title,
     time: { kind: 'all-day', startOn, lastOn },
     tone,
+    ...(status === undefined ? {} : { status }),
   };
 }
 
 export const F10_COUNT = 12;
 
-/** In the aggregator order: all-day first, then timed by start. */
+/** Within each day, in the aggregator order (all-day first, then timed by start); days are not sorted. */
 export const CALENDAR_FIXTURES: readonly CalendarEvent[] = [
-  allDay('F4', '2026-11-18', '2026-11-18', 'F4 Tache en retard', 'danger'),
+  allDay('F4', '2026-11-18', '2026-11-18', 'F4 Tache en retard', 'danger', 'overdue'),
   allDay('F8', '2026-11-19', '2026-11-19', F8_TITLE, 'neutral'),
   allDay('F5', '2026-11-23', '2026-11-25', 'F5 Tache sur trois jours', 'neutral'),
   timed('F6', '2026-10-25T00:30:00.000Z', 'Europe/Paris', 'F6 Pli changement heure'),
@@ -67,6 +69,64 @@ export const CALENDAR_FIXTURES: readonly CalendarEvent[] = [
 
 export const fixture = (key: string): CalendarEvent => {
   const found = CALENDAR_FIXTURES.find((e) => e.sourceId === key);
+  if (!found) throw new Error(`Unknown fixture ${key}`);
+  return found;
+};
+
+function habit(
+  key: string,
+  day: string,
+  title: string,
+  tone: CalendarTone,
+  status: CalendarEventStatus,
+  start?: string,
+): CalendarEvent {
+  return {
+    id: `habits:${key}:${day}`,
+    sourceType: 'habits',
+    sourceId: key,
+    occurrenceKey: day,
+    title,
+    time:
+      start === undefined
+        ? { kind: 'all-day', startOn: day, lastOn: day }
+        : { kind: 'timed', start, end: null, timeZone: 'Europe/Paris' },
+    tone,
+    status,
+  };
+}
+
+/**
+ * Fixtures F12 to F17 (calendar-occurrences spec 3.3), kept apart from CALENDAR_FIXTURES so that
+ * the counts of the other specs do not change. In the aggregator order (by day; the 20th follows K18).
+ */
+export const OCCURRENCE_FIXTURES: readonly CalendarEvent[] = [
+  habit('F13', '2026-11-18', 'F13 Habitude faite', 'success', 'done'),
+  habit('F14', '2026-11-20', 'F14 Habitude a faire', 'neutral', 'planned'),
+  allDay('F16', '2026-11-20', '2026-11-20', 'A', 'neutral'),
+  habit(
+    'F15',
+    '2026-11-20',
+    'F15 Habitude 08:00',
+    'neutral',
+    'planned',
+    '2026-11-20T07:00:00.000Z',
+  ),
+  timed('F17', '2026-11-20T08:00:00.000Z', 'Europe/Paris', 'F17 Rappel 09:00'),
+  {
+    id: 'todo:F12:2026-11-25',
+    sourceType: 'todo',
+    sourceId: 'F12',
+    occurrenceKey: '2026-11-25',
+    title: 'F12 Tache repetee prevue',
+    time: { kind: 'all-day', startOn: '2026-11-25', lastOn: '2026-11-25' },
+    tone: 'neutral',
+    status: 'projected',
+  },
+];
+
+export const occurrenceFixture = (key: string): CalendarEvent => {
+  const found = OCCURRENCE_FIXTURES.find((e) => e.sourceId === key);
   if (!found) throw new Error(`Unknown fixture ${key}`);
   return found;
 };

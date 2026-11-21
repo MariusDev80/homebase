@@ -234,7 +234,8 @@
   --hb-success: var(--hb-card-body-success);
   --hb-attention: var(--hb-card-body-attention);
 }
-.card-theme .box-header {
+.card-theme .box-header,
+.card-theme .box-subheader {
   --hb-bg-subtle: var(--hb-card-header-bg);
   --hb-fg-muted: var(--hb-card-header-muted);
   --hb-border: var(--hb-card-header-border);

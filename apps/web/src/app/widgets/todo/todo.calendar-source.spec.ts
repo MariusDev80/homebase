@@ -41,10 +41,10 @@ describe('TodoCalendarSource', () => {
     const today = repo.seed(listId, 'today', { dueOn: '2026-11-18' });
     const later = repo.seed(listId, 'later', { dueOn: '2026-11-19' });
     const events = await source.listEvents(RANGE);
-    expect(events.map((e) => [e.sourceId, e.tone])).toEqual([
-      [overdue.id, 'danger'],
-      [today.id, 'neutral'],
-      [later.id, 'neutral'],
+    expect(events.map((e) => [e.sourceId, e.tone, e.status])).toEqual([
+      [overdue.id, 'danger', 'overdue'],
+      [today.id, 'neutral', undefined],
+      [later.id, 'neutral', undefined],
     ]);
   });
 

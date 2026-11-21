@@ -26,18 +26,39 @@
     @if (time(); as when) {
       <p class="m-0 text-sm text-fg" data-testid="calendar-detail-time">{{ when }}</p>
     }
-    @if (overdue()) {
-      <p
-        class="m-0 flex items-center gap-2 text-sm text-danger"
-        data-testid="calendar-detail-overdue"
-      >
-        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
-        {{ 'widgets.calendar.overdueLabel' | transloco }}
-      </p>
+    @switch (status()) {
+      @case ('overdue') {
+        <p
+          class="m-0 flex items-center gap-2 text-sm text-danger"
+          data-testid="calendar-detail-overdue"
+        >
+          <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+          {{ 'widgets.calendar.overdueLabel' | transloco }}
+        </p>
+      }
+      @case ('projected') {
+        <p class="m-0 text-sm text-fg-muted" data-testid="calendar-detail-status">
+          {{ 'widgets.calendar.projectedLabel' | transloco }}
+        </p>
+      }
+      @case ('done') {
+        <p
+          class="m-0 flex items-center gap-2 text-sm text-success"
+          data-testid="calendar-detail-status"
+        >
+          <i class="pi pi-check" aria-hidden="true"></i>
+          {{ 'widgets.calendar.doneLabel' | transloco }}
+        </p>
+      }
+      @case ('planned') {
+        <p class="m-0 text-sm text-fg-muted" data-testid="calendar-detail-status">
+          {{ 'widgets.calendar.plannedLabel' | transloco }}
+        </p>
+      }
     }
-    @if (recurring()) {
+    @if (recurring(); as recurringText) {
       <p class="m-0 text-xs text-fg-muted" data-testid="calendar-detail-recurring">
-        {{ 'widgets.calendar.recurring' | transloco }}
+        {{ 'widgets.calendar.' + recurringText | transloco }}
       </p>
     }
   </div>

@@ -132,7 +132,9 @@ describe('Event sheet after reloads and resizes (review of C3)', () => {
     await settle();
     expect(el.querySelector('[data-testid="calendar-detail-overdue"]')).not.toBeNull();
     current = CALENDAR_FIXTURES.map((event) =>
-      event.id === fixture('F4').id ? { ...event, tone: 'neutral' as const } : event,
+      event.id === fixture('F4').id
+        ? { ...event, tone: 'neutral' as const, status: undefined }
+        : event,
     );
     await reload(mounted);
     expect(el.querySelector('[data-testid="calendar-detail-overdue"]')).toBeNull();

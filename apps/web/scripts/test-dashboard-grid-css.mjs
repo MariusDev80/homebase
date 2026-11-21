@@ -71,9 +71,13 @@ const SLOTS = [
 ];
 const scope = /(^|[\s,}])\.card-theme\s*\{([^}]*)\}/.exec(themeCss);
 const onBox = /\.card-theme \.box\s*\{([^}]*)\}/.exec(themeCss);
-const onHeader = /\.card-theme \.box-header\s*\{([^}]*)\}/.exec(themeCss);
+const onHeader = /\.card-theme \.box-header,\s*\.card-theme \.box-subheader\s*\{([^}]*)\}/.exec(
+  themeCss,
+);
 if (!scope || !onBox || !onHeader) {
-  errors.push('components.css: .card-theme, .card-theme .box and .card-theme .box-header needed');
+  errors.push(
+    'components.css: .card-theme, .card-theme .box and .card-theme .box-header, .card-theme .box-subheader needed',
+  );
 } else {
   for (const [slot, token] of SLOTS) {
     const decl = new RegExp('--hb-card-' + slot + ':\\s*var\\(--hb-[a-z-]+\\)\\s*;');

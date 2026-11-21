@@ -74,13 +74,13 @@ L'implémenteur de C2 reprend ce montage et signale tout écart avec cette spec.
   - jour passé : en-tête en `text-fg-muted`.
 - **Hiérarchie** : les jours sont séparés par `border-default` et le fond de l'en-tête ; les événements d'un même jour par `border-muted` (`border-b`, `last:border-b-0`). Aucune ombre.
 - **Ligne** : `<button type="button">` pleine largeur, `hover:bg-hover`. Elle contient :
-  - une colonne d'heure `w-12 shrink-0 tabular-nums text-xs text-fg-muted` : « 09:00 » (`TimeDisplay.formatInstant(start, 'time')`), ou « Journée » ;
+  - une colonne d'heure `w-28 shrink-0 whitespace-nowrap tabular-nums text-xs text-fg-muted` : « 09:00 » (`TimeDisplay.formatInstant(start, 'time')`), ou « Toute la journée » (amendé par la spec calendar-occurrences, A1) ;
   - l'icône de la source (`icon` de sa définition), `aria-hidden`, en classe de ton ;
   - le titre `truncate text-sm text-fg` ;
   - pour une tâche en retard : `pi pi-exclamation-circle text-danger` et « en retard » en `sr-only`.
   Sous **14rem** de large, l'heure passe au-dessus du titre (`@max-[14rem]:flex-col`).
 - **Aujourd'hui sans événement**, quand la plage le contient : la section s'affiche quand même, avec la ligne muette « Rien de prévu aujourd'hui. ». Les autres jours vides sont omis. Plage entièrement vide : `empty-state` « Rien de prévu du {{from}} au {{to}}. ».
-- **Événement sur plusieurs jours** (F5) : il est listé sous chacun de ses jours, avec « Journée ».
+- **Événement sur plusieurs jours** (F5) : il est listé sous chacun de ses jours, avec « Toute la journée ».
 - **Défilement** : la liste défile dans le corps de la carte ; l'en-tête collant indique toujours le jour en cours de lecture.
 
 ### T1 bis. Repli si D11 est refusée
@@ -261,7 +261,7 @@ Le nom sert pour les lignes de l'Agenda et du panneau, et pour `aria-label` dans
 - widget : `title` « Calendrier », `description` « Rappels et échéances des tâches, en agenda ou par mois » ;
 - vues : `view.agenda` « Agenda », `view.month` « Mois », `days` « {{count}} jours » ;
 - navigation : `prevMonth`, `nextMonth`, `prevDays`, `nextDays`, `today` « Aujourd'hui », `tomorrow` « Demain » ;
-- Agenda : `allDay` « Journée », `allDayLong` « toute la journée », `overdue` « en retard », `overdueLabel` « En retard », `nothingToday` « Rien de prévu aujourd'hui. », `empty` « Rien de prévu du {{from}} au {{to}}. » ;
+- Agenda : `allDay` « Toute la journée », `allDayLong` « toute la journée », `overdue` « en retard », `overdueLabel` « En retard », `nothingToday` « Rien de prévu aujourd'hui. », `empty` « Rien de prévu du {{from}} au {{to}}. » ;
 - Mois : `moreHint` « Voir les {{count}} autres événements de ce jour » ;
 - panneaux : `back` « Retour » ;
 - fiche : `range` « Du {{from}} au {{to}} », `at` « à {{time}} », `zoneTime` « ({{time}} {{city}}) », `recurring` « Occurrence d'un rappel répété », `source.reminders` « Rappel », `source.todo` « Tâche » ;

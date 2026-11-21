@@ -27,6 +27,7 @@ export class TodoCalendarSource implements CalendarSource {
     const events: CalendarEvent[] = [];
     for (const todo of todos) {
       if (todo.dueOn === null) continue;
+      const overdue = compareLocalDates(todo.dueOn, today) < 0;
       events.push({
         id: `todo:${todo.id}:`,
         sourceType: 'todo',
@@ -34,7 +35,9 @@ export class TodoCalendarSource implements CalendarSource {
         occurrenceKey: null,
         title: todo.title,
         time: { kind: 'all-day', startOn: todo.dueOn, lastOn: todo.dueOn },
-        tone: compareLocalDates(todo.dueOn, today) < 0 ? 'danger' : 'neutral',
+        ...(overdue
+          ? { tone: 'danger' as const, status: 'overdue' as const }
+          : { tone: 'neutral' as const }),
       });
     }
     return events;
