@@ -30,6 +30,11 @@ export interface AggregatedEvents {
   readonly unavailable: boolean;
 }
 
+export interface ListEventsOptions {
+  /** Widget types whose source is neither loaded nor called (unknown types are ignored). */
+  readonly exclude?: readonly string[];
+}
+
 function compareStrings(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
@@ -70,12 +75,15 @@ export class CalendarAggregator {
   private readonly inFlight = new Map<string, Promise<AggregatedEvents>>();
 
   /** Concurrent calls for the same range share one in-flight request. */
-  async listEvents(range: CalendarRange): Promise<AggregatedEvents> {
+  async listEvents(
+    range: CalendarRange,
+    { exclude = [] }: ListEventsOptions = {},
+  ): Promise<AggregatedEvents> {
     assertCalendarRange(range);
-    const key = `${range.from}|${range.to}|${range.timeZone}`;
+    const key = `${range.from}|${range.to}|${range.timeZone}|${JSON.stringify([...new Set(exclude)].sort())}`;
     const shared = this.inFlight.get(key);
     if (shared) return shared;
-    const request = this.load(range);
+    const request = this.load(range, exclude);
     this.inFlight.set(key, request);
     try {
       return await request;
@@ -84,11 +92,14 @@ export class CalendarAggregator {
     }
   }
 
-  private async load(range: CalendarRange): Promise<AggregatedEvents> {
+  private async load(range: CalendarRange, exclude: readonly string[]): Promise<AggregatedEvents> {
     const { firstOn, lastOn } = rangeLocalDates(range);
     const definitions = this.registry
       .list()
-      .filter((definition) => definition.loadCalendarSource !== undefined);
+      .filter(
+        (definition) =>
+          definition.loadCalendarSource !== undefined && !exclude.includes(definition.type),
+      );
 
     const settled = await Promise.allSettled(
       definitions.map(async (definition) => {

@@ -21,6 +21,7 @@ import type { CalendarAgendaDays, CalendarViewKind } from './calendar.config';
 })
 export class CalendarToolbarComponent {
   private readonly titleEl = viewChild.required<ElementRef<HTMLElement>>('titleRef');
+  private readonly sourcesButton = viewChild.required<ElementRef<HTMLElement>>('sourcesButton');
   private readonly monthButton = viewChild<ElementRef<HTMLElement>>('monthButton');
 
   readonly instanceId = input.required<string>();
@@ -33,6 +34,12 @@ export class CalendarToolbarComponent {
   readonly daysAllowed = input.required<boolean>();
   readonly agendaDays = input.required<CalendarAgendaDays>();
 
+  /** At least one source is hidden. */
+  readonly filterActive = input(false);
+  /** The "Sources affichées" panel is open. */
+  readonly sourcesExpanded = input(false);
+
+  readonly sourcesOpened = output();
   readonly previous = output();
   readonly next = output();
   readonly today = output();
@@ -45,6 +52,10 @@ export class CalendarToolbarComponent {
 
   focusMonthButton(): void {
     this.monthButton()?.nativeElement.focus();
+  }
+
+  focusSources(): void {
+    this.sourcesButton().nativeElement.focus();
   }
 
   focusTitle(): void {

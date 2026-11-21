@@ -45,6 +45,9 @@
     [monthAllowed]="monthAllowed()"
     [daysAllowed]="daysAllowed()"
     [agendaDays]="daysChoice()"
+    [filterActive]="filterActive()"
+    [sourcesExpanded]="sourcesOpen()"
+    (sourcesOpened)="toggleSources()"
     (previous)="previous()"
     (next)="next()"
     (today)="goToday()"
@@ -56,10 +59,15 @@
     <div
       class="h-full min-h-0"
       data-testid="calendar-area"
-      [attr.inert]="panelDay() !== null || detail() !== null ? '' : null"
+      [attr.inert]="panelDay() !== null || detail() !== null || sourcesOpen() ? '' : null"
       [attr.aria-busy]="loader.busy()"
     >
-      @if (view() === 'month') {
+      @if (allHidden()) {
+        <div class="empty-state" data-testid="calendar-all-hidden">
+          <i class="pi pi-filter" aria-hidden="true"></i>
+          <p class="m-0">{{ 'widgets.calendar.allHidden' | transloco }}</p>
+        </div>
+      } @else if (view() === 'month') {
         @defer (on immediate) {
           <app-calendar-month
             [anchor]="anchor()"
@@ -93,6 +101,14 @@
         [attr.inert]="detail() !== null ? '' : null"
         (closed)="closePanel()"
         (eventSelected)="openEvent($event)"
+      />
+    }
+    @if (sourcesOpen()) {
+      <app-calendar-sources-panel
+        [attr.id]="'calendar-sources-' + ctx.instanceId"
+        [hiddenTypes]="hiddenChoice()"
+        (closed)="closeSources()"
+        (toggled)="toggleSource($event)"
       />
     }
     @if (detail(); as event) {

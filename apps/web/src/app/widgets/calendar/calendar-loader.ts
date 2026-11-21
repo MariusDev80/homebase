@@ -39,20 +39,21 @@ export class CalendarLoader {
     });
   }
 
-  request(range: CalendarRange, delayMs: number): void {
+  /** `exclude`: the widget types whose source is not loaded (O13). */
+  request(range: CalendarRange, delayMs: number, exclude: readonly string[] = []): void {
     const id = ++this.counter;
     clearTimeout(this.timer);
     this.busy.set(true);
     if (delayMs <= 0) {
-      void this.run(id, range);
+      void this.run(id, range, exclude);
       return;
     }
-    this.timer = setTimeout(() => void this.run(id, range), delayMs);
+    this.timer = setTimeout(() => void this.run(id, range, exclude), delayMs);
   }
 
-  private async run(id: number, range: CalendarRange): Promise<void> {
+  private async run(id: number, range: CalendarRange, exclude: readonly string[]): Promise<void> {
     try {
-      const result = await this.aggregator.listEvents(range);
+      const result = await this.aggregator.listEvents(range, { exclude });
       if (this.destroyed || id !== this.counter) return;
       this.events.set(result.events);
       this.loaded.set(rangeLocalDates(range));

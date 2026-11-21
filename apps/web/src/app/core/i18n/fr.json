@@ -479,7 +479,11 @@
       "monthFailed": "La vue Mois n'a pas pu s'afficher.",
       "showAgenda": "Afficher l'Agenda",
       "configNotSaved": "Le choix n'a pas pu être enregistré.",
-      "loadError": "Le calendrier n'a pas pu être chargé."
+      "loadError": "Le calendrier n'a pas pu être chargé.",
+      "sources": "Sources affichées",
+      "sourcesActive": "Sources affichées (filtre actif)",
+      "sourceName": { "reminders": "Rappels", "todo": "Tâches", "habits": "Habitudes" },
+      "allHidden": "Toutes les sources sont masquées."
     },
     "habits": {
       "title": "Habitudes",

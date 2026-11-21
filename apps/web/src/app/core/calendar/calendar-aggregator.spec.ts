@@ -215,6 +215,40 @@ describe('CalendarAggregator', () => {
     expect(loadBeta).toHaveBeenCalledTimes(1);
   });
 
+  it('never loads nor calls an excluded source and does not report it (CA-CO4-2)', async () => {
+    const { alpha, beta, loadAlpha, loadBeta, aggregator } = setup();
+    alpha.result = () => Promise.reject(new Error('boom'));
+    beta.result = () => Promise.resolve([event('beta', 'b', timed('2026-11-12T09:00:00.000Z'))]);
+    const result = await aggregator.listEvents(RANGE, { exclude: ['alpha', 'unknown'] });
+    expect(loadAlpha).not.toHaveBeenCalled();
+    expect(alpha.calls).toBe(0);
+    expect(loadBeta).toHaveBeenCalledTimes(1);
+    expect(result.failedSources).toEqual([]);
+    expect(result.events.map((e) => e.id)).toEqual(['beta:b:']);
+  });
+
+  it('does not share a request between a call with and a call without exclude', async () => {
+    const { alpha, beta, aggregator } = setup();
+    const [all, onlyBeta] = await Promise.all([
+      aggregator.listEvents(RANGE),
+      aggregator.listEvents(RANGE, { exclude: ['alpha'] }),
+    ]);
+    expect(all.failedSources).toEqual([]);
+    expect(onlyBeta.failedSources).toEqual([]);
+    expect(alpha.calls).toBe(1);
+    expect(beta.calls).toBe(2);
+  });
+
+  it('shares the request when the exclusions are the same set, in any order', async () => {
+    const { alpha, beta, aggregator } = setup();
+    await Promise.all([
+      aggregator.listEvents(RANGE, { exclude: ['alpha', 'unknown'] }),
+      aggregator.listEvents(RANGE, { exclude: ['unknown', 'alpha'] }),
+    ]);
+    expect(alpha.calls).toBe(0);
+    expect(beta.calls).toBe(1);
+  });
+
   it('keeps the other sources when one fails and reports it', async () => {
     const { alpha, beta, aggregator } = setup();
     alpha.result = () => Promise.reject(new DataError('unknown', 'boom'));
