@@ -5,6 +5,7 @@ import { FakeHabitRepository } from '../testing/fake-habit.repository';
 import { FakeSettingsRepository } from '../testing/fake-settings.repository';
 import { ManualClock } from '../time/testing/manual-clock';
 import { SYSTEM_TIME_ZONE_READER } from '../time/time-zone';
+import { CalendarChanges } from '../calendar/calendar-changes';
 import { HabitStore } from './habit.store';
 
 const INPUT: HabitInput = {
@@ -154,6 +155,39 @@ describe('HabitStore', () => {
     gates[0].resolve([{ ...fresh, title: 'stale' }]);
     await flush();
     expect(store.habits().map((h) => h.title)).toEqual(['fresh']);
+  });
+
+  describe('CalendarChanges (CA-CO3-4)', () => {
+    it('notifies once per successful write', async () => {
+      const store = await create();
+      const changes = TestBed.inject(CalendarChanges);
+      const before = changes.version();
+      const habit = await store.create(INPUT);
+      expect(changes.version()).toBe(before + 1);
+      await store.update(habit.id, { ...INPUT, title: 'Read' });
+      expect(changes.version()).toBe(before + 2);
+      await store.setArchived(habit.id, true);
+      expect(changes.version()).toBe(before + 3);
+      await store.setCheck(habit.id, '2026-11-17', true);
+      expect(changes.version()).toBe(before + 4);
+      await store.remove(habit.id);
+      expect(changes.version()).toBe(before + 5);
+    });
+
+    it('does not notify after a failure nor after a re-read', async () => {
+      const store = await create();
+      const changes = TestBed.inject(CalendarChanges);
+      const habit = await store.create(INPUT);
+      const before = changes.version();
+      repo.failNext(new DataError('invalid_input', 'title'));
+      await expect(store.update(habit.id, INPUT)).rejects.toBeInstanceOf(DataError);
+      vi.spyOn(repo, 'setCheck').mockRejectedValueOnce(new DataError('invalid_input', 'dayOn'));
+      await expect(store.setCheck(habit.id, '2026-11-17', true)).rejects.toBeInstanceOf(DataError);
+      await store.refresh();
+      window.dispatchEvent(new Event('focus'));
+      await flush();
+      expect(changes.version()).toBe(before);
+    });
   });
 
   describe('setCheck', () => {

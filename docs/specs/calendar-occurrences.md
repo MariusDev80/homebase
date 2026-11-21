@@ -355,7 +355,7 @@ export function habitEvents(
 | K2 | Habitude à 02:30 `Europe/Paris` le 2027-03-28 (trou) | `start = 2027-03-28T01:30:00.000Z`, affiché 03:30 (`compatible`), comme le rappel qui sonne (ADR-003 C3) |
 | K3 | Habitude à 02:30 `Europe/Paris` le 2026-10-25 (pli) | Un seul événement, `2026-10-25T00:30:00.000Z` (première occurrence, C1) |
 | K4 | Habitude à 09:00 autour du 25/10 | `07:00Z` le 24, `08:00Z` le 25 (C5) ; affiché 09:00 les deux jours |
-| K5 | Rappel d'habitude en `Europe/Paris`, utilisateur en `America/Santiago` | Événement à 20:00 Paris, affiché 16:00, avec « (20:00 Paris) » dans la fiche. Le jour d'affichage peut différer de d ; un événement hors de la plage n'est pas émis. Approximation acceptée (habits L13) |
+| K5 | Rappel d'habitude en `Europe/Paris`, utilisateur en `America/Santiago` | Événement à 20:00 Paris, affiché 16:00, avec « (20:00 Paris) » dans la fiche. Quand le fuseau du rappel diffère de celui d'affichage, les jours [firstOn−1, lastOn+1] sont parcourus (coches lues sur cette étendue élargie) et seuls les instants dans `[from, to)` sont gardés : le cas des bords de plage est couvert |
 | K6 | Rappel d'habitude `invalid` (`time: '00:00'` factice) ; rappel désactivé | `all-day` ; à heure (O10) |
 | K7 | Minuit inexistant (`America/Santiago`, 2026-09-06) | `rangeLocalDates` inclut le 06 (C23) |
 | K8 | Fin de mois : `MONTHLY` ancrée le 31/01/2027 ; `BYMONTHDAY=-1` ancrée le 31/01/2028 ; `YEARLY` ancrée le 29/02/2028 | 31/03, 31/05… ; 29/02/2028, 31/03/2028 (C8) ; rien avant 2032 (C9) |
@@ -493,7 +493,7 @@ Critères :
   - budget inchangé ; s'il est dépassé, s'arrêter et rapporter.
 - **CA-CO3-8** `habit-calendar.ts` n'importe pas le barrel `core/habits`.
 - **PV-CO3** `__hbCalendar.seedHabits(20)` crée 20 habitudes quotidiennes `pv-co-<i>`, dont 10 avec un rappel à 20:00 et 10 cochées aujourd'hui.
-  - Lancer `measure(42)` et rapporter la durée et le nombre d'événements.
+  - Mesure manuelle (Marius) : `__hbCalendar.seedHabits(100)` puis `measure(42)`, puis `clearSeeded()`. Rapporter la durée et le nombre d'événements (100 × 42 = 4 200 au plus ; cible P2 : moins de 300 ms).
   - `clearSeeded()` les supprime.
 
 ### Lot CO4 : filtre des sources

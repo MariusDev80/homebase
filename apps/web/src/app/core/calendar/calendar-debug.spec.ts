@@ -1,12 +1,19 @@
 import { Injector } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { CLOCK, SETTINGS_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import { HABIT_REPOSITORY } from '../../data/schedule.tokens';
+import { FakeHabitRepository } from '../testing/fake-habit.repository';
 import { DashboardStore } from '../dashboard/dashboard.store';
 import { FakeSettingsRepository } from '../testing/fake-settings.repository';
 import { FakeTodoRepository } from '../testing/fake-todo.repository';
 import { SYSTEM_TIME_ZONE_READER } from '../time';
 import { ManualClock } from '../time/testing/manual-clock';
-import { clearSeededTodos, seedRepeatingTodos } from './calendar-debug';
+import {
+  clearSeededHabits,
+  clearSeededTodos,
+  seedHabits,
+  seedRepeatingTodos,
+} from './calendar-debug';
 
 describe('calendar debug todo seeding (PV-CO2)', () => {
   let repo: FakeTodoRepository;
@@ -58,5 +65,36 @@ describe('calendar debug todo seeding (PV-CO2)', () => {
     const injector = setup([{ id: 'n1', widgetType: 'notes' }]);
     await expect(seedRepeatingTodos(injector, 1)).rejects.toThrow(/no todo widget/);
     expect(repo.items).toEqual([]);
+  });
+});
+
+describe('calendar debug habit seeding (PV-CO3)', () => {
+  it('creates N daily habits, half with a 20:00 reminder, half checked today, and clears them', async () => {
+    const clock = new ManualClock('2026-11-18T11:00:00.000Z');
+    const repo = new FakeHabitRepository(clock);
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: CLOCK, useValue: clock },
+        { provide: HABIT_REPOSITORY, useValue: repo },
+        { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
+        { provide: SYSTEM_TIME_ZONE_READER, useValue: () => 'Europe/Paris' },
+      ],
+    });
+    const injector = TestBed.inject(Injector);
+    const keep = await repo.create({
+      title: 'keep me',
+      schedule: { kind: 'weekly', target: 1 },
+      startOn: '2026-11-01',
+      reminder: null,
+    });
+    await seedHabits(injector, 20);
+    const seeded = (await repo.list()).filter((h) => h.title.startsWith('pv-co-'));
+    expect(seeded).toHaveLength(20);
+    expect(seeded.filter((h) => h.reminder?.time === '20:00')).toHaveLength(10);
+    expect(seeded.every((h) => h.reminder === null || !h.reminder.enabled)).toBe(true);
+    const checks = await repo.checks({ from: '2026-11-18', to: '2026-11-18' });
+    expect(checks).toHaveLength(10);
+    await clearSeededHabits(injector);
+    expect((await repo.list()).map((h) => h.id)).toEqual([keep.id]);
   });
 });

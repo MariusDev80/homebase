@@ -10,6 +10,7 @@ import {
   type LocalDateIso,
 } from '../../data';
 import { HABIT_REPOSITORY } from '../../data/schedule.tokens';
+import { CalendarChanges } from '../calendar/calendar-changes';
 import { DueRefresher } from '../time/due-refresher';
 import { addDays } from '../time/local-date';
 import { Today } from '../time/today';
@@ -67,6 +68,7 @@ interface PendingCheck {
 export class HabitStore {
   private readonly repository = inject(HABIT_REPOSITORY);
   private readonly today = inject(Today);
+  private readonly calendarChanges = inject(CalendarChanges);
   // Visibility and focus: re-read (no deadline to watch, so `arm` is never called).
   private readonly refresher = new DueRefresher(
     inject(DOCUMENT),
@@ -171,6 +173,7 @@ export class HabitStore {
     try {
       const changed = await this.repository.setCheck(habitId, dayOn, done);
       this.pendingChecks.delete(key);
+      this.calendarChanges.notify('habits');
       // A read still in flight may have been answered before the commit: read again.
       if (this.activeReads > 0) void this.refresh();
       return changed;
@@ -202,6 +205,7 @@ export class HabitStore {
   private async act<T>(action: () => Promise<T>): Promise<T> {
     try {
       const result = await action();
+      this.calendarChanges.notify('habits');
       await this.refresh();
       await this.latest;
       return result;
