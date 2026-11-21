@@ -1,7 +1,19 @@
 import type { InstantIso, LocalDateIso, TimeZoneId } from '../../data';
 
-// Temporal part frozen by ADR-003 section 3.7. The other fields of CalendarEvent (colour, link,
-// editability) belong to ADR-004 and will be added without changing these.
+// Temporal part frozen by ADR-003 section 3.7; `tone` added by ADR-004 section 3.2.1 (no link and
+// no editability field in v1).
+
+/** Closed set of semantic tones; the view maps each to --hb-* tokens (a tinted card redefines
+ *  them). Never a raw colour: no hex, no user-chosen colour in v1. */
+export type CalendarTone = 'neutral' | 'accent' | 'success' | 'attention' | 'danger';
+
+export const CALENDAR_TONES: readonly CalendarTone[] = [
+  'neutral',
+  'accent',
+  'success',
+  'attention',
+  'danger',
+];
 
 /** Range [from, to); to - from <= 400 days. timeZone = display (user) zone, used to place
  *  all-day events. */
@@ -31,6 +43,7 @@ export interface CalendarEvent {
   /** User data: rendered by interpolation, never innerHTML. */
   readonly title: string;
   readonly time: CalendarEventTime;
+  readonly tone: CalendarTone;
 }
 
 export interface CalendarSource {

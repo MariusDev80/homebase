@@ -25,6 +25,11 @@ describe('TimeDisplay', () => {
 
   const nbsp = (s: string): string => s.replace(/\s/g, ' ');
 
+  it('formats a month and year', () => {
+    expect(display.formatLocalDate('2026-11-01', 'month-year')).toBe('novembre 2026');
+    expect(display.formatLocalDate('2027-02-28', 'month-year')).toBe('février 2027');
+  });
+
   it('formats a wall date without offset, even in a zone west of UTC', async () => {
     await TestBed.inject(UserTimeZone).setPreference('Pacific/Honolulu');
     expect(nbsp(display.formatLocalDate('2026-11-03', 'short'))).toBe('3 nov. 2026');

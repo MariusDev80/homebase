@@ -25,7 +25,7 @@ Ce que Tauri complique :
 | Front | Angular 21 (zoneless, signals, Vitest) | Stack déjà maîtrisée |
 | UI | Tailwind 4 + PrimeNG, direction visuelle inspirée de GitHub (Primer) | Composants prêts, thèmes clair/sombre ; tokens `--hb-*`, preset PrimeNG maison, patterns : voir `docs/DESIGN.md` (décidé le 20/10/2026) |
 | Grille | angular-gridster2 **21.0.1 épinglé** (repli : gridstack 14 + `gridstack/dist/angular`) | Vérifié le 20/10/2026 : 21.x a `@angular/core ^21` en peerDependency (22.x vise Angular 22, ne pas monter). Intégré en phase 1 derrière `core/dashboard/grid-adapter.ts`, tests verts en zoneless ; comportement réel à confirmer à la main (issue #916). Mode `fit` : 12 × 8 fixes (spec dashboards-sidebar). |
-| Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR) |
+| Calendrier | Schedule-X ou FullCalendar | Comparer en phase 2 (ADR). *Amendement (spec calendar, 2026-11-21)* : FullCalendar 7.1.5 (vue Mois, chargée à la demande) ; Agenda rendu par nous (D11). |
 | Base locale (MVP) | SQLite via `tauri-plugin-sql` | Migrations versionnées intégrées, aucun serveur à installer |
 | Images (MVP) | Fichiers dans le dossier de données de l'app, chemin en base | Évite les blobs géants en base |
 | Dates et récurrence | Front : `temporal-polyfill` (Temporal, natif dans WebView2). Rust : `jiff` + crate `rrule` (épinglée) derrière `time/engine.rs`, seul moteur d'expansion, exposé par les commandes `time_expand` / `time_validate` | Sous-ensemble RFC 5545, vecteurs de test partagés TS/Rust : voir ADR-003. Exception : la prochaine échéance d'une TODO répétée (date sans heure, sans notification) est calculée par `core/time/date-rule.ts` (ADR-003 §3.9, spec todo-details). |
@@ -96,7 +96,7 @@ Les agents du kit suffisent pour démarrer. Plugins officiels optionnels : `secu
 
 ## 8. Points à vérifier avant ou pendant la phase 0
 1. ~~angular-gridster2 sur Angular 21 (sinon gridstack).~~ Fait : 21.x épinglé, voir §2.
-2. Schedule-X vs FullCalendar (récurrence, vues, thèmes).
+2. Schedule-X vs FullCalendar (récurrence, vues, thèmes). *Amendement (spec calendar, 2026-11-21)* : fermé par l'ADR-004.
 3. Toolchain Windows installée (Rust MSVC, Build Tools C++, WebView2) et version de Rust compatible avec `tauri-plugin-sql` (Rust 1.90 ou plus d'après la doc).
 4. Environnement de travail de Claude Code : Windows natif (sans sandbox) ou WSL2 (voir KICKOFF).
 5. Disponibilité de flux RSS pour les sources choisies.

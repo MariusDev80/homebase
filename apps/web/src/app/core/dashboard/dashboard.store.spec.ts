@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { DASHBOARD_REPOSITORY, DataError, WIDGET_INSTANCE_REPOSITORY } from '../../data';
+import { CalendarChanges } from '../calendar/calendar-changes';
 import { FakeDashboardRepository } from '../testing/fake-dashboard.repository';
 import { FakeWidgetInstanceRepository } from '../testing/fake-widget-instance.repository';
 import { PendingWrites } from '../widgets/pending-writes';
@@ -80,6 +81,19 @@ describe('DashboardStore', () => {
     await store.remove(record.id);
     expect(store.instances()).toEqual([]);
     expect(instances.items).toEqual([]);
+  });
+
+  it('notifies the calendar once the removal succeeded (CA-C3-1, L20)', async () => {
+    const { store, instances } = setup();
+    await store.open(null, 'Accueil');
+    const record = await store.add('hello');
+    const changes = TestBed.inject(CalendarChanges);
+    await store.remove(record.id);
+    expect(changes.version()).toBe(1);
+    instances.items.push(record);
+    vi.spyOn(instances, 'remove').mockRejectedValue(new DataError('unknown', 'x'));
+    await expect(store.remove(record.id)).rejects.toBeInstanceOf(DataError);
+    expect(changes.version()).toBe(1);
   });
 
   it('resets a configuration to the defaults', async () => {

@@ -1,0 +1,81 @@
+@if (rows().length === 0) {
+  <div class="empty-state" data-testid="calendar-empty">
+    <i class="pi pi-calendar" aria-hidden="true"></i>
+    <p class="m-0">{{ 'widgets.calendar.empty' | transloco: rangeText() }}</p>
+  </div>
+} @else {
+  <div class="flex flex-col" data-testid="calendar-day-list">
+    @for (row of rows(); track row.day) {
+      <section
+        class="@container"
+        data-testid="calendar-day"
+        [attr.data-day]="row.day"
+        [attr.aria-labelledby]="showHeaders() ? row.headingId : null"
+      >
+        @if (showHeaders()) {
+          <h3
+            class="sticky top-0 z-[1] m-0 flex items-center justify-between gap-2 border-y border-default bg-canvas-subtle px-3 py-1 text-xs font-semibold"
+            [class.text-accent]="row.isToday"
+            [class.text-fg-muted]="row.isPast"
+            [id]="row.headingId"
+            data-testid="calendar-day-header"
+          >
+            <span aria-hidden="true">{{ row.short }}</span>
+            <span class="sr-only">{{ row.long }}</span>
+            @if (row.isToday) {
+              <span
+                class="rounded-pill border border-accent px-2 text-accent"
+                data-testid="calendar-day-pill"
+              >
+                {{ 'widgets.calendar.today' | transloco }}
+              </span>
+            } @else if (row.isTomorrow) {
+              <span
+                class="rounded-pill border border-default px-2 text-fg-muted"
+                data-testid="calendar-day-pill"
+              >
+                {{ 'widgets.calendar.tomorrow' | transloco }}
+              </span>
+            }
+          </h3>
+        }
+        @if (row.events.length > 0) {
+          <ul class="m-0 list-none p-0">
+            @for (item of row.events; track item.event.id) {
+              <li class="border-b border-muted last:border-b-0" data-testid="calendar-row">
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-start hover:bg-hover @max-[14rem]:flex-col @max-[14rem]:items-start @max-[14rem]:gap-0"
+                  [attr.data-event-id]="item.event.id"
+                  [attr.aria-label]="item.name"
+                  (click)="select(item.event, $event)"
+                >
+                  <span
+                    class="w-12 shrink-0 text-xs text-fg-muted tabular-nums"
+                    data-testid="calendar-row-time"
+                  >
+                    {{ item.time }}
+                  </span>
+                  <span class="flex min-w-0 flex-1 items-center gap-2">
+                    <i [class]="item.icon + ' ' + item.toneClass" aria-hidden="true"></i>
+                    <span class="truncate text-sm text-fg" data-testid="calendar-row-title">{{
+                      item.event.title
+                    }}</span>
+                    @if (item.overdue) {
+                      <i class="pi pi-exclamation-circle text-danger" aria-hidden="true"></i>
+                      <span class="sr-only">{{ 'widgets.calendar.overdue' | transloco }}</span>
+                    }
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="m-0 px-3 py-2 text-sm text-fg-muted" data-testid="calendar-nothing-today">
+            {{ 'widgets.calendar.nothingToday' | transloco }}
+          </p>
+        }
+      </section>
+    }
+  </div>
+}

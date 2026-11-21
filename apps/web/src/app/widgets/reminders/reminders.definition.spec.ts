@@ -21,6 +21,11 @@ describe('remindersWidget', () => {
     expect(v.safeParse(remindersConfigSchema, defaults).success).toBe(true);
   });
 
+  it('exposes its calendar source through a dynamic import', async () => {
+    const source = await remindersWidget.loadCalendarSource?.();
+    expect(source?.name).toMatch(/RemindersCalendarSource$/);
+  });
+
   it('loads its component lazily', async () => {
     const component = await remindersWidget.loadComponent();
     expect(component.name).toMatch(/RemindersComponent$/);

@@ -1,5 +1,6 @@
 import type { Provider } from '@angular/core';
 import { provideWidget } from '../core/widgets';
+import { calendarWidget } from './calendar/calendar.definition';
 import { habitsWidget } from './habits/habits.definition';
 import { helloWidget } from './hello/hello.definition';
 import { notesWidget } from './notes/notes.definition';
@@ -14,6 +15,7 @@ import { weatherWidget } from './weather/weather.definition';
 /** The only file that knows every widget. Imported by app.config.ts only. */
 export function provideAllWidgets(): Provider[] {
   return [
+    provideWidget(calendarWidget),
     provideWidget(habitsWidget),
     provideWidget(helloWidget),
     provideWidget(notesWidget),

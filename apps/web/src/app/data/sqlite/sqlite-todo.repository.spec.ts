@@ -464,6 +464,67 @@ describe('SqliteTodoRepository', () => {
     });
   });
 
+  describe('listDue', () => {
+    const range = { fromOn: '2026-11-10', toOn: '2026-11-20' };
+
+    it('keeps active todos due within the bounds (inclusive), across lists', async () => {
+      const { list } = await newList();
+      const other = await repo.createList({ name: 'Autre' });
+      await repo.create({ listId: list.id, title: 'before', dueOn: '2026-11-09' });
+      await repo.create({ listId: list.id, title: 'first', dueOn: '2026-11-10' });
+      await repo.create({ listId: list.id, title: 'none' });
+      await repo.create({ listId: other.id, title: 'last', dueOn: '2026-11-20' });
+      await repo.create({ listId: other.id, title: 'after', dueOn: '2026-11-21' });
+      const done = await repo.create({ listId: other.id, title: 'done', dueOn: '2026-11-15' });
+      await repo.setCompleted(done.id, true);
+      const due = await repo.listDue(range, 10);
+      expect(due.map((t) => t.title)).toEqual(['first', 'last']);
+      expect(due[0]).toMatchObject({ listId: list.id, dueOn: '2026-11-10', completedAt: null });
+    });
+
+    it('orders by due_on, sort_order then id', async () => {
+      const { list } = await newList();
+      const other = await repo.createList({ name: 'Autre' });
+      const a = await repo.create({ listId: list.id, title: 'a', dueOn: '2026-11-11' });
+      const b = await repo.create({ listId: list.id, title: 'b', dueOn: '2026-11-11' });
+      const late = await repo.create({ listId: list.id, title: 'late', dueOn: '2026-11-12' });
+      await repo.create({ listId: other.id, title: 'c', dueOn: '2026-11-11' });
+      await repo.reorder(list.id, [b.id, a.id, late.id]);
+      // b and c share due_on and sort_order 0: the id (creation order) decides; a has sort_order 1.
+      const due = await repo.listDue(range, 10);
+      expect(due.map((t) => t.title)).toEqual(['b', 'c', 'a', 'late']);
+    });
+
+    it('respects the limit', async () => {
+      const { list } = await newList();
+      for (const day of ['11', '12', '13']) {
+        await repo.create({ listId: list.id, title: `t${day}`, dueOn: `2026-11-${day}` });
+      }
+      expect((await repo.listDue(range, 2)).map((t) => t.title)).toEqual(['t11', 't12']);
+      expect(await repo.listDue(range, 1000)).toHaveLength(3);
+    });
+
+    it('refuses invalid arguments before any query', async () => {
+      const select = vi.spyOn(db, 'select');
+      expect(await kindOf(repo.listDue({ fromOn: '2026-1-10', toOn: '2026-11-20' }, 5))).toBe(
+        'invalid_input',
+      );
+      expect(await kindOf(repo.listDue({ fromOn: '2026-11-10', toOn: 'nope' }, 5))).toBe(
+        'invalid_input',
+      );
+      expect(await kindOf(repo.listDue({ fromOn: '2026-11-21', toOn: '2026-11-20' }, 5))).toBe(
+        'invalid_input',
+      );
+      for (const limit of [0, 1001, 1.5, Number.NaN, -1]) {
+        expect(await kindOf(repo.listDue(range, limit))).toBe('invalid_input');
+      }
+      expect(select).not.toHaveBeenCalled();
+      expect(await kindOf(repo.listDue({ fromOn: '2026-11-20', toOn: '2026-11-20' }, 1))).toBe(
+        'no error',
+      );
+    });
+  });
+
   describe('cascades', () => {
     it('instance deletion removes its list and todos, keeping others', async () => {
       const { dashboard, instance, list } = await newList();

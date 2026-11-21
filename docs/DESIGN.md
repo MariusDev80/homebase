@@ -77,6 +77,8 @@ Douze teintes, chacune avec quatre rôles en clair et en sombre : `--hb-tint-<id
 - **Formulaire d'habitude** *(amendement, spec habits, 2026-11-17)* : « Enregistrer » explicite (H10).
 - **Formulaire de rappel** *(amendement, spec timers-reminders, 2026-11-16)* : exception au « au fil de l'eau » du panneau dans une carte : « Enregistrer » / « Annuler » explicites (M12).
 - **Ligne de tâche** : une seule ligne : case, marqueur « Important » (`pi pi-star-fill` en `--hb-attention`, doublé du texte `sr-only` « Important »), titre tronqué, indicateurs, étiquette d'échéance (12 px, en texte ; le retard porte toujours l'icône `pi-exclamation-circle`), actions. Indicateurs de métadonnées en 12 px `--hb-fg-muted` (`pi pi-align-left` description, `pi pi-sync` répétition), `aria-hidden`, doublés d'un texte `sr-only` (exception écrite à la taille de 16 px des icônes). Bouton de détail : `pi pi-info-circle`, invisible, compact, nom accessible « Détails de <titre> ». La densité suit la largeur de la liste (requêtes de conteneur) : étiquette courte sous 28rem ; flèches, poubelle et indicateur de description masqués sous 20rem ; étiquette sous le titre sous 11rem.
+- **Agenda (calendrier)** *(amendement, spec calendar, 2026-11-21)* : une section par jour, en-tête collant `bg-canvas-subtle` bordé `border-default`, pastille « Aujourd'hui » en accent ; événements séparés par `border-muted`.
+- **Panneau Jour** *(amendement, spec calendar, 2026-11-21)* : « +N » du Mois ouvre la liste du jour dans la carte (panneau), jamais un popover.
 - **Focus** : `outline: 2px solid var(--hb-focus); outline-offset: -2px` (ou `2px` hors des cartes), uniquement sur `:focus-visible`.
 
 ## 4. Tableau de bord et widgets

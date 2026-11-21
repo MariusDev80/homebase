@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { CLOCK, DataError, type Reminder, type ReminderInput } from '../../data';
 import { REMINDER_REPOSITORY } from '../../data/schedule.tokens';
+import { CalendarChanges } from '../calendar/calendar-changes';
 import { FakeReminderRepository } from '../testing/fake-reminder.repository';
 import { ManualClock } from '../time/testing/manual-clock';
 import { MAX_EXDATES, ReminderStore } from './reminder.store';
@@ -117,6 +118,31 @@ describe('ReminderStore', () => {
     repo.failNext(failure);
     await expect(store.create(INPUT)).rejects.toBe(failure);
     expect(store.error()).toBeNull();
+  });
+
+  it('notifies the calendar after a successful create, update, remove and skipNext (CA-C3-1)', async () => {
+    const store = await create();
+    const changes = TestBed.inject(CalendarChanges);
+    expect(changes.version()).toBe(0);
+    const created = await store.create(INPUT);
+    expect(changes.version()).toBe(1);
+    await store.update(created.id, { ...INPUT, title: 'Vitamins' });
+    expect(changes.version()).toBe(2);
+    repo.schedule(created.id, '2026-11-16T10:00:30.000Z', '2026-11-17T08:00:00');
+    await store.refresh();
+    await store.skipNext(store.reminders()[0]);
+    expect(changes.version()).toBe(3);
+    await store.remove(created.id);
+    expect(changes.version()).toBe(4);
+  });
+
+  it('does not notify the calendar after a failure or markSeen (CA-C3-1)', async () => {
+    const store = await create();
+    const changes = TestBed.inject(CalendarChanges);
+    repo.failNext(new DataError('invalid_input', 'title'));
+    await expect(store.create(INPUT)).rejects.toBeInstanceOf(DataError);
+    await store.markSeen({ kind: 'all' });
+    expect(changes.version()).toBe(0);
   });
 
   it('exposes the failed re-read that follows a failed action', async () => {

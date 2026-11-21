@@ -1,5 +1,6 @@
 import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { CalendarChanges } from '../../core/calendar/calendar-changes';
 import { provideAppI18n } from '../../core/i18n';
 import { FakeSettingsRepository } from '../../core/testing/fake-settings.repository';
 import { FakeTodoRepository } from '../../core/testing/fake-todo.repository';
@@ -144,6 +145,14 @@ describe('TodoDetailComponent', () => {
     expect(input.max).toBe('2199-12-31');
     expect(el.querySelector(`label[for="${input.id}"]`)).not.toBeNull();
     expect(q('todo-detail-completed')).toBeNull();
+  });
+
+  it('notifies the calendar after a saved update (CA-C3-1)', async () => {
+    const { chooseDate } = await render();
+    const changes = TestBed.inject(CalendarChanges);
+    expect(changes.version()).toBe(0);
+    await chooseDate('2026-11-03');
+    expect(changes.version()).toBe(1);
   });
 
   describe('text fields', () => {
@@ -426,6 +435,18 @@ describe('TodoDetailComponent', () => {
       fixture.destroy();
       await settle(TODO_DETAIL_SAVE_DEBOUNCE_MS * 2);
       expect(updates()).toHaveLength(0);
+    });
+
+    it('notifies the calendar on success only (CA-C3-1)', async () => {
+      const { click, repo } = await render();
+      const changes = TestBed.inject(CalendarChanges);
+      await click('todo-detail-remove');
+      repo.failNext(new DataError('busy', 'boom'));
+      await click('todo-detail-confirm-yes');
+      expect(changes.version()).toBe(0);
+      await click('todo-detail-remove');
+      await click('todo-detail-confirm-yes');
+      expect(changes.version()).toBe(1);
     });
 
     it('stays open with a message when the removal fails', async () => {
