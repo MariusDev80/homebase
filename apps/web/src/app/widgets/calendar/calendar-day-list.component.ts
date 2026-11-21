@@ -5,7 +5,7 @@ import { TimeDisplay, UserTimeZone, addDays, compareLocalDates } from '../../cor
 import { WidgetRegistry } from '../../core/widgets/widget-registry';
 import type { LocalDateIso } from '../../data';
 import { groupByDay, withToday } from './calendar-days';
-import { timeLabel } from './calendar-label';
+import { eventName, timeLabel } from './calendar-label';
 import { TONE_CLASS } from './calendar-tone';
 
 export interface DayListSelection {
@@ -64,6 +64,13 @@ export class CalendarDayListComponent {
           icon: this.registry.get(event.sourceType)?.icon ?? 'pi pi-calendar',
           toneClass: TONE_CLASS[event.tone],
           overdue: event.tone === 'danger',
+          name: eventName(
+            event,
+            this.display,
+            this.zone.id(),
+            (key, params) => this.transloco.translate(key, params),
+            this.registry.get(event.sourceType)?.titleKey,
+          ),
         })),
       };
     }),

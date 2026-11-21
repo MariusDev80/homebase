@@ -1,5 +1,10 @@
 <div class="@container">
-  <div class="flex flex-wrap items-center gap-2" role="toolbar" data-testid="calendar-toolbar">
+  <div
+    class="flex flex-wrap items-center gap-2"
+    role="group"
+    data-testid="calendar-toolbar"
+    [attr.aria-label]="'widgets.calendar.toolbarLabel' | transloco"
+  >
     <button
       type="button"
       class="btn btn-invisible btn-icon btn-compact"

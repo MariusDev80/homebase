@@ -47,6 +47,7 @@
                   type="button"
                   class="flex w-full items-center gap-2 px-3 py-2 text-start hover:bg-hover @max-[14rem]:flex-col @max-[14rem]:items-start @max-[14rem]:gap-0"
                   [attr.data-event-id]="item.event.id"
+                  [attr.aria-label]="item.name"
                   (click)="select(item.event, $event)"
                 >
                   <span

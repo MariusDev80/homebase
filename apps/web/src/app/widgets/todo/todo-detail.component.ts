@@ -12,6 +12,7 @@ import {
   signal,
 } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { CalendarChanges } from '../../core/calendar/calendar-changes';
 import { TimeDisplay, Today, isValidLocalDate, parseLocalDate } from '../../core/time';
 import {
   DATE_RULE_INTERVAL_MAX,
@@ -60,6 +61,7 @@ export class TodoDetailComponent {
   readonly vanished = output<void>();
 
   private readonly repository = inject(TODO_REPOSITORY);
+  private readonly calendarChanges = inject(CalendarChanges);
   private readonly today = inject(Today);
   private readonly display = inject(TimeDisplay);
   private readonly injector = inject(Injector);
@@ -399,6 +401,7 @@ export class TodoDetailComponent {
       this.confirmingRemove.set(false);
       return;
     }
+    this.calendarChanges.notify('todo');
     this.finished = true;
     this.removed.emit();
   }
@@ -446,6 +449,7 @@ export class TodoDetailComponent {
       this.inflight.set(batch);
       try {
         this.storedState.set(await this.repository.update(this.stored().id, changes));
+        this.calendarChanges.notify('todo');
         this.inflight.set({});
         wrote = true;
       } catch (error) {

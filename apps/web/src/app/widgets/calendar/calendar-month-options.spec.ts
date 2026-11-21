@@ -10,6 +10,7 @@ const params = {
   moreHint: (count: number) => `hint ${count}`,
   onMoreLink: () => undefined,
   onEventClick: () => undefined,
+  eventName: () => null,
 };
 
 describe('toEventInputs', () => {

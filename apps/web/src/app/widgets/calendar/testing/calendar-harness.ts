@@ -31,6 +31,8 @@ export interface MountOptions {
   readonly maxEventsPerDay?: number | true;
   readonly styles?: CalendarStylesLoader;
   readonly now?: string;
+  /** Replaces the real-timer wait of `settle` (tests that use fake timers). */
+  readonly tick?: () => Promise<unknown>;
   /** Replaces the aggregator (e.g. to make it fail). */
   readonly listEvents?: (range: CalendarRange) => Promise<CalendarResult>;
   readonly flags?: {
@@ -99,8 +101,12 @@ export async function mountCalendar(options: MountOptions = {}) {
   const el = fixture.nativeElement as HTMLElement;
   const settle = async (): Promise<void> => {
     for (let i = 0; i < 5; i++) {
-      await fixture.whenStable();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (options.tick) {
+        await options.tick();
+      } else {
+        await fixture.whenStable();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
       fixture.detectChanges();
     }
   };

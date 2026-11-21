@@ -6,6 +6,7 @@ import {
   ElementRef,
   ViewEncapsulation,
   afterNextRender,
+  computed,
   effect,
   inject,
   input,
@@ -20,8 +21,10 @@ import { Calendar } from 'fullcalendar';
 import dayGridPlugin from 'fullcalendar/daygrid';
 import frLocale from 'fullcalendar/locales/fr';
 import type { CalendarEvent } from '../../core/calendar';
-import { UserTimeZone, isValidLocalDate, startOfMonth } from '../../core/time';
+import { TimeDisplay, UserTimeZone, isValidLocalDate, startOfMonth } from '../../core/time';
+import { WidgetRegistry } from '../../core/widgets/widget-registry';
 import { CLOCK, type LocalDateIso } from '../../data';
+import { eventName } from './calendar-label';
 import { CALENDAR_MAX_EVENTS_PER_DAY } from './calendar-month-limit';
 import { MORE_LINK_CLASS, buildMonthOptions, toEventInputs } from './calendar-month-options';
 import { CALENDAR_STYLES_LOADER } from './calendar-styles';
@@ -63,6 +66,8 @@ export class CalendarMonthComponent {
   private readonly clock = inject(CLOCK);
   private readonly zone = inject(UserTimeZone);
   private readonly transloco = inject(TranslocoService);
+  private readonly display = inject(TimeDisplay);
+  private readonly registry = inject(WidgetRegistry);
   private readonly stylesLoader = inject(CALENDAR_STYLES_LOADER);
   private readonly maxEventsPerDay = inject(CALENDAR_MAX_EVENTS_PER_DAY);
   private readonly hostEl = viewChild.required<ElementRef<HTMLElement>>('host');
@@ -71,6 +76,9 @@ export class CalendarMonthComponent {
   readonly anchor = input.required<LocalDateIso>();
   readonly events = input.required<readonly CalendarEvent[]>();
   readonly today = input.required<LocalDateIso>();
+  private readonly eventsById = computed(
+    () => new Map(this.events().map((event) => [event.id, event] as const)),
+  );
 
   readonly dayOpened = output<MonthDayOpened>();
   readonly eventOpened = output<MonthEventOpened>();
@@ -177,6 +185,18 @@ export class CalendarMonthComponent {
         onEventClick: (info) => {
           this.eventOpened.emit({ eventId: info.event.id, trigger: info.el });
         },
+        eventName: (id) =>
+          untracked(() => {
+            const found = this.eventsById().get(id);
+            if (!found) return null;
+            return eventName(
+              found,
+              this.display,
+              this.zone.id(),
+              (key, params) => this.transloco.translate(key, params),
+              this.registry.get(found.sourceType)?.titleKey,
+            );
+          }),
       }),
     );
     const calendar = new Calendar(this.hostEl().nativeElement, {

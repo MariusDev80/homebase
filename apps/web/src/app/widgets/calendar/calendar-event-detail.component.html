@@ -1,0 +1,44 @@
+<div class="flex flex-col gap-2">
+  <div>
+    <button
+      #back
+      type="button"
+      class="btn btn-invisible btn-compact"
+      data-testid="calendar-detail-back"
+      (click)="closed.emit()"
+    >
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      {{ 'widgets.calendar.back' | transloco }}
+    </button>
+  </div>
+  <div class="flex flex-col gap-2 px-3 pb-3">
+    <h3 class="m-0 text-sm font-semibold break-words" data-testid="calendar-detail-title">
+      {{ event().title }}
+    </h3>
+    <p
+      class="m-0 flex items-center gap-2 text-xs text-fg-muted"
+      data-testid="calendar-detail-source"
+    >
+      <i [class]="icon() + ' ' + toneClass()" aria-hidden="true"></i>
+      {{ source() }}
+    </p>
+    <p class="m-0 text-sm text-fg" data-testid="calendar-detail-date">{{ date() }}</p>
+    @if (time(); as when) {
+      <p class="m-0 text-sm text-fg" data-testid="calendar-detail-time">{{ when }}</p>
+    }
+    @if (overdue()) {
+      <p
+        class="m-0 flex items-center gap-2 text-sm text-danger"
+        data-testid="calendar-detail-overdue"
+      >
+        <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+        {{ 'widgets.calendar.overdueLabel' | transloco }}
+      </p>
+    }
+    @if (recurring()) {
+      <p class="m-0 text-xs text-fg-muted" data-testid="calendar-detail-recurring">
+        {{ 'widgets.calendar.recurring' | transloco }}
+      </p>
+    }
+  </div>
+</div>

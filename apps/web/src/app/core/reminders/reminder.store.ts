@@ -11,6 +11,7 @@ import {
   type ReminderInput,
 } from '../../data';
 import { REMINDER_REPOSITORY } from '../../data/schedule.tokens';
+import { CalendarChanges } from '../calendar/calendar-changes';
 import { DueRefresher } from '../time';
 
 /** Rust accepts at most 200 deliveries per read (spec 4.4). */
@@ -33,6 +34,7 @@ function asDataError(error: unknown): DataError {
 @Injectable({ providedIn: 'root' })
 export class ReminderStore {
   private readonly repository = inject(REMINDER_REPOSITORY);
+  private readonly calendarChanges = inject(CalendarChanges);
   private readonly refresher = new DueRefresher(
     inject(DOCUMENT),
     inject(CLOCK),
@@ -88,19 +90,20 @@ export class ReminderStore {
   }
 
   create(input: ReminderInput & { readonly id?: string }): Promise<Reminder> {
-    return this.act(() => this.repository.create(input));
+    return this.act(() => this.repository.create(input), true);
   }
 
   update(id: string, input: ReminderInput): Promise<Reminder> {
-    return this.act(() => this.repository.update(id, input));
+    return this.act(() => this.repository.update(id, input), true);
   }
 
   remove(id: string): Promise<boolean> {
-    return this.act(() => this.repository.remove(id));
+    return this.act(() => this.repository.remove(id), true);
   }
 
+  /** Not a calendar change: the calendar shows reminders, not their deliveries. */
   markSeen(target: MarkSeenTarget): Promise<number> {
-    return this.act(() => this.repository.markSeen(target));
+    return this.act(() => this.repository.markSeen(target), false);
   }
 
   /**
@@ -129,9 +132,10 @@ export class ReminderStore {
    * Runs an action, then re-reads (also after a failure: the state may have moved). A failed action
    * only rejects: `error` is for reads, and the re-read sets it if it fails itself.
    */
-  private async act<T>(action: () => Promise<T>): Promise<T> {
+  private async act<T>(action: () => Promise<T>, calendarChange: boolean): Promise<T> {
     try {
       const result = await action();
+      if (calendarChange) this.calendarChanges.notify('reminders');
       await this.refresh();
       await this.latest;
       return result;

@@ -9,6 +9,7 @@ import {
   type LayoutItem,
   type WidgetInstanceRecord,
 } from '../../data';
+import { CalendarChanges } from '../calendar/calendar-changes';
 import { nextFreePosition } from '../widgets/grid';
 import { fallbackConstraints } from './grid-adapter';
 import { applyNudge, fitLayout, sameRect } from './grid-layout';
@@ -60,6 +61,7 @@ export class DashboardStore implements WidgetConfigWriter {
   private readonly dashboards = inject(DASHBOARD_REPOSITORY);
   private readonly instanceRepository = inject(WIDGET_INSTANCE_REPOSITORY);
   private readonly registry = inject(WidgetRegistry);
+  private readonly calendarChanges = inject(CalendarChanges);
 
   private readonly dashboardState = signal<Dashboard | null>(null);
   private readonly instancesState = signal<readonly WidgetInstanceRecord[]>([]);
@@ -227,6 +229,8 @@ export class DashboardStore implements WidgetConfigWriter {
     // The displayed layout is read before the removal: the others must not move (D3).
     const displayed = new Map(this.layout().placed);
     await this.instanceRepository.remove(id);
+    // L20: a removed TODO widget takes its tasks with it (any type: the calendar reloads anyway).
+    this.calendarChanges.notify('dashboard');
     this.persistedGrids.delete(id);
     this.layoutPending.delete(id);
     displayed.delete(id);

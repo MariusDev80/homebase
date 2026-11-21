@@ -11,6 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { CalendarChanges } from '../../core/calendar/calendar-changes';
 import { TimeDisplay, Today } from '../../core/time';
 import { injectWidgetContext } from '../../core/widgets';
 import { DataError, TODO_REPOSITORY } from '../../data';
@@ -54,6 +55,7 @@ interface Advanced {
 export class TodoComponent {
   protected readonly ctx = injectWidgetContext<TodoConfig>();
   private readonly repository = inject(TODO_REPOSITORY);
+  private readonly calendarChanges = inject(CalendarChanges);
   private readonly today = inject(Today);
   private readonly display = inject(TimeDisplay);
   private readonly transloco = inject(TranslocoService);
@@ -166,6 +168,7 @@ export class TodoComponent {
     this.busy.set(true);
     try {
       await this.repository.create({ listId, title });
+      this.calendarChanges.notify('todo');
       // Only clear what was submitted: text typed meanwhile is kept.
       if (this.newTitle() === submitted) {
         this.newTitle.set('');
@@ -197,6 +200,7 @@ export class TodoComponent {
       if (action?.kind === 'advance') {
         // A repeating todo stays active: its due date moves to the next occurrence.
         await this.repository.shiftRepeatDue(todo.id, action.from, action.to);
+        this.calendarChanges.notify('todo');
         box.checked = false;
         this.advanced.set({
           id: todo.id,
@@ -211,6 +215,7 @@ export class TodoComponent {
         return;
       }
       await this.repository.setCompleted(todo.id, completed);
+      this.calendarChanges.notify('todo');
       this.actionError.set(false);
       await this.refresh();
       const stillShown = this.rows().some((r) => r.todo.id === todo.id);
@@ -233,6 +238,7 @@ export class TodoComponent {
     this.busy.set(true);
     try {
       await this.repository.shiftRepeatDue(advanced.id, advanced.to, advanced.from);
+      this.calendarChanges.notify('todo');
       this.actionError.set(false);
       await this.refresh();
       this.focus(this.inRow(advanced.id, 'todo-check'));
@@ -326,6 +332,7 @@ export class TodoComponent {
     this.confirmingId.set(null);
     try {
       await this.repository.remove(todo.id);
+      this.calendarChanges.notify('todo');
       this.actionError.set(false);
       await this.refresh();
       // The delete button of the row that took its place (or the previous one), else the field.

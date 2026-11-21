@@ -78,7 +78,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (O) ADR-004 : choix du calendrier (Schedule-X vs FullCalendar) après essai (`docs/adr/004-calendar.md`, accepté le 2026-11-20 : FullCalendar 7.1.5 ; décisions D1 à D11 validées par Marius)
 - [x] (S) Lot C1 (spec calendar) : sources et agrégateur (revu)
 - [x] (S) Lot C2 : widget calendrier (Agenda, Mois, panneau Jour) (revu)
-- [ ] (S) Lot C3 : fiche, rafraîchissement (CalendarChanges), accessibilité
+- [x] (S) Lot C3 : fiche, rafraîchissement (CalendarChanges), accessibilité (revu)
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.
 
 ## Phase 3 : Données externes et applications locales

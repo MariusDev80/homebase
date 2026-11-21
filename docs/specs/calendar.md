@@ -389,7 +389,7 @@ Critères :
   - `focus` et `visibilitychange` déclenchent un rechargement ; un changement de `Today` ou de fuseau aussi ;
   - deux réponses arrivées en ordre inverse : la plus récente l'emporte.
 - **CA-C3-3** Fiche :
-  - F1 à Santiago affiche « 05:00 » et « (09:00 Paris) » ; F7 à Paris « 15:00 (09:00 Montréal) » ;
+  - F1 à Santiago affiche « 05:00 » et « (09:00 Paris) » ; F7 à Paris « 15:00 (09:00 Montreal) » (`zoneCity` = dernier segment IANA, partagé avec rappels et habitudes) ;
   - F5 donne « Du … au … » ; une tâche en retard donne « En retard » ; F9 affiche son titre complet ;
   - Échap ou « Retour » rend le focus à l'origine (ligne d'Agenda, événement du Mois, ligne du panneau) ;
   - du panneau Jour à la fiche, puis « Retour » : le panneau, avec le focus sur la ligne.

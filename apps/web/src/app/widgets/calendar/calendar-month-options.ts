@@ -49,6 +49,8 @@ export interface MonthOptionsParams {
   /** The "+N" link: the host opens its Day panel (no library popover). */
   readonly onMoreLink: (info: MoreLinkClickInfo) => void;
   readonly onEventClick: (info: EventClickInfo) => void;
+  /** Accessible name of an event (spec calendar 4.8); null when the event is unknown. */
+  readonly eventName: (eventId: string) => string | null;
 }
 
 /** Month options (spec calendar T3), without the plugins and the locale (set by the adapter). */
@@ -73,6 +75,12 @@ export function buildMonthOptions(params: MonthOptionsParams): CalendarOptions {
     eventClick: (info) => {
       info.jsEvent.preventDefault();
       params.onEventClick(info);
+    },
+    eventDidMount: ({ event, el }) => {
+      // Lets the host find the element again after a reload remounted it (focus return).
+      el.dataset['eventId'] = event.id;
+      const name = params.eventName(event.id);
+      if (name !== null) el.setAttribute('aria-label', name);
     },
     defaultTimedEventDuration: { minutes: 0 },
     eventTimeFormat: { hour: '2-digit', minute: '2-digit', meridiem: false },

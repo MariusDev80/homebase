@@ -1,5 +1,6 @@
 import { ApplicationInitStatus, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { CalendarChanges } from '../../core/calendar/calendar-changes';
 import { provideAppI18n } from '../../core/i18n';
 import { FakeSettingsRepository } from '../../core/testing/fake-settings.repository';
 import { FakeTodoRepository } from '../../core/testing/fake-todo.repository';
@@ -739,6 +740,13 @@ describe('TodoComponent', () => {
       expect((q('todo-clear') as HTMLButtonElement).disabled).toBe(true);
     });
 
+    it('does not notify the calendar when clearing them (they are not in it)', async () => {
+      const { q, click } = await render(withDone());
+      await click(q('todo-clear'));
+      await click(q('todo-clear-yes'));
+      expect(TestBed.inject(CalendarChanges).version()).toBe(0);
+    });
+
     it('keeps them when the confirmation is cancelled', async () => {
       const s = withDone();
       const { q, click, titles, repo, focusedId } = await render(s);
@@ -800,6 +808,35 @@ describe('TodoComponent', () => {
       await click(q('todo-confirm-no'));
       expect(titles()).toHaveLength(3);
       expect(document.activeElement).toBe(all('todo-remove')[0]);
+    });
+  });
+
+  describe('calendar notifications (CA-C3-1)', () => {
+    it('notifies on create, check, uncheck and remove, but not on reorder', async () => {
+      const { all, q, fill, click, press, settle } = await render(seeded());
+      const changes = TestBed.inject(CalendarChanges);
+      expect(changes.version()).toBe(0);
+      const input = q<HTMLInputElement>('todo-new');
+      fill(input, 'Delta');
+      await press(input, 'Enter');
+      await settle();
+      expect(changes.version()).toBe(1);
+      await click(all('todo-check')[0]);
+      expect(changes.version()).toBe(2);
+      await click(all('todo-check')[3]);
+      expect(changes.version()).toBe(3);
+      await click(all('todo-down')[0]);
+      expect(changes.version()).toBe(3);
+      await click(all('todo-remove')[0]);
+      await click(q('todo-confirm-yes'));
+      expect(changes.version()).toBe(4);
+    });
+
+    it('does not notify when a write fails', async () => {
+      const { repo, all, click } = await render(seeded());
+      vi.spyOn(repo, 'setCompleted').mockRejectedValue(new DataError('unknown', 'x'));
+      await click(all('todo-check')[0]);
+      expect(TestBed.inject(CalendarChanges).version()).toBe(0);
     });
   });
 
@@ -882,6 +919,15 @@ describe('TodoComponent', () => {
       expect(repo.items[0].dueOn).toBe('2026-10-19');
       expect(q('todo-advanced-status')?.textContent?.trim()).toBe('');
       expect(q('todo-advanced-undo')).toBeNull();
+    });
+
+    it('notifies the calendar after an advance and after its undo (CA-C3-1)', async () => {
+      const { all, click, q } = await render(weekly());
+      const changes = TestBed.inject(CalendarChanges);
+      await click(all('todo-check')[0]);
+      expect(changes.version()).toBe(1);
+      await click(q('todo-advanced-undo'));
+      expect(changes.version()).toBe(2);
     });
 
     it('clears the message on the next action, "Afficher les terminées" included', async () => {
