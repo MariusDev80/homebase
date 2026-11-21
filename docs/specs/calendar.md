@@ -422,7 +422,7 @@ En `npm run dev` avec quelques rappels et tâches, puis sur l'exe de `npm run bu
 
 ---
 
-## 8. Amendements proposés (à appliquer par le coordinateur)
+## 8. Amendements appliqués (2026-11-21)
 - **ROADMAP** phase 2 : cocher « ADR-004 » ; remplacer « (S) Calendrier agrégé via `CalendarSource` » par les lots C1, C2 et C3 (« C2 après D11 »).
 - **PLAN** §2, ligne « Calendrier » : « FullCalendar 7.1.5 (vue Mois, chargée à la demande) ; Agenda rendu par nous (D11) » ; §9 point 2 fermé par l'ADR-004.
 - **ADR-003** §3.6 : `startOfMonth`, `addMonths` dans `core/time` ; §3.4 : style `'month-year'` de `TimeDisplay`.

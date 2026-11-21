@@ -231,6 +231,7 @@ Conséquences : un quotidien à 02:30 sonne **une fois** le 2026-10-25 (00:30Z) 
 - **Aucune** bibliothèque RRULE : codec strict maison (§3.5), qui ne calcule aucune date ; il appelle `parseLocalDate` de `core/time` pour valider la date d'un `UNTIL`.
   *Amendement (spec todo-details, 2026-11-10)* : exception unique, `core/time/date-rule.ts` calcule la prochaine échéance d'une tâche répétée (§3.9).
 - Formatage : `TimeDisplay` uniquement (`Intl.DateTimeFormat` avec `timeZone` explicite). `DatePipe`, `formatDate` et `CommonModule` (qui apporte `| date`) interdits.
+  *Amendement (spec calendar, 2026-11-21)* : `TimeDisplay` gagne le style `'month-year'`.
 - Saisie de dates (phase 1) : `<input type="date">` natif (valeur `YYYY-MM-DD`, validée par `parseLocalDate`). Le `DatePicker` de PrimeNG (qui produit un `Date`) est **interdit** tant qu'un adaptateur `Date` ↔ `LocalDateIso` n'existe pas dans `core/time` (à concevoir s'il devient nécessaire).
 - **Budget** : le build est déjà à ~504 kB pour 500 kB (V17). **Ne pas relever le budget sans l'accord de Marius.** Si `web:build` échoue sur le budget, s'arrêter et rapporter. Piste à lui soumettre : garder Temporal hors du bundle initial (initialiseur de fuseau fondé sur `Intl` seul, Temporal chargé avec les widgets et Réglages paresseux).
 
@@ -314,6 +315,7 @@ Limites : plage ≤ **400 jours** et `from < to` (sinon `invalid_range`) ; `limi
 - Toute arithmétique de date passe par `core/time`. Interdits hors `core/time/**` et `data/clock.ts` (ESLint, §8.3) : toute référence à `Date` hors position de type, les accesseurs `get*/set*` de date, `getTimezoneOffset`, `toLocaleDateString/TimeString`, `Intl.DateTimeFormat` (y compris `Intl['DateTimeFormat']` et la déstructuration), `Temporal.Now` (y compris via alias ou `Temporal['Now']`), l'import de `temporal-polyfill`, `DatePipe`, `formatDate`, `CommonModule`. `*.spec.ts` et `**/testing/**` sont exemptés de la règle `Date` (fakes existants) mais pas de `Temporal.Now`.
 - Les ticks d'interface ne font que déclencher un recalcul depuis `clock.nowIso()`.
 - *Amendement (spec habits, 2026-11-17)* : `isoWeekday` et `startOfIsoWeek` sont ajoutées dans `core/time`.
+- *Amendement (spec calendar, 2026-11-21)* : `startOfMonth` et `addMonths` sont ajoutées dans `core/time`.
 
 **Rust**
 - `trait Clock: Send + Sync { fn now(&self) -> jiff::Timestamp; }`, `SystemClock`, `FixedClock` (test).

@@ -10,3 +10,4 @@ CSP définie dans `apps/desktop/src-tauri/tauri.conf.json` (`app.security.csp`) 
 - **CSS critique Angular** : l'optimisation `inlineCritical` (beasties) génère `<link media="print" onload="this.media='all'">`, un gestionnaire inline bloqué par `script-src 'self'`. Elle est désactivée dans la configuration `production` de `apps/web/angular.json` (`optimization.styles.inlineCritical: false`).
 - **Polices** : PrimeIcons est servi depuis l'origine de l'app (`font-src 'self' data:`).
 - `form-action 'none'` : aucun formulaire ne doit pouvoir soumettre vers l'extérieur.
+- *Amendement (spec calendar, 2026-11-21)* : feuille de style non injectée `calendar-lib.css` (`angular.json`, `inject: false`), servie par l'application et insérée par un `<link>` créé par `createElement` ; aucune ressource distante ; CSP inchangée.
