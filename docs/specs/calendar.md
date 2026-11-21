@@ -1,6 +1,6 @@
 # Spec : Calendrier agrégé (widget `calendar`)
 
-- **Statut** : proposée (2026-11-20). Fondée sur l'ADR-004 **accepté** (D1 à D10). Une décision nouvelle, **D11**, attend Marius (§0) : elle ne bloque que le lot C2.
+- **Statut** : acceptée (2026-11-21). Fondée sur l'ADR-004 **accepté** (D1 à D10). D11, le champ `unavailable` et PV0 (ordre des tâches conservé) validés par Marius le 2026-11-21, tels que recommandés.
 - **Auteur** : architect (Opus)
 - **Destinataire** : `implementer` (Sonnet), un lot à la fois (§6), sur la branche `phase-2-calendar`, dans `F:/Marius/Projects/homebase-calendar`
 - **Liens** : `CLAUDE.md` ; ADR-004 (§3.1 relevé et défauts, §3.2 figé, §4.1 fixtures F1 à F11, §7 cas limites) ; ADR-001 §3.1, §3.2 ; ADR-003 §3.2, §3.4, §3.6, §3.7 ; `docs/DESIGN.md` §2, §3 (« Panneau dans une carte »), §5 ; `docs/specs/habits.md` (H6) ; `docs/specs/timers-reminders.md` (M9, D8)
@@ -9,7 +9,7 @@ Chemins TS relatifs à `apps/web/src/app/`. Cette spec ne modifie aucun autre do
 
 ---
 
-## 0. Décision soumise à Marius
+## 0. Décision validée par Marius (2026-11-21)
 
 - **D11** **Agenda rendu par nous** (liste groupée par jour, composant Angular), FullCalendar réservé à la vue **Mois**. Le module `fullcalendar/list` n'est pas utilisé. Raisons :
   1. Défaut 1 corrigé par construction : un en-tête de jour visible, « Aujourd'hui » et « Demain », la hiérarchie des bordures en tokens.
@@ -441,7 +441,7 @@ En `npm run dev` avec quelques rappels et tâches, puis sur l'exe de `npm run bu
 | R6. D11 refusée | Le défaut 1 dépend des hooks de la vue liste | Repli T1 bis, MC1 |
 | R7. `listDue` sans index sur `due_on` (balayage de la table) | Lenteur avec beaucoup de tâches | Index partiel possible : `todos_due_active_idx ON todos (due_on, sort_order, id) WHERE completed_at IS NULL AND due_on IS NOT NULL`. Nouvelle migration seulement si la mesure l'exige |
 
-- **PV0** (à trancher en C2) Ordre des tâches d'un même jour : `listDue` départage par `sort_order` puis `id`, mais l'agrégateur trie les `all-day` d'un jour par `id` seulement, donc le `sort_order` de la liste est perdu. Décider si l'Agenda doit le conserver (champ de tri dans `CalendarEvent`) ou si l'ordre par `id` suffit.
+- **PV0** (tranché le 2026-11-21 : l'Agenda conserve l'ordre des listes ; tri stable de l'agrégateur, départage par l'ordre de la source puis l'ordre renvoyé par la source, sans nouveau champ dans `CalendarEvent`) Ordre des tâches d'un même jour : `listDue` départage par `sort_order` puis `id`, mais l'agrégateur trie les `all-day` d'un jour par `id` seulement, donc le `sort_order` de la liste est perdu. Décider si l'Agenda doit le conserver (champ de tri dans `CalendarEvent`) ou si l'ordre par `id` suffit.
 - **PV1** P1 à P4, par les critères cités.
 - **PV2** Le niveau des titres (`h3`) suit celui de l'en-tête de carte de `widget-host` : à vérifier en C2.
 - **PV3** Montage de l'essai (§2, note) : relevé par le coordinateur avant la suppression de la branche ; écarts rapportés par l'implémenteur en début de C2.
