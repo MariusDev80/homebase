@@ -80,7 +80,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot C2 : widget calendrier (Agenda, Mois, panneau Jour) (revu)
 - [x] (S) Lot C3 : fiche, rafraîchissement (CalendarChanges), accessibilité (revu)
 - [x] (S) Lot CO1 (spec calendar-occurrences) : statut, ordre par jour puis heure, « Toute la journée », en-têtes de jour teintés (revu)
-- [ ] (S) Lot CO2 : occurrences des tâches répétées
+- [x] (S) Lot CO2 : occurrences des tâches répétées (revu)
 - [ ] (S) Lot CO3 : habitudes dans l'Agenda et le Mois (heure du rappel ou toute la journée)
 - [ ] (S) Lot CO4 : réglage « Sources affichées »
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.

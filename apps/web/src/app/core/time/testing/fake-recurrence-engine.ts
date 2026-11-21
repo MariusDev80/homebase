@@ -12,6 +12,13 @@ export class FakeRecurrenceEngine implements RecurrenceEngine {
   occurrences: readonly Occurrence[] = [];
   truncated = false;
   error: Error | null = null;
+  /** When set, answers every expand call (takes precedence over occurrences/truncated/error). */
+  respond:
+    | ((
+        spec: RecurrenceSpec,
+        range: ExpandRange,
+      ) => { readonly occurrences: readonly Occurrence[]; readonly truncated: boolean })
+    | null = null;
 
   validate(
     spec: RecurrenceSpec,
@@ -26,6 +33,13 @@ export class FakeRecurrenceEngine implements RecurrenceEngine {
     range: ExpandRange,
   ): Promise<{ readonly occurrences: readonly Occurrence[]; readonly truncated: boolean }> {
     this.expandCalls.push({ spec, range });
+    if (this.respond !== null) {
+      try {
+        return Promise.resolve(this.respond(spec, range));
+      } catch (e) {
+        return Promise.reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    }
     if (this.error !== null) return Promise.reject(this.error);
     return Promise.resolve({ occurrences: this.occurrences, truncated: this.truncated });
   }

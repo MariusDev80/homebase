@@ -525,6 +525,57 @@ describe('SqliteTodoRepository', () => {
     });
   });
 
+  describe('listRepeatingDueBy', () => {
+    const RULE = 'FREQ=WEEKLY';
+
+    it('keeps active repeating todos due on or before the bound, across lists', async () => {
+      const { list } = await newList();
+      const other = await repo.createList({ name: 'Autre' });
+      const mk = async (listId: string, title: string, dueOn: string, rrule: string | null) => {
+        const todo = await repo.create({ listId, title, dueOn });
+        return rrule === null ? todo : repo.update(todo.id, { rrule });
+      };
+      await mk(list.id, 'plain', '2026-11-10', null);
+      await mk(list.id, 'old', '2026-10-01', RULE);
+      await mk(other.id, 'bound', '2026-11-20', RULE);
+      await mk(other.id, 'after', '2026-11-21', RULE);
+      const done = await mk(other.id, 'done', '2026-11-05', RULE);
+      await repo.setCompleted(done.id, true);
+      const found = await repo.listRepeatingDueBy('2026-11-20', 10);
+      expect(found.map((t) => t.title)).toEqual(['old', 'bound']);
+      expect(found[0]).toMatchObject({ rrule: RULE, completedAt: null });
+    });
+
+    it('orders by due_on, sort_order then id and respects the limit', async () => {
+      const { list } = await newList();
+      const a = await repo.create({ listId: list.id, title: 'a', dueOn: '2026-11-11' });
+      const b = await repo.create({ listId: list.id, title: 'b', dueOn: '2026-11-11' });
+      const c = await repo.create({ listId: list.id, title: 'c', dueOn: '2026-11-09' });
+      for (const t of [a, b, c]) await repo.update(t.id, { rrule: RULE });
+      await repo.reorder(list.id, [b.id, a.id, c.id]);
+      expect((await repo.listRepeatingDueBy('2026-11-30', 10)).map((t) => t.title)).toEqual([
+        'c',
+        'b',
+        'a',
+      ]);
+      expect((await repo.listRepeatingDueBy('2026-11-30', 2)).map((t) => t.title)).toEqual([
+        'c',
+        'b',
+      ]);
+    });
+
+    it('refuses invalid arguments before any query', async () => {
+      const select = vi.spyOn(db, 'select');
+      expect(await kindOf(repo.listRepeatingDueBy('2026-1-10', 5))).toBe('invalid_input');
+      expect(await kindOf(repo.listRepeatingDueBy('nope', 5))).toBe('invalid_input');
+      for (const limit of [0, 1001, 1.5, Number.NaN, -1]) {
+        expect(await kindOf(repo.listRepeatingDueBy('2026-11-20', limit))).toBe('invalid_input');
+      }
+      expect(select).not.toHaveBeenCalled();
+      expect(await kindOf(repo.listRepeatingDueBy('2026-11-20', 1000))).toBe('no error');
+    });
+  });
+
   describe('cascades', () => {
     it('instance deletion removes its list and todos, keeping others', async () => {
       const { dashboard, instance, list } = await newList();
