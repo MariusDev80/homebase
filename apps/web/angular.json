@@ -31,7 +31,14 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.css"]
+            "styles": [
+              "src/styles.css",
+              {
+                "input": "fullcalendar/skeleton.css",
+                "bundleName": "calendar-lib",
+                "inject": false
+              }
+            ]
           },
           "configurations": {
             "production": {

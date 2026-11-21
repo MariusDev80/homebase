@@ -434,6 +434,31 @@
         "invalid": "Les valeurs saisies sont refusées."
       }
     },
+    "calendar": {
+      "title": "Calendrier",
+      "description": "Rappels et échéances des tâches, en agenda ou par mois",
+      "view": { "agenda": "Agenda", "month": "Mois" },
+      "daysLabel": "Nombre de jours affichés",
+      "days": "{{count}} jours",
+      "prevMonth": "Mois précédent",
+      "nextMonth": "Mois suivant",
+      "prevDays": "{{count}} jours précédents",
+      "nextDays": "{{count}} jours suivants",
+      "today": "Aujourd'hui",
+      "tomorrow": "Demain",
+      "allDay": "Journée",
+      "overdue": "en retard",
+      "nothingToday": "Rien de prévu aujourd'hui.",
+      "empty": "Rien de prévu du {{from}} au {{to}}.",
+      "moreHint": "Voir les {{count}} autres événements de ce jour",
+      "back": "Retour",
+      "partial": "Certains éléments n'ont pas pu être chargés.",
+      "truncated": "Trop d'événements : seuls les 2000 premiers sont affichés.",
+      "monthFailed": "La vue Mois n'a pas pu s'afficher.",
+      "showAgenda": "Afficher l'Agenda",
+      "configNotSaved": "Le choix n'a pas pu être enregistré.",
+      "loadError": "Le calendrier n'a pas pu être chargé."
+    },
     "habits": {
       "title": "Habitudes",
       "description": "Habitudes cochées chaque jour, séries et rappels",

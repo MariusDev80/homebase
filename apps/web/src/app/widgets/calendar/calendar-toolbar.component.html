@@ -1,0 +1,88 @@
+<div class="@container">
+  <div class="flex flex-wrap items-center gap-2" role="toolbar" data-testid="calendar-toolbar">
+    <button
+      type="button"
+      class="btn btn-invisible btn-icon btn-compact"
+      data-testid="calendar-prev"
+      [attr.aria-label]="
+        isMonth()
+          ? ('widgets.calendar.prevMonth' | transloco)
+          : ('widgets.calendar.prevDays' | transloco: { count: agendaDays() })
+      "
+      (click)="previous.emit()"
+    >
+      <i class="pi pi-chevron-left" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="btn btn-invisible btn-icon btn-compact"
+      data-testid="calendar-next"
+      [attr.aria-label]="
+        isMonth()
+          ? ('widgets.calendar.nextMonth' | transloco)
+          : ('widgets.calendar.nextDays' | transloco: { count: agendaDays() })
+      "
+      (click)="next.emit()"
+    >
+      <i class="pi pi-chevron-right" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="btn btn-compact"
+      data-testid="calendar-today"
+      (click)="today.emit()"
+    >
+      {{ 'widgets.calendar.today' | transloco }}
+    </button>
+    <span
+      #titleRef
+      tabindex="-1"
+      class="min-w-0 flex-1 truncate text-sm font-semibold focus:outline-none @max-[28rem]:order-last @max-[28rem]:basis-full"
+      aria-live="polite"
+      data-testid="calendar-title"
+      >{{ title() }}</span
+    >
+    @if (monthAllowed()) {
+      <button
+        type="button"
+        data-testid="calendar-view-agenda"
+        [class]="
+          view() === 'agenda' ? 'btn btn-compact bg-accent-subtle text-accent' : 'btn btn-compact'
+        "
+        [attr.aria-pressed]="view() === 'agenda'"
+        (click)="viewChange.emit('agenda')"
+      >
+        {{ 'widgets.calendar.view.agenda' | transloco }}
+      </button>
+      <button
+        type="button"
+        #monthButton
+        data-testid="calendar-view-month"
+        [class]="
+          view() === 'month' ? 'btn btn-compact bg-accent-subtle text-accent' : 'btn btn-compact'
+        "
+        [attr.aria-pressed]="view() === 'month'"
+        (click)="viewChange.emit('month')"
+      >
+        {{ 'widgets.calendar.view.month' | transloco }}
+      </button>
+    }
+    @if (view() === 'agenda' && daysAllowed()) {
+      <label class="sr-only" [for]="daysId()">{{ 'widgets.calendar.daysLabel' | transloco }}</label>
+      <select
+        #days
+        [id]="daysId()"
+        class="field w-auto"
+        data-testid="calendar-days"
+        [value]="agendaDays()"
+        (change)="onDays(days.value)"
+      >
+        @for (count of dayChoices; track count) {
+          <option [value]="count" [selected]="count === agendaDays()">
+            {{ 'widgets.calendar.days' | transloco: { count } }}
+          </option>
+        }
+      </select>
+    }
+  </div>
+</div>

@@ -48,10 +48,10 @@ Widget `calendar` en lecture seule. Il agrège les rappels (développés par le 
 
 | # | Supposition | Vérifiée par |
 |---|---|---|
-| P1 | `now: clock.nowIso()` (chaîne ISO) place « aujourd'hui » selon `CLOCK`, et `setOption('now', …)` le met à jour | CA-C2-7 |
+| P1 | `now: clock.nowIso()` (chaîne ISO) place « aujourd'hui » selon `CLOCK` (vrai à la création) ; `setOption('now', …)` ne le met pas à jour (voir P4) | CA-C2-7 |
 | P2 | Entrée sur un événement focalisé (`eventInteractive: true`) déclenche `eventClick` ; Entrée sur « +N » déclenche `moreLinkClick` | MC2, MC5 |
 | P3 | Le build résout `"fullcalendar/skeleton.css"` (nom de paquet) dans `styles`, et le fichier non injecté garde le nom `calendar-lib.css` malgré `outputHashing: all` (l'essai a produit `spike-fc.css`) | CA-C2-2 |
-| P4 | `setOption` met à jour `events`, `now` et `timeZone` sans recréer le calendrier | CA-C2-7 ; sinon recréer, et le noter |
+| P4 | `setOption` met à jour `events`, `now` et `timeZone` sans recréer le calendrier | CA-C2-7 ; sinon recréer, et le noter. **Vérifié au lot C2 : faux pour `now`** (l'option change mais la cellule « aujourd'hui » reste) : le calendrier est recréé au changement de jour ; `events` et `timeZone` passent par `setOption`. |
 | P5 | 100 rappels quotidiens sur 42 jours : `listEvents` en moins de 300 ms (ADR-004 S9) | PV-C1 |
 
 **Note** : l'architecte n'a pas pu relire le code de l'essai (pas d'accès shell). Avant de supprimer la branche `spike/calendar-lib`, le coordinateur relève par `git show spike/calendar-lib:apps/web/src/app/widgets/spike-fc/…` (et `apps/web/angular.json`) le montage validé, et le joint à la mission de C2 :
@@ -101,7 +101,8 @@ Limite connue : la colonne d'heure de 165 px (V24), à juger en MC1. Le panneau 
 
 **Retenu : le panneau.** Fonctionnement :
 - `dayMaxEvents: true` : la limite suit la hauteur de la cellule. Le composant accepte une entrée `maxEventsPerDay: number | true`, fixée à 2 dans les tests.
-- `moreLinkClick` est une **fonction qui ne renvoie rien**, donc le popover ne s'ouvre jamais (V22). Elle lit le jour par `calendar.formatIso(info.date, true)`, le valide (`isValidLocalDate`) et ouvre le panneau pour ce jour. Elle retient `info.jsEvent.currentTarget`, pour y rendre le focus.
+- `moreLinkClick` est une **fonction qui ne renvoie rien** (V22, **infirmé** : voir l'interception ci-dessous). Elle lit le jour par `calendar.formatIso(info.date, true)`, le valide (`isValidLocalDate`) et ouvre le panneau pour ce jour. Elle retient `info.jsEvent.currentTarget`, pour y rendre le focus.
+- **Interception en capture (vérifié au lot C2)** : le retour `undefined` ne suffit pas, car FullCalendar ouvre son popover pour toute valeur de retour fausse (`!moreLinkClick`). Le composant Mois pose donc sa classe `hb-fc-more` sur le lien (`moreLinkClass`) et des écouteurs `click` et `keydown` (Entrée, Espace) en phase de capture sur son conteneur : `preventDefault` + `stopPropagation`, puis le jour est lu dans `closest('[data-date]')` et validé par `isValidLocalDate`. `moreLinkClick` reste en filet.
 - `popoverClass: 'hb-fc-popover'` sert seulement de **sentinelle de test** : aucun élément `.hb-fc-popover` ne doit jamais exister.
 - Le panneau recouvre le corps (`absolute inset-0 overflow-y-auto bg-canvas`, corps en `relative`). La zone du calendrier reçoit `inert` tant qu'un panneau est ouvert : FullCalendar reste monté, sans perte d'état.
 - Le panneau contient, dans cet ordre :
@@ -118,7 +119,7 @@ Limite connue : la colonne d'heure de 165 px (V24), à juger en MC1. Le panneau 
   timeZone: userZone, firstDay: 1, fixedWeekCount: true,
   headerToolbar: false, height: '100%', navLinks: false,
   dayMaxEvents: maxEventsPerDay,                                     // true in production
-  moreLinkClick: (info) => { this.openDay(info); },                  // returns undefined: no popover
+  moreLinkClick: (info) => { this.openDay(info); },                  // safety net only: the capture listener (T2) takes the "+N" first
   moreLinkHint: (count) => t('widgets.calendar.moreHint', { count }),
   popoverClass: 'hb-fc-popover',                                     // test sentinel only
   eventInteractive: true,
@@ -133,7 +134,7 @@ Limite connue : la colonne d'heure de 165 px (V24), à juger en MC1. Le panneau 
 ```
 - **Conversion** (`toEventInputs`, pure) : `id` ; `title` ; `timed` → `start` = instant ISO, **sans `end`** ; `all-day` → `start` = `startOn`, `end` = `addDays(lastOn, 1)`, `allDay: true`. Le ton passe par `className` = classe sémantique du ton. Jamais de `url`, d'`eventContent`, de `html`.
 - Seul `calendar-month.component.ts` importe `fullcalendar` à l'exécution. `calendar-month-options.ts` n'en importe que des types (`import type`).
-- Création dans `afterNextRender`, après `ensureCalendarStyles` ; `calendar.destroy()` par `DestroyRef`. Changements par `setOption` (P4) : `events` après chaque chargement, `now` quand `Today.date()` change, `timeZone` quand `UserTimeZone` change, `gotoDate(monthStart)` à la navigation.
+- Création dans `afterNextRender`, après `ensureCalendarStyles` ; `calendar.destroy()` par `DestroyRef`. Changements par `setOption` (P4) : `events` après chaque chargement, `timeZone` quand `UserTimeZone` change, `gotoDate(monthStart)` à la navigation. `now` n'est pas mis à jour par `setOption` (P4) : le calendrier est recréé quand `Today.date()` change.
 
 ### T4. Chargement paresseux et CSS à part
 - Dans `calendar.component.html`, la vue Mois est dans un `@defer` (sous `@if (view() === 'month')`) : FullCalendar et Preact ne se chargent qu'au **premier affichage du Mois**. L'Agenda n'en a jamais besoin.
@@ -183,7 +184,7 @@ export const MAX_CALENDAR_EVENTS = 2000;
 }
 ```
 - `index.ts` réexporte tout, sauf `calendar-changes.ts` : les écrivains l'importent par son chemin direct, pour ne pas tirer l'agrégateur.
-- Tri : `all-day` d'abord (par `startOn`), puis `timed` par `start` (ordre des chaînes, format fixe), puis par `id`. Dédoublonnage par `id`, le premier gardé. Coupe à 2000 après le tri.
+- Tri : `all-day` d'abord (par `startOn`), puis `timed` par `start` (ordre des chaînes, format fixe). Le tri est stable (PV0) : à égalité, l'ordre du registre des sources, puis l'ordre renvoyé par la source. Dédoublonnage par `id`, le premier gardé. Coupe à 2000 après le tri.
 - Intégrité (écart et journal en développement, identifiants seulement), voir ADR-004 §3.2.2. Est hors de la plage :
   - un `timed` dont `start ∉ [from, to)` ;
   - un `all-day` qui ne chevauche pas `[firstOn, lastOn]`.
@@ -205,7 +206,7 @@ SQL dans `data/sqlite/sqlite-todo.repository.ts` seulement, paramètres liés (`
 - Définitions : `loadCalendarSource: () => import('./reminders.calendar-source').then((m) => m.RemindersCalendarSource)`, de même pour `todo`.
 
 ### 4.4 `core/time` (ajouts, amendement ADR-003 §3.6 proposé)
-- `local-date.ts` : `startOfMonth(date)` et `addMonths(date, n)`, par `Temporal.PlainDate` (débordement `constrain`).
+- `month.ts` : `startOfMonth(date)` et `addMonths(date, n)` (gardés hors de `local-date.ts` pour rester hors du chunk initial), par `Temporal.PlainDate` (débordement `constrain`).
 - `time-display.ts` : `DateStyle` gagne `'month-year'` (`{ month: 'long', year: 'numeric' }` → « novembre 2026 »).
 
 ### 4.5 Widget `widgets/calendar/`
@@ -335,7 +336,7 @@ Critères :
   - `npm ci --ignore-scripts` passe sans `overrides` ni `--legacy-peer-deps` ;
   - le lockfile ne contient qu'une copie de `preact`.
 - **CA-C2-2** Build :
-  - total initial ≤ le total mesuré sur `phase-2-calendar` avant C2 (il comprend C1), + 1 kB ;
+  - JS initial ≤ le JS mesuré sur `phase-2-calendar` avant C2 (il comprend C1), + 1 kB ; la feuille globale `styles-*.css` ne croît que des utilitaires Tailwind génériques des gabarits du calendrier (amendé le 2026-11-21 par le coordinateur : total 495,56 → 497,44 kB, soit +0,62 kB de JS, dont la définition à +0,57 kB, et +1,26 kB pour 25 utilitaires Tailwind ; rien du code paresseux dans l'initial ; sous l'avertissement de 500 kB, arbitrage R5 en fin de phase) ;
   - aucun fichier « Initial » de `ng build` ne contient `@fullcalendar` ni `preact` (`rg`) ;
   - FullCalendar est dans un chunk paresseux **distinct** de celui du composant `calendar` ;
   - `calendar-lib.css` est présent dans la sortie et absent d'`index.html` (P3).

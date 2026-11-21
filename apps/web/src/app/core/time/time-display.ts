@@ -7,7 +7,13 @@ import { UserTimeZone } from './time-zone';
 import { durationBetween, normalizeTimeZone } from './zoned';
 
 export type DateStyle =
-  'short' | 'long' | 'weekday-long' | 'weekday-short' | 'day-month' | 'weekday-day-month';
+  | 'short'
+  | 'long'
+  | 'weekday-long'
+  | 'weekday-short'
+  | 'day-month'
+  | 'weekday-day-month'
+  | 'month-year';
 export type InstantStyle = 'time' | 'date' | 'date-time';
 
 const LOCALES: Readonly<Record<string, string>> = { fr: 'fr-FR' };
@@ -24,6 +30,7 @@ const DATE_OPTIONS: Readonly<Record<DateStyle, Intl.DateTimeFormatOptions>> = {
   'weekday-short': { weekday: 'short', day: 'numeric' },
   'day-month': { day: 'numeric', month: 'short' },
   'weekday-day-month': { weekday: 'short', day: 'numeric', month: 'short' },
+  'month-year': { month: 'long', year: 'numeric' },
 };
 
 const INSTANT_OPTIONS: Readonly<Record<InstantStyle, Intl.DateTimeFormatOptions>> = {

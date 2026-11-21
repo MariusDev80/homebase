@@ -1,0 +1,25 @@
+<div class="flex flex-col gap-2">
+  <div>
+    <button
+      #back
+      type="button"
+      class="btn btn-invisible btn-compact"
+      data-testid="calendar-panel-back"
+      (click)="closed.emit()"
+    >
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      {{ 'widgets.calendar.back' | transloco }}
+    </button>
+  </div>
+  <h3 class="m-0 px-3 text-sm font-semibold" data-testid="calendar-panel-title">{{ title() }}</h3>
+  <app-calendar-day-list
+    [events]="events()"
+    [firstOn]="day()"
+    [lastOn]="day()"
+    [today]="today()"
+    [showHeaders]="false"
+    [emptyToday]="false"
+    instanceId="panel"
+    (eventSelected)="eventSelected.emit($event)"
+  />
+</div>

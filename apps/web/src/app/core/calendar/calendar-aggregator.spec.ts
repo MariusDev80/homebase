@@ -105,8 +105,8 @@ describe('CalendarAggregator', () => {
     expect(result).toMatchObject({ failedSources: [], truncated: false, unavailable: false });
   });
 
-  it('breaks ties by id', async () => {
-    const { alpha, aggregator } = setup();
+  it('breaks ties by source order in the registry, then by the order of the source', async () => {
+    const { alpha, beta, aggregator } = setup();
     alpha.result = () =>
       Promise.resolve([
         event('alpha', 'b', timed('2026-11-12T08:00:00.000Z')),
@@ -114,8 +114,22 @@ describe('CalendarAggregator', () => {
         event('alpha', 'd', allDay('2026-11-12')),
         event('alpha', 'c', allDay('2026-11-12')),
       ]);
+    beta.result = () =>
+      Promise.resolve([
+        event('beta', 'z', timed('2026-11-12T08:00:00.000Z')),
+        event('beta', 'y', allDay('2026-11-12')),
+      ]);
     const { events } = await aggregator.listEvents(RANGE);
-    expect(events.map((e) => e.sourceId)).toEqual(['c', 'd', 'a', 'b']);
+    expect(events.map((e) => e.sourceId)).toEqual(['d', 'c', 'y', 'b', 'a', 'z']);
+  });
+
+  it('keeps the order of a source for the all-day events of one day (listDue sort_order)', async () => {
+    const { alpha, aggregator } = setup();
+    // Ids are deliberately not sorted: the order of the list wins.
+    const ids = ['t9', 't1', 't5', 't3'];
+    alpha.result = () => Promise.resolve(ids.map((id) => event('alpha', id, allDay('2026-11-12'))));
+    const { events } = await aggregator.listEvents(RANGE);
+    expect(events.map((e) => e.sourceId)).toEqual(ids);
   });
 
   it('only loads the definitions that declare a calendar source', async () => {
@@ -222,8 +236,8 @@ describe('CalendarAggregator', () => {
     const result = await aggregator.listEvents(RANGE);
     expect(result.truncated).toBe(true);
     expect(result.events).toHaveLength(MAX_CALENDAR_EVENTS);
-    expect(result.events[0].sourceId).toBe('00000');
-    expect(result.events[MAX_CALENDAR_EVENTS - 1].sourceId).toBe('01999');
+    expect(result.events[0].sourceId).toBe('02000'); // source order is kept (PV0)
+    expect(result.events[MAX_CALENDAR_EVENTS - 1].sourceId).toBe('00001');
   });
 
   it('loads each source once, and loads it again after a failed load', async () => {

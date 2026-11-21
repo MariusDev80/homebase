@@ -1,0 +1,95 @@
+<p role="status" class="sr-only" data-testid="calendar-status">{{ announcement() }}</p>
+@if (loader.unavailable()) {
+  <p role="alert" class="flash flash-danger" data-testid="calendar-unavailable">
+    <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+    {{ 'common.desktopOnly' | transloco }}
+  </p>
+} @else {
+  @if (loader.error()) {
+    <p role="alert" class="flash flash-danger" data-testid="calendar-load-error">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      {{ 'widgets.calendar.loadError' | transloco }}
+    </p>
+  }
+  @if (partial()) {
+    <p class="flash flash-attention" data-testid="calendar-partial">
+      <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+      {{ 'widgets.calendar.partial' | transloco }}
+    </p>
+  }
+  @if (truncated()) {
+    <p class="flash flash-attention" data-testid="calendar-truncated">
+      <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+      {{ 'widgets.calendar.truncated' | transloco }}
+    </p>
+  }
+  @if (monthFailed()) {
+    <div class="flash flash-danger flex-wrap" role="alert" data-testid="calendar-month-failed">
+      <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+      <span>{{ 'widgets.calendar.monthFailed' | transloco }}</span>
+      <button
+        type="button"
+        class="btn btn-compact"
+        data-testid="calendar-show-agenda"
+        (click)="showAgenda()"
+      >
+        {{ 'widgets.calendar.showAgenda' | transloco }}
+      </button>
+    </div>
+  }
+
+  <app-calendar-toolbar
+    [instanceId]="ctx.instanceId"
+    [title]="title()"
+    [view]="view()"
+    [monthAllowed]="monthAllowed()"
+    [daysAllowed]="daysAllowed()"
+    [agendaDays]="daysChoice()"
+    (previous)="previous()"
+    (next)="next()"
+    (today)="goToday()"
+    (viewChange)="chooseView($event)"
+    (agendaDaysChange)="chooseDays($event)"
+  />
+
+  <div class="relative min-h-0 flex-1" data-testid="calendar-body">
+    <div
+      class="h-full min-h-0"
+      data-testid="calendar-area"
+      [attr.inert]="panelDay() !== null ? '' : null"
+      [attr.aria-busy]="loader.busy()"
+    >
+      @if (view() === 'month') {
+        @defer (on immediate) {
+          <app-calendar-month
+            [anchor]="anchor()"
+            [events]="loader.events()"
+            [today]="today.date()"
+            (dayOpened)="openDay($event)"
+            (failed)="monthFailed.set(true)"
+          />
+        } @placeholder {
+          <div class="h-full"></div>
+        }
+      } @else if (!loader.loading() && !neverLoaded()) {
+        <div class="h-full min-h-0 overflow-y-auto" data-testid="calendar-agenda">
+          <app-calendar-day-list
+            [events]="loader.events()"
+            [firstOn]="shownDays().firstOn"
+            [lastOn]="shownDays().lastOn"
+            [today]="today.date()"
+            [instanceId]="ctx.instanceId"
+          />
+        </div>
+      }
+    </div>
+    @if (panelDay(); as day) {
+      <app-calendar-day-panel
+        [day]="day"
+        [events]="panelEvents()"
+        [today]="today.date()"
+        (closed)="closePanel()"
+      />
+    }
+  </div>
+}

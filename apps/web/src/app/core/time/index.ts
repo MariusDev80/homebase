@@ -29,6 +29,7 @@ export {
 } from './zoned';
 export type { LocalTimeKind } from './zoned';
 export { addDays, compareLocalDates, daysBetween, isoWeekday, startOfIsoWeek } from './local-date';
+export { addMonths, startOfMonth } from './month';
 export {
   SUPPORTED_TIME_ZONES_READER,
   SYSTEM_TIME_ZONE_READER,

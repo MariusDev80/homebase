@@ -27,17 +27,22 @@ function compareStrings(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/**
+ * Only the time keys: ties keep the merge order (registry order of the sources, then the order
+ * returned by each source), because Array.prototype.sort is stable. This keeps the `sort_order`
+ * of the todo list (PV0).
+ */
 function compareEvents(a: CalendarEvent, b: CalendarEvent): number {
   const aAllDay = a.time.kind === 'all-day';
   const bAllDay = b.time.kind === 'all-day';
   if (aAllDay !== bAllDay) return aAllDay ? -1 : 1;
   if (a.time.kind === 'all-day' && b.time.kind === 'all-day') {
-    return compareStrings(a.time.startOn, b.time.startOn) || compareStrings(a.id, b.id);
+    return compareStrings(a.time.startOn, b.time.startOn);
   }
   if (a.time.kind === 'timed' && b.time.kind === 'timed') {
-    return compareStrings(a.time.start, b.time.start) || compareStrings(a.id, b.id);
+    return compareStrings(a.time.start, b.time.start);
   }
-  return compareStrings(a.id, b.id);
+  return 0;
 }
 
 /** Merges the events of every widget that declares a calendar source (ADR-004 3.2.2). */
