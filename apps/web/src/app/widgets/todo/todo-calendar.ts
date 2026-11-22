@@ -13,8 +13,9 @@ export function repeatRule(todo: Todo): DateRule | null {
   return parseDateRule(todo.rrule);
 }
 
-/** Current-due event: id todo:<id>:<dueOn> when repeatRule != null, else todo:<id>: (key null);
- *  tone danger + status 'overdue' when dueOn < today, else neutral and no status. */
+/** Current-due event: id todo:<id>:<dueOn> when repeatRule != null, else todo:<id>: (key null).
+ *  When dueOn < today (overdue), the event is carried over to today (startOn = lastOn = today),
+ *  with originalOn = dueOn, tone danger and status 'overdue'; the id is unchanged. Else neutral. */
 export function dueEvent(todo: Todo, today: LocalDateIso): CalendarEvent {
   const dueOn = todo.dueOn as LocalDateIso;
   const key = repeatRule(todo) === null ? null : dueOn;
@@ -25,9 +26,11 @@ export function dueEvent(todo: Todo, today: LocalDateIso): CalendarEvent {
     sourceId: todo.id,
     occurrenceKey: key,
     title: todo.title,
-    time: { kind: 'all-day', startOn: dueOn, lastOn: dueOn },
+    time: overdue
+      ? { kind: 'all-day', startOn: today, lastOn: today }
+      : { kind: 'all-day', startOn: dueOn, lastOn: dueOn },
     ...(overdue
-      ? { tone: 'danger' as const, status: 'overdue' as const }
+      ? { tone: 'danger' as const, status: 'overdue' as const, originalOn: dueOn }
       : { tone: 'neutral' as const }),
   };
 }

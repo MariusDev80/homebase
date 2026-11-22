@@ -16,7 +16,10 @@ const EXPAND_PARALLELISM = 8;
 
 /**
  * Calendar source of the todo widget (ADR-004 3.2.3): one `all-day` event per active todo due, plus
- * the projected occurrences of the repeating ones, expanded by the Rust engine (ADR-003 3.9).
+ * the projected occurrences of the repeating ones, expanded by the Rust engine (ADR-003 3.9). An
+ * overdue todo (due before today) is carried over to today when today is in the range, and shown
+ * nowhere else (amendment 2026-11-22). Beyond 1000 overdue todos the most recent ones are lost
+ * (dev-only warning, like the other limits).
  */
 @Injectable({ providedIn: 'root' })
 export class TodoCalendarSource implements CalendarSource {
@@ -27,16 +30,30 @@ export class TodoCalendarSource implements CalendarSource {
   /** Called outside the aggregator with an invalid range, it rejects with a TimeError. */
   async listEvents(range: CalendarRange): Promise<readonly CalendarEvent[]> {
     const { firstOn, lastOn } = rangeLocalDates(range);
-    // Two reads, not one transaction, on purpose: a todo checked in between can show twice (same id,
+    // Three reads, not one transaction, on purpose: a todo checked in between can show twice (same id,
     // absorbed by the aggregator's id dedupe) or be missed once; the checkbox notifies
     // CalendarChanges, which reloads and catches up the race window. A rejection rejects the source.
-    const [todos, repeating] = await Promise.all([
-      this.repository.listDue({ fromOn: firstOn, toOn: lastOn }, DUE_LIMIT),
+    const today = this.today.date();
+    // Overdue todos are carried over to today: read only when today is in the range.
+    const todayInRange =
+      compareLocalDates(today, firstOn) >= 0 && compareLocalDates(today, lastOn) <= 0;
+    // A past range (lastOn < today) shows nothing: no read. When today is in the range, the todos
+    // before today come from the overdue read, so listDue starts at today.
+    if (compareLocalDates(lastOn, today) < 0) return [];
+    const dueFromOn = todayInRange ? today : firstOn;
+    const [todos, repeating, overdue] = await Promise.all([
+      this.repository.listDue({ fromOn: dueFromOn, toOn: lastOn }, DUE_LIMIT),
       this.repository.listRepeatingDueBy(lastOn, DUE_LIMIT),
+      todayInRange
+        ? this.repository.listOverdueBefore(today, DUE_LIMIT)
+        : Promise.resolve<Todo[]>([]),
     ]);
     if (isDevMode()) {
+      if (overdue.length === DUE_LIMIT) {
+        console.warn(`Overdue todos reached the limit (${DUE_LIMIT}): due_on < ${today}`);
+      }
       if (todos.length === DUE_LIMIT) {
-        console.warn(`Todo due dates reached the limit (${DUE_LIMIT}): ${firstOn}..${lastOn}`);
+        console.warn(`Todo due dates reached the limit (${DUE_LIMIT}): ${dueFromOn}..${lastOn}`);
       }
       if (repeating.length === DUE_LIMIT) {
         console.warn(
@@ -44,11 +61,22 @@ export class TodoCalendarSource implements CalendarSource {
         );
       }
     }
-    const today = this.today.date();
+    // Carried-over todos first (by due date, then the repository order), then today's and later.
+    // Overdue todos of `todos` are skipped: they are in `overdue` when today is in the range, and
+    // appear nowhere otherwise.
     const events: CalendarEvent[] = [];
+    const seen = new Set<string>();
+    const add = (todo: Todo): void => {
+      if (todo.dueOn === null) return;
+      const event = dueEvent(todo, today);
+      if (seen.has(event.id)) return;
+      seen.add(event.id);
+      events.push(event);
+    };
+    overdue.forEach(add);
     for (const todo of todos) {
-      if (todo.dueOn === null) continue;
-      events.push(dueEvent(todo, today));
+      if (todo.dueOn !== null && compareLocalDates(todo.dueOn, today) < 0) continue;
+      add(todo);
     }
     const candidates = repeating.filter(
       (todo) =>

@@ -317,6 +317,21 @@ describe('CalendarAggregator', () => {
       expect(warn.mock.calls.flat().join(' ')).not.toContain('Title');
     });
 
+    it('checks originalOn: a valid local date strictly before startOn', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const { alpha, aggregator } = setup();
+      alpha.result = () =>
+        Promise.resolve([
+          event('alpha', 'ok', allDay('2026-11-12'), { originalOn: '2026-11-01' }),
+          event('alpha', 'bad', allDay('2026-11-12'), { originalOn: '2026-02-30' }),
+          event('alpha', 'none', allDay('2026-11-12')),
+          event('alpha', 'same', allDay('2026-11-12'), { originalOn: '2026-11-12' }),
+          event('alpha', 'after', allDay('2026-11-12'), { originalOn: '2026-11-13' }),
+        ]);
+      const { events } = await aggregator.listEvents(RANGE);
+      expect(events.map((e) => e.id).sort()).toEqual(['alpha:none:', 'alpha:ok:']);
+    });
+
     it('drops an unknown status and accepts an absent one', async () => {
       vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       const { alpha, aggregator } = setup();

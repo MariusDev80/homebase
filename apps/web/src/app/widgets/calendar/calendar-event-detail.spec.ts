@@ -54,6 +54,12 @@ describe('Event sheet (CA-C3-3)', () => {
     expect(text(el, 'calendar-detail-overdue')).toBe('En retard');
   });
 
+  it('a carried-over task says since when it is late', async () => {
+    const events = [{ ...fixture('F4'), originalOn: '2026-11-10' } as CalendarEvent];
+    const { el } = await open('F4', {}, events);
+    expect(text(el, 'calendar-detail-overdue')).toBe('En retard depuis le 10 novembre 2026');
+  });
+
   it('F9 shows its full title, wrapped', async () => {
     const { el } = await open('F9');
     expect(text(el, 'calendar-detail-title')).toBe(F9_TITLE);

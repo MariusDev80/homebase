@@ -563,10 +563,22 @@ En `npm run dev`, puis sur l'exe de `npm run build` pour MO8.
 | R4. Divergence entre la projection Rust et l'avance TS | Date prévue différente de l'échéance réelle | §3.1, vecteurs `dateNext` des deux côtés |
 | R5. Coupe à 2000 atteinte plus tôt | Derniers jours absents | Coupe par jour, bandeau, filtre |
 | R6. Projection prise pour une échéance réelle | Confusion | Statut, pointillés ou titre atténué, nom, fiche |
-| R7. **Suite (Q3, hors périmètre)** : une tâche répétée en retard n'apparaît pas dans un Agenda qui commence aujourd'hui, alors que ses projections y figurent | Retard non vu | Comportement existant ; sujet « retards reportés sur aujourd'hui » à ouvrir plus tard |
+| R7. Une tâche en retard n'apparaissait pas dans un Agenda qui commence aujourd'hui | Retard non vu | **Traité** (amendement 2026-11-22 ci-dessous) |
 | R8. Rappel d'habitude dans un autre fuseau que l'utilisateur | Jour affiché décalé, événement en bord de plage omis | Rare (déménagement) ; « (20:00 Paris) » dans la fiche ; approximation acceptée (habits L13) |
 | R9. `text-accent` sur un en-tête teinté sous 4,5:1 | « Aujourd'hui » peu lisible | Paires ajoutées à `check-contrast` ; repli `text-fg` + `border-accent` |
 | R10. Colonne d'heure de 7rem à 3 × 3 | Titre plus court | Empilement sous 20rem ; MO9 |
+
+## Amendement 2026-11-22 : retards reportés sur aujourd'hui (R7)
+
+Validé par Marius le 2026-11-22. Il remplace, pour une tâche en retard, l'affichage à la date d'origine.
+
+1. **Report** : une tâche active (non terminée) dont `dueOn` est avant `Today` s'affiche sur aujourd'hui (« toute la journée », `startOn = lastOn = aujourd'hui`, `status: 'overdue'`, ton `danger`), qu'elle se répète ou non.
+2. **Identifiant inchangé** : `occurrenceKey` = `dueOn` d'origine (tâche répétée) ou `null`. L'agrégateur ne relie pas `occurrenceKey` à `startOn` (il vérifie seulement `id = type:sourceId:clé`) : la fiche ouverte reste liée.
+3. **Plage** : le report n'a lieu que si aujourd'hui est dans la plage demandée. Sinon la tâche n'apparaît nulle part, ni à sa date d'origine ni ailleurs.
+4. **Lecture** : `TodoRepository.listOverdueBefore(beforeOn, limit)` (actives, `due_on < beforeOn`, ordre `due_on, sort_order, id`, limite 1..1000, `invalid_input` sinon), appelée seulement si aujourd'hui est dans la plage. Les tâches en retard renvoyées par `listDue` sont ignorées (la lecture des retards les couvre) ; dédoublonnage par `id`. Plage entièrement passée : aucune lecture. Aujourd'hui dans la plage : `listDue` démarre à aujourd'hui. Au-delà de 1000 retards, les plus récents sont perdus (journal en dev seulement, comme pour les autres limites ; pas de drapeau).
+5. **Tâches répétées** : projections inchangées (dates strictement après max(échéance, aujourd'hui)) ; seule l'échéance courante est déplacée.
+6. **Ordre sur aujourd'hui** : dans la source, les reportées d'abord (`dueOn` croissant, puis `sort_order`, `id`), puis les tâches dues aujourd'hui ; l'agrégateur garde l'ordre de la source parmi les « toute la journée ».
+7. **Libellés** : champ optionnel générique `CalendarEvent.originalOn?: LocalDateIso` (date locale valide et strictement antérieure à `startOn`, vérifiée par l'agrégateur ; motif `original`). Fiche : « En retard depuis le {{date}} » (`widgets.calendar.overdueSince`, date `long`). Nom accessible : « …, toute la journée, en retard depuis le 10 novembre 2026 » (`widgets.calendar.status.overdueSince`).
 
 ---
 

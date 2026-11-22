@@ -194,6 +194,12 @@ export interface TodoRepository {
     limit: number,
   ): Promise<Todo[]>;
   /**
+   * Active todos (completed_at IS NULL) whose due_on is strictly before `beforeOn` (the overdue
+   * ones), across all lists, ordered by due_on, sort_order, id. beforeOn YYYY-MM-DD, limit an
+   * integer 1..1000: invalid_input before any query.
+   */
+  listOverdueBefore(beforeOn: LocalDateIso, limit: number): Promise<Todo[]>;
+  /**
    * Active repeating todos (completed_at IS NULL AND rrule IS NOT NULL) whose due_on <= toOn, across
    * all lists, ordered by due_on, sort_order, id. toOn YYYY-MM-DD, limit an integer 1..1000:
    * invalid_input before any query.

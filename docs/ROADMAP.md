@@ -83,6 +83,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot CO2 : occurrences des tâches répétées (revu)
 - [x] (S) Lot CO3 : habitudes dans l'Agenda et le Mois (heure du rappel ou toute la journée) (revu)
 - [x] (S) Lot CO4 : réglage « Sources affichées » (revu)
+- [x] (S) Lot CO5 : tâches en retard reportées sur aujourd'hui (spec calendar-occurrences, amendement R7) (revu)
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.
 
 ## Phase 3 : Données externes et applications locales

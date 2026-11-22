@@ -197,6 +197,15 @@ export class CalendarAggregator {
     if (!CALENDAR_TONES.includes(event.tone)) return 'tone';
     if (event.status !== undefined && !CALENDAR_STATUSES.includes(event.status)) return 'status';
     const time = event.time;
+    if (event.originalOn !== undefined) {
+      if (
+        !isValidLocalDate(event.originalOn) ||
+        time.kind !== 'all-day' ||
+        compareLocalDates(event.originalOn, time.startOn) >= 0
+      ) {
+        return 'original';
+      }
+    }
     if (time.kind === 'timed') {
       if (
         !isValidInstant(time.start) ||
