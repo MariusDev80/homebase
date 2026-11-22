@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { CalendarAggregator } from '../../../core/calendar';
 import type { CalendarEvent, CalendarRange } from '../../../core/calendar';
 import { provideAppI18n } from '../../../core/i18n';
+import { fixtureDefinition } from '../../../core/testing/fixture-definitions';
 import { FakeSettingsRepository } from '../../../core/testing/fake-settings.repository';
 import { SYSTEM_TIME_ZONE_READER, UserTimeZone } from '../../../core/time';
 import { ManualClock } from '../../../core/time/testing/manual-clock';
@@ -26,7 +27,10 @@ export interface CalendarResult {
 
 export interface MountOptions {
   readonly zone?: string;
-  readonly config?: CalendarConfig;
+  /** `hiddenSources` defaults to none. */
+  readonly config?: Omit<CalendarConfig, 'hiddenSources'> & {
+    readonly hiddenSources?: readonly string[];
+  };
   readonly events?: readonly CalendarEvent[];
   readonly maxEventsPerDay?: number | true;
   readonly styles?: CalendarStylesLoader;
@@ -34,7 +38,14 @@ export interface MountOptions {
   /** Replaces the real-timer wait of `settle` (tests that use fake timers). */
   readonly tick?: () => Promise<unknown>;
   /** Replaces the aggregator (e.g. to make it fail). */
-  readonly listEvents?: (range: CalendarRange) => Promise<CalendarResult>;
+  readonly listEvents?: (
+    range: CalendarRange,
+    options?: { readonly exclude?: readonly string[] },
+  ) => Promise<CalendarResult>;
+  /** Widget types registered with a calendar source (the "Sources affichées" rows). */
+  readonly sourceTypes?: readonly string[];
+  /** Replaces the saving of the configuration (e.g. to make it fail). */
+  readonly updateConfig?: (next: CalendarConfig) => Promise<void>;
   readonly flags?: {
     readonly failedSources?: readonly string[];
     readonly truncated?: boolean;
@@ -45,7 +56,12 @@ export interface MountOptions {
 export async function mountCalendar(options: MountOptions = {}) {
   const zone = options.zone ?? 'Europe/Paris';
   const clock = new ManualClock(options.now ?? '2026-11-18T10:00:00.000Z');
-  const config = signal<CalendarConfig>(options.config ?? { view: 'month', agendaDays: 7 });
+  const config = signal<CalendarConfig>({
+    view: 'month',
+    agendaDays: 7,
+    ...options.config,
+    hiddenSources: [...(options.config?.hiddenSources ?? [])],
+  });
   const events = options.events ?? CALENDAR_FIXTURES;
   const context: WidgetContext<CalendarConfig> = {
     instanceId: 'cal-test',
@@ -53,16 +69,28 @@ export async function mountCalendar(options: MountOptions = {}) {
     config: config.asReadonly(),
     size: signal<GridSize>({ w: 6, h: 5 }).asReadonly(),
     permissions: new Set(),
-    updateConfig: (next) => {
-      config.set(next);
-      return Promise.resolve();
-    },
+    updateConfig:
+      options.updateConfig ??
+      ((next) => {
+        config.set(next);
+        return Promise.resolve();
+      }),
   };
   TestBed.configureTestingModule({
     imports: [CalendarComponent],
     providers: [
       provideAppI18n(),
       provideWidget(calendarWidget),
+      ...(options.sourceTypes ?? []).map((type) =>
+        provideWidget(
+          fixtureDefinition({
+            type,
+            titleKey: `widgets.${type}.title`,
+            icon: `pi pi-${type}`,
+            loadCalendarSource: () => Promise.reject(new Error('not loaded in the view tests')),
+          }),
+        ),
+      ),
       { provide: CLOCK, useValue: clock },
       { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
       { provide: SYSTEM_TIME_ZONE_READER, useValue: () => zone },

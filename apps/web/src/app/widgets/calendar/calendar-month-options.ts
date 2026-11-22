@@ -20,8 +20,17 @@ export const MORE_LINK_CLASS = 'hb-fc-more';
 
 /** Pure conversion. Never `url`, never HTML: the library renders `title` as text. */
 export function toEventInputs(events: readonly CalendarEvent[]): EventInput[] {
-  return events.map((event): EventInput => {
-    const base = { id: event.id, title: event.title, className: MONTH_TONE_CLASS[event.tone] };
+  return events.map((event, index): EventInput => {
+    const base = {
+      id: event.id,
+      title: event.title,
+      className:
+        event.status === 'projected'
+          ? `${MONTH_TONE_CLASS[event.tone]} border-dashed`
+          : MONTH_TONE_CLASS[event.tone],
+      // Position in the aggregator order, applied by eventOrder: 'rank' (spec O8).
+      rank: index,
+    };
     if (event.time.kind === 'timed') {
       // No `end`: with defaultTimedEventDuration 0 a 23:30 event does not spill over (L22).
       return { ...base, start: event.time.start, allDay: false };
@@ -82,6 +91,8 @@ export function buildMonthOptions(params: MonthOptionsParams): CalendarOptions {
       const name = params.eventName(event.id);
       if (name !== null) el.setAttribute('aria-label', name);
     },
+    eventOrder: 'rank',
+    eventOrderStrict: true,
     defaultTimedEventDuration: { minutes: 0 },
     eventTimeFormat: { hour: '2-digit', minute: '2-digit', meridiem: false },
     now: params.nowIso,

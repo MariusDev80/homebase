@@ -4,6 +4,7 @@ import {
   CalendarConfig,
   calendarConfigSchema,
   calendarDefaults,
+  calendarMigrations,
 } from './calendar.config';
 
 export const calendarWidget = defineWidget<CalendarConfig>({
@@ -17,7 +18,7 @@ export const calendarWidget = defineWidget<CalendarConfig>({
     version: CALENDAR_CONFIG_VERSION,
     schema: calendarConfigSchema,
     defaults: calendarDefaults,
-    migrations: {},
+    migrations: calendarMigrations,
   },
   permissions: [],
 });

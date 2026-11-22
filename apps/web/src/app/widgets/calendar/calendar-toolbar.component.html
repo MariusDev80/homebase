@@ -72,6 +72,24 @@
         {{ 'widgets.calendar.view.month' | transloco }}
       </button>
     }
+    <button
+      #sourcesButton
+      type="button"
+      data-testid="calendar-sources"
+      [class]="
+        filterActive()
+          ? 'btn btn-invisible btn-icon btn-compact text-accent'
+          : 'btn btn-invisible btn-icon btn-compact'
+      "
+      [attr.aria-label]="
+        (filterActive() ? 'widgets.calendar.sourcesActive' : 'widgets.calendar.sources') | transloco
+      "
+      [attr.aria-expanded]="sourcesExpanded()"
+      [attr.aria-controls]="sourcesExpanded() ? 'calendar-sources-' + instanceId() : null"
+      (click)="sourcesOpened.emit()"
+    >
+      <i class="pi pi-filter" aria-hidden="true"></i>
+    </button>
     @if (view() === 'agenda' && daysAllowed()) {
       <label class="sr-only" [for]="daysId()">{{ 'widgets.calendar.daysLabel' | transloco }}</label>
       <select

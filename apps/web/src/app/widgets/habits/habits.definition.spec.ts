@@ -26,3 +26,11 @@ describe('habitsWidget', () => {
     expect(component.name).toMatch(/HabitsComponent$/);
   });
 });
+
+describe('habitsWidget calendar source (CA-CO3-5)', () => {
+  it('exposes its calendar source through a dynamic import', async () => {
+    expect(habitsWidget.loadCalendarSource).toBeDefined();
+    const source = await habitsWidget.loadCalendarSource?.();
+    expect(source?.name).toMatch(/HabitsCalendarSource$/);
+  });
+});

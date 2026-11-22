@@ -203,6 +203,26 @@ export class FakeTodoRepository implements TodoRepository {
       .slice(0, limit);
   }
 
+  async listRepeatingDueBy(toOn: LocalDateIso, limit: number): Promise<Todo[]> {
+    this.record(`listRepeatingDueBy:${toOn}:${limit}`);
+    if (!hasLocalDateShape(toOn)) {
+      throw new DataError('invalid_input', 'Due bound must be a YYYY-MM-DD date');
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
+      throw new DataError('invalid_input', 'Due limit must be an integer from 1 to 1000');
+    }
+    return this.items
+      .filter((t) => t.completedAt === null && t.rrule !== null && t.dueOn !== null)
+      .filter((t) => (t.dueOn ?? '') <= toOn)
+      .sort(
+        (a, b) =>
+          (a.dueOn ?? '').localeCompare(b.dueOn ?? '') ||
+          a.sortOrder - b.sortOrder ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      )
+      .slice(0, limit);
+  }
+
   async reorder(listId: string, ids: readonly string[]): Promise<void> {
     this.record(`reorder:${ids.join(',')}`);
     if (new Set(ids).size !== ids.length) {

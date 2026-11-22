@@ -1,6 +1,7 @@
-export { CALENDAR_TONES } from './calendar-source';
+export { CALENDAR_STATUSES, CALENDAR_TONES } from './calendar-source';
 export type {
   CalendarEvent,
+  CalendarEventStatus,
   CalendarEventTime,
   CalendarRange,
   CalendarSource,

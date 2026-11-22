@@ -96,10 +96,10 @@ describe('CalendarAggregator', () => {
     const result = await aggregator.listEvents(RANGE);
     expect(result.events.map((e) => e.id)).toEqual([
       'beta:dayA:',
-      'alpha:dayB:',
       'alpha:early:',
       'beta:x:',
       'alpha:late:',
+      'alpha:dayB:',
     ]);
     expect(result.events.find((e) => e.id === 'beta:x:')?.title).toBe('Title x');
     expect(result).toMatchObject({ failedSources: [], truncated: false, unavailable: false });
@@ -132,11 +132,121 @@ describe('CalendarAggregator', () => {
     expect(events.map((e) => e.sourceId)).toEqual(ids);
   });
 
+  describe('order by day (O8)', () => {
+    it('puts a timed event of the 18th before an all-day event of the 19th', async () => {
+      const { alpha, aggregator } = setup();
+      alpha.result = () =>
+        Promise.resolve([
+          event('alpha', 'allDay19', allDay('2026-11-19')),
+          event('alpha', 'timed18', timed('2026-11-18T08:00:00.000Z')),
+        ]);
+      const { events } = await aggregator.listEvents(RANGE);
+      expect(events.map((e) => e.sourceId)).toEqual(['timed18', 'allDay19']);
+    });
+
+    it('on one day: all-day in registry then source order, then timed by hour', async () => {
+      const { alpha, beta, aggregator } = setup();
+      // F16 (todo) and F14 (habit) all-day, F15 07:00Z and F17 08:00Z, on 2026-11-20 (Paris).
+      alpha.result = () =>
+        Promise.resolve([
+          event('alpha', 'F17', timed('2026-11-20T08:00:00.000Z')),
+          event('alpha', 'F14', allDay('2026-11-20')),
+        ]);
+      beta.result = () =>
+        Promise.resolve([
+          event('beta', 'F15', timed('2026-11-20T07:00:00.000Z')),
+          event('beta', 'F16', allDay('2026-11-20')),
+        ]);
+      const { events } = await aggregator.listEvents(RANGE);
+      expect(events.map((e) => e.sourceId)).toEqual(['F14', 'F16', 'F15', 'F17']);
+    });
+
+    it('sorts two timed events of different sources by hour', async () => {
+      const { alpha, beta, aggregator } = setup();
+      alpha.result = () =>
+        Promise.resolve([event('alpha', 'late', timed('2026-11-12T10:00:00.000Z'))]);
+      beta.result = () =>
+        Promise.resolve([event('beta', 'early', timed('2026-11-12T09:00:00.000Z'))]);
+      const { events } = await aggregator.listEvents(RANGE);
+      expect(events.map((e) => e.sourceId)).toEqual(['early', 'late']);
+    });
+
+    it('uses the day in the display zone', async () => {
+      const { alpha, aggregator } = setup();
+      // 23:30Z on the 12th is already the 13th in Paris: it goes after the all-day event of the
+      // 13th. With the UTC day (12th) it would come before allDay13.
+      alpha.result = () =>
+        Promise.resolve([
+          event('alpha', 'allDay14', allDay('2026-11-14')),
+          event('alpha', 'late', timed('2026-11-12T23:30:00.000Z')),
+          event('alpha', 'allDay13', allDay('2026-11-13')),
+          event('alpha', 'allDay12', allDay('2026-11-12')),
+        ]);
+      const { events } = await aggregator.listEvents(RANGE);
+      expect(events.map((e) => e.sourceId)).toEqual(['allDay12', 'allDay13', 'late', 'allDay14']);
+    });
+
+    it('keeps the 600 timed events of the 18th when 1500 all-day events fall on the 19th', async () => {
+      const { alpha, aggregator } = setup();
+      const pad = (n: number) => String(n).padStart(4, '0');
+      alpha.result = () =>
+        Promise.resolve([
+          ...Array.from({ length: 1500 }, (_, i) =>
+            event('alpha', `d${pad(i)}`, allDay('2026-11-19')),
+          ),
+          ...Array.from({ length: 600 }, (_, i) => {
+            const hour = String(8 + Math.floor(i / 60)).padStart(2, '0');
+            const minute = String(i % 60).padStart(2, '0');
+            return event('alpha', `t${pad(i)}`, timed(`2026-11-18T${hour}:${minute}:00.000Z`));
+          }),
+        ]);
+      const result = await aggregator.listEvents(RANGE);
+      expect(result.truncated).toBe(true);
+      expect(result.events).toHaveLength(MAX_CALENDAR_EVENTS);
+      expect(result.events.filter((e) => e.time.kind === 'timed')).toHaveLength(600);
+      expect(result.events[0].sourceId).toBe('t0000');
+    });
+  });
+
   it('only loads the definitions that declare a calendar source', async () => {
     const { loadAlpha, loadBeta, aggregator } = setup();
     await aggregator.listEvents(RANGE);
     expect(loadAlpha).toHaveBeenCalledTimes(1);
     expect(loadBeta).toHaveBeenCalledTimes(1);
+  });
+
+  it('never loads nor calls an excluded source and does not report it (CA-CO4-2)', async () => {
+    const { alpha, beta, loadAlpha, loadBeta, aggregator } = setup();
+    alpha.result = () => Promise.reject(new Error('boom'));
+    beta.result = () => Promise.resolve([event('beta', 'b', timed('2026-11-12T09:00:00.000Z'))]);
+    const result = await aggregator.listEvents(RANGE, { exclude: ['alpha', 'unknown'] });
+    expect(loadAlpha).not.toHaveBeenCalled();
+    expect(alpha.calls).toBe(0);
+    expect(loadBeta).toHaveBeenCalledTimes(1);
+    expect(result.failedSources).toEqual([]);
+    expect(result.events.map((e) => e.id)).toEqual(['beta:b:']);
+  });
+
+  it('does not share a request between a call with and a call without exclude', async () => {
+    const { alpha, beta, aggregator } = setup();
+    const [all, onlyBeta] = await Promise.all([
+      aggregator.listEvents(RANGE),
+      aggregator.listEvents(RANGE, { exclude: ['alpha'] }),
+    ]);
+    expect(all.failedSources).toEqual([]);
+    expect(onlyBeta.failedSources).toEqual([]);
+    expect(alpha.calls).toBe(1);
+    expect(beta.calls).toBe(2);
+  });
+
+  it('shares the request when the exclusions are the same set, in any order', async () => {
+    const { alpha, beta, aggregator } = setup();
+    await Promise.all([
+      aggregator.listEvents(RANGE, { exclude: ['alpha', 'unknown'] }),
+      aggregator.listEvents(RANGE, { exclude: ['unknown', 'alpha'] }),
+    ]);
+    expect(alpha.calls).toBe(0);
+    expect(beta.calls).toBe(1);
   });
 
   it('keeps the other sources when one fails and reports it', async () => {
@@ -205,6 +315,21 @@ describe('CalendarAggregator', () => {
       expect(events.map((e) => e.id)).toEqual(['alpha:good:']);
       expect(warn).toHaveBeenCalledTimes(bad.length);
       expect(warn.mock.calls.flat().join(' ')).not.toContain('Title');
+    });
+
+    it('drops an unknown status and accepts an absent one', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const { alpha, aggregator } = setup();
+      alpha.result = () =>
+        Promise.resolve([
+          event('alpha', 'none', allDay('2026-11-12')),
+          event('alpha', 'known', allDay('2026-11-12'), { status: 'projected' }),
+          event('alpha', 'odd', allDay('2026-11-12'), {
+            status: 'weird' as unknown as CalendarEvent['status'],
+          }),
+        ]);
+      const { events } = await aggregator.listEvents(RANGE);
+      expect(events.map((e) => e.sourceId)).toEqual(['none', 'known']);
     });
 
     it('keeps the boundaries: start == from, all-day overlapping the range', async () => {

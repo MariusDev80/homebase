@@ -194,6 +194,12 @@ export interface TodoRepository {
     limit: number,
   ): Promise<Todo[]>;
   /**
+   * Active repeating todos (completed_at IS NULL AND rrule IS NOT NULL) whose due_on <= toOn, across
+   * all lists, ordered by due_on, sort_order, id. toOn YYYY-MM-DD, limit an integer 1..1000:
+   * invalid_input before any query.
+   */
+  listRepeatingDueBy(toOn: LocalDateIso, limit: number): Promise<Todo[]>;
+  /**
    * Single UPDATE ... FROM json_each($1): the todo at index i of `ids` gets sort_order = i
    * (only todos of `listId`; unknown ids are ignored). More than 1000 ids or duplicates:
    * invalid_input before any query. Empty: no query. Only rows whose sort_order changes are written.

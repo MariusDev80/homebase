@@ -164,7 +164,7 @@ export interface CalendarEvent {
 #### 3.2.2 Chargement des sources et agrégateur (`core/calendar/calendar-aggregator.ts`)
 ```ts
 export interface AggregatedEvents {
-  /** Deduplicated by id (first kept), sorted: all-day first, then by start (string order). */
+  /** Deduplicated by id (first kept), stable sort by local day, then all-day before timed, then start (amended by spec calendar-occurrences O8). */
   readonly events: readonly CalendarEvent[];
   /** sourceType of every source whose listEvents rejected (partial result shown). */
   readonly failedSources: readonly string[];

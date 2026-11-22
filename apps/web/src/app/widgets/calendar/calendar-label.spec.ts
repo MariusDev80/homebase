@@ -7,7 +7,13 @@ import { SYSTEM_TIME_ZONE_READER, TimeDisplay, UserTimeZone } from '../../core/t
 import { ManualClock } from '../../core/time/testing/manual-clock';
 import { CLOCK, SETTINGS_REPOSITORY } from '../../data';
 import { eventName } from './calendar-label';
-import { CALENDAR_FIXTURES, fixture } from './testing/calendar-fixtures';
+import type { CalendarEvent } from '../../core/calendar/calendar-source';
+import {
+  CALENDAR_FIXTURES,
+  OCCURRENCE_FIXTURES,
+  fixture,
+  occurrenceFixture,
+} from './testing/calendar-fixtures';
 import { mountCalendar } from './testing/calendar-harness';
 
 async function names(zone = 'Europe/Paris') {
@@ -23,8 +29,17 @@ async function names(zone = 'Europe/Paris') {
   await TestBed.inject(UserTimeZone).setPreference(zone);
   const display = TestBed.inject(TimeDisplay);
   const transloco = TestBed.inject(TranslocoService);
-  return (key: string) =>
-    eventName(fixture(key), display, zone, (k, params) => transloco.translate(k, params));
+  return (key: string | CalendarEvent) =>
+    eventName(
+      typeof key !== 'string'
+        ? key
+        : OCCURRENCE_FIXTURES.some((e) => e.sourceId === key)
+          ? occurrenceFixture(key)
+          : fixture(key),
+      display,
+      zone,
+      (k, params) => transloco.translate(k, params),
+    );
 }
 
 describe('eventName (CA-C3-4)', () => {
@@ -90,5 +105,28 @@ describe('accessible names in the views (CA-C3-4)', () => {
     for (const event of CALENDAR_FIXTURES.filter((e) => e.sourceId !== 'F6')) {
       expect(seen.has(event.id)).toBe(true);
     }
+  });
+});
+
+describe('habit names (CA-CO3-6)', () => {
+  it('names an all-day planned habit', async () => {
+    const name = await names();
+    expect(name('F14')).toBe(
+      'Habitude : F14 Habitude a faire, vendredi 20 novembre 2026, toute la journée, à faire',
+    );
+  });
+
+  it('names a timed planned habit', async () => {
+    const name = await names();
+    expect(name('F15')).toBe(
+      'Habitude : F15 Habitude 08:00, vendredi 20 novembre 2026, 08:00, à faire',
+    );
+  });
+
+  it('names a timed done habit', async () => {
+    const name = await names();
+    expect(name({ ...occurrenceFixture('F15'), tone: 'success', status: 'done' })).toBe(
+      'Habitude : F15 Habitude 08:00, vendredi 20 novembre 2026, 08:00, fait',
+    );
   });
 });

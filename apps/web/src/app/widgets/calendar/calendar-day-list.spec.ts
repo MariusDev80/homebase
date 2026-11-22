@@ -81,10 +81,10 @@ describe('CalendarDayListComponent (defect 1: one section per day)', () => {
     const times = [
       ...section(el, '2026-11-18').querySelectorAll('[data-testid="calendar-row-time"]'),
     ].map((t) => t.textContent!.trim());
-    expect(times).toEqual(['Journée', '02:00', '09:00', '23:30']);
+    expect(times).toEqual(['Toute la journée', '02:00', '09:00', '23:30']);
     for (const t of el.querySelectorAll('[data-testid="calendar-row-time"]')) {
       const text = t.textContent!.trim();
-      expect(text === 'Journée' || /^\d{2}:\d{2}$/.test(text)).toBe(true);
+      expect(text === 'Toute la journée' || /^\d{2}:\d{2}$/.test(text)).toBe(true);
     }
   });
 

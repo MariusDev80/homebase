@@ -949,6 +949,40 @@
   ],
   "expand": [
     {
+      "id": "E-DATE-WEEKLY-LONG-BEFORE-RANGE",
+      "anchor": {
+        "kind": "date",
+        "startOn": "2026-10-01"
+      },
+      "rrule": "FREQ=WEEKLY",
+      "exdates": [],
+      "range": {
+        "from": "2026-11-01T00:00:00.000Z",
+        "to": "2026-12-01T00:00:00.000Z",
+        "timeZone": "Europe/Paris"
+      },
+      "limit": 10,
+      "expected": [
+        {
+          "key": "2026-11-05",
+          "date": "2026-11-05"
+        },
+        {
+          "key": "2026-11-12",
+          "date": "2026-11-12"
+        },
+        {
+          "key": "2026-11-19",
+          "date": "2026-11-19"
+        },
+        {
+          "key": "2026-11-26",
+          "date": "2026-11-26"
+        }
+      ],
+      "truncated": false
+    },
+    {
       "id": "E-GAP",
       "anchor": {
         "kind": "date-time",

@@ -9,7 +9,7 @@ export interface CalendarLabelFormat {
   readonly allDay: () => string;
 }
 
-/** The hour column: "09:00" for a timed event, "Journée" for an all-day one. */
+/** The hour column: "09:00" for a timed event, "Toute la journée" for an all-day one. */
 export function timeLabel(event: CalendarEvent, format: CalendarLabelFormat): string {
   return event.time.kind === 'timed' ? format.time(event.time.start) : format.allDay();
 }
@@ -22,7 +22,7 @@ export interface CalendarLabelDisplay {
 
 export type CalendarTranslate = (key: string, params?: Record<string, unknown>) => string;
 
-const KNOWN_SOURCES: readonly string[] = ['reminders', 'todo'];
+const KNOWN_SOURCES: readonly string[] = ['reminders', 'todo', 'habits'];
 
 /** Translated name of the source of an event (known types), else the title of its widget. */
 export function sourceLabel(
@@ -57,7 +57,8 @@ export function eventDateText(
 
 /**
  * Accessible name of an event: "Rappel : Payer le loyer, mercredi 18 novembre 2026, 09:00"; all-day
- * events end with "toute la journée", overdue tasks with "en retard" (spec calendar 4.8).
+ * events end with "toute la journée"; an event with a status ends with it ("en retard", "fait"...)
+ * (spec calendar 4.8).
  */
 export function eventName(
   event: CalendarEvent,
@@ -76,5 +77,21 @@ export function eventName(
     date: eventDateText(event, display, displayZone, t, true),
     time,
   });
-  return event.tone === 'danger' ? t('widgets.calendar.eventNameOverdue', { name }) : name;
+  return event.status === undefined
+    ? name
+    : t('widgets.calendar.eventNameStatus', {
+        name,
+        status: t(`widgets.calendar.status.${event.status}`),
+      });
+}
+
+/**
+ * Which "repeated" line the event sheet shows: a repeated reminder occurrence, the current due date
+ * of a repeating todo (not a projection), or none (habits, one-off events).
+ */
+export function recurringKey(event: CalendarEvent): 'recurring' | 'recurringTodo' | null {
+  if (event.occurrenceKey === null) return null;
+  if (event.sourceType === 'reminders') return 'recurring';
+  if (event.sourceType === 'todo' && event.status !== 'projected') return 'recurringTodo';
+  return null;
 }

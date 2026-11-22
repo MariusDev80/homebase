@@ -52,10 +52,16 @@ WHERE t.title LIKE $1 ESCAPE '\\' OR t.description LIKE $1 ESCAPE '\\'
 ORDER BY (t.completed_at IS NOT NULL), (t.title LIKE $1 ESCAPE '\\') DESC, t.updated_at DESC, t.id
 LIMIT $2`;
 
+const DUE_ORDER_SQL = 'ORDER BY due_on, sort_order, id LIMIT';
+
 const LIST_DUE_SQL = `SELECT ${TODO_COLUMNS} FROM todos
-WHERE completed_at IS NULL AND due_on IS NOT NULL AND due_on >= $1 AND due_on <= $2
-ORDER BY due_on, sort_order, id
-LIMIT $3`;
+WHERE completed_at IS NULL AND due_on >= $1 AND due_on <= $2
+${DUE_ORDER_SQL} $3`;
+
+// NULL due_on never satisfies `due_on <= $1`.
+const LIST_REPEATING_DUE_BY_SQL = `SELECT ${TODO_COLUMNS} FROM todos
+WHERE completed_at IS NULL AND rrule IS NOT NULL AND due_on <= $1
+${DUE_ORDER_SQL} $2`;
 
 function validTitle(title: string): string {
   const trimmed = title.trim();
@@ -268,11 +274,20 @@ export class SqliteTodoRepository implements TodoRepository {
     range: { readonly fromOn: LocalDateIso; readonly toOn: LocalDateIso },
     limit: number,
   ): Promise<Todo[]> {
-    if (!hasLocalDateShape(range.fromOn) || !hasLocalDateShape(range.toOn)) {
-      throw new DataError('invalid_input', 'Due range bounds must be YYYY-MM-DD dates');
-    }
-    if (range.fromOn > range.toOn) {
+    if (hasLocalDateShape(range.fromOn) && range.fromOn > range.toOn) {
       throw new DataError('invalid_input', 'Due range start must not be after its end');
+    }
+    return this.selectDue(LIST_DUE_SQL, [range.fromOn, range.toOn], limit);
+  }
+
+  listRepeatingDueBy(toOn: LocalDateIso, limit: number): Promise<Todo[]> {
+    return this.selectDue(LIST_REPEATING_DUE_BY_SQL, [toOn], limit);
+  }
+
+  /** Bounds are validated (shape, limit) before any query. */
+  private async selectDue(sql: string, bounds: string[], limit: number): Promise<Todo[]> {
+    if (!bounds.every(hasLocalDateShape)) {
+      throw new DataError('invalid_input', 'Due range bounds must be YYYY-MM-DD dates');
     }
     if (!Number.isInteger(limit) || limit < 1 || limit > TODO_DUE_LIMIT_MAX) {
       throw new DataError(
@@ -280,11 +295,7 @@ export class SqliteTodoRepository implements TodoRepository {
         `Due limit must be an integer from 1 to ${TODO_DUE_LIMIT_MAX}`,
       );
     }
-    const rows = await this.executor.select<TodoRow>(LIST_DUE_SQL, [
-      range.fromOn,
-      range.toOn,
-      limit,
-    ]);
+    const rows = await this.executor.select<TodoRow>(sql, [...bounds, limit]);
     return rows.map(toTodo);
   }
 

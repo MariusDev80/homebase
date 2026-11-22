@@ -18,6 +18,7 @@ import { CalendarChanges } from '../../core/calendar/calendar-changes';
 import type { CalendarEvent } from '../../core/calendar';
 import { DueRefresher, TimeDisplay, Today, UserTimeZone } from '../../core/time';
 import { injectWidgetContext } from '../../core/widgets';
+import { WidgetRegistry } from '../../core/widgets/widget-registry';
 import { CLOCK, type LocalDateIso } from '../../data';
 import { groupByDay } from './calendar-days';
 import { CalendarDayListComponent } from './calendar-day-list.component';
@@ -28,6 +29,8 @@ import { MORE_LINK_CLASS } from './calendar-month-options';
 import { CalendarLoader } from './calendar-loader';
 import { CalendarMonthComponent } from './calendar-month.component';
 import type { MonthDayOpened, MonthEventOpened } from './calendar-month.component';
+import { CalendarSourcesPanelComponent } from './calendar-sources-panel.component';
+import type { SourceToggle } from './calendar-sources-panel.component';
 import { CalendarToolbarComponent } from './calendar-toolbar.component';
 import { navigate, viewTitle, visibleDays, visibleRange } from './calendar-view';
 import type { CalendarAgendaDays, CalendarConfig, CalendarViewKind } from './calendar.config';
@@ -55,6 +58,7 @@ function escapeAttr(value: string): string {
     CalendarDayPanelComponent,
     CalendarEventDetailComponent,
     CalendarMonthComponent,
+    CalendarSourcesPanelComponent,
   ],
   providers: [CalendarLoader],
   templateUrl: './calendar.component.html',
@@ -74,14 +78,18 @@ export class CalendarComponent {
   private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly toolbar = viewChild(CalendarToolbarComponent);
   private readonly changes = inject(CalendarChanges);
+  private readonly registry = inject(WidgetRegistry);
   /** Focus and visibility only (no deadline to watch, hence `arm(null)`): re-reads the range. */
   private readonly refresher = new DueRefresher(this.doc, inject(CLOCK), this.destroyRef, () =>
-    this.loader.request(this.range(), RELOAD_DELAY_MS),
+    this.loader.request(this.range(), RELOAD_DELAY_MS, this.hiddenChoice()),
   );
 
   /** The choices live in memory: a failed save keeps them (spec 4.6). */
   protected readonly viewChoice = signal<CalendarViewKind>(this.ctx.config().view);
   protected readonly daysChoice = signal<CalendarAgendaDays>(this.ctx.config().agendaDays);
+  /** Widget types whose events are hidden (O13); kept in memory like the other choices. */
+  protected readonly hiddenChoice = signal<readonly string[]>(this.ctx.config().hiddenSources);
+  protected readonly sourcesOpen = signal(false);
   /** Navigation anchor, not stored: the widget always opens on today. */
   protected readonly anchor = signal<LocalDateIso>(this.today.date());
   private readonly bodySize = signal({ width: 0, height: 0 });
@@ -120,6 +128,21 @@ export class CalendarComponent {
       ? []
       : (groupByDay(this.loader.events(), day, day, this.zone.id())[0]?.events ?? []);
   });
+  private readonly sourceTypes = computed(() =>
+    this.registry
+      .list()
+      .filter((definition) => definition.loadCalendarSource !== undefined)
+      .map((definition) => definition.type),
+  );
+  /** A hidden type that is no longer registered does not count. */
+  protected readonly filterActive = computed(() =>
+    this.sourceTypes().some((type) => this.hiddenChoice().includes(type)),
+  );
+  /** Every source of the registry is hidden: nothing is loaded, the empty state says why. */
+  protected readonly allHidden = computed(() => {
+    const types = this.sourceTypes();
+    return types.length > 0 && types.every((type) => this.hiddenChoice().includes(type));
+  });
   /** After a failed load the banners of a previous load would be stale. */
   protected readonly partial = computed(
     () =>
@@ -134,6 +157,7 @@ export class CalendarComponent {
   private detailTrigger: HTMLElement | null = null;
   private detailRoot: 'calendar-area' | 'calendar-day-panel' = 'calendar-area';
   private lastRangeKey = '';
+  private lastHiddenKey = '';
   private previousToday = this.today.date();
 
   constructor() {
@@ -165,11 +189,14 @@ export class CalendarComponent {
       const range = this.range();
       this.today.date();
       this.changes.version();
+      const hidden = this.hiddenChoice();
       untracked(() => {
         const key = `${range.from}|${range.to}|${range.timeZone}`;
-        const delay = key === this.lastRangeKey ? RELOAD_DELAY_MS : 0;
+        const hiddenKey = hidden.join(',');
+        const same = key === this.lastRangeKey && hiddenKey === this.lastHiddenKey;
         this.lastRangeKey = key;
-        this.loader.request(range, delay);
+        this.lastHiddenKey = hiddenKey;
+        this.loader.request(range, same ? RELOAD_DELAY_MS : 0, hidden);
       });
     });
 
@@ -222,18 +249,49 @@ export class CalendarComponent {
     // Choosing the Month again after a failure retries it.
     if (view === 'month') this.monthFailed.set(false);
     this.viewChoice.set(view);
-    this.save({ view, agendaDays: this.daysChoice() });
+    this.save({ view, agendaDays: this.daysChoice(), hiddenSources: [...this.hiddenChoice()] });
   }
 
   protected chooseDays(agendaDays: CalendarAgendaDays): void {
     this.closeDetail(false);
     this.daysChoice.set(agendaDays);
-    this.save({ view: this.viewChoice(), agendaDays });
+    this.save({
+      view: this.viewChoice(),
+      agendaDays,
+      hiddenSources: [...this.hiddenChoice()],
+    });
   }
 
   protected showAgenda(): void {
     this.monthFailed.set(false);
     this.chooseView('agenda');
+  }
+
+  protected toggleSources(): void {
+    if (this.sourcesOpen()) {
+      this.closeSources();
+      return;
+    }
+    this.closeOverlays();
+    this.sourcesOpen.set(true);
+  }
+
+  protected closeSources(restoreFocus = true): void {
+    this.sourcesOpen.set(false);
+    if (!restoreFocus) return;
+    // After the render: the calendar area is no longer inert.
+    afterNextRender(() => this.toolbar()?.focusSources(), { injector: this.injector });
+  }
+
+  protected toggleSource(toggle: SourceToggle): void {
+    const others = this.hiddenChoice().filter((type) => type !== toggle.type);
+    const hiddenSources = toggle.visible ? others : [...others, toggle.type];
+    this.hiddenChoice.set(hiddenSources);
+    this.save({
+      view: this.viewChoice(),
+      agendaDays: this.daysChoice(),
+      hiddenSources: [...hiddenSources],
+    });
   }
 
   protected openDay(opened: MonthDayOpened): void {
@@ -323,11 +381,13 @@ export class CalendarComponent {
   private closeOverlays(): void {
     this.closeDetail(false);
     this.closePanel(false);
+    this.closeSources(false);
   }
 
   private save(config: CalendarConfig): void {
     this.announcement.set('');
-    this.ctx.updateConfig(config).catch(() => {
+    const hiddenSources = [...new Set(config.hiddenSources)];
+    this.ctx.updateConfig({ ...config, hiddenSources }).catch(() => {
       this.announcement.set(this.transloco.translate('widgets.calendar.configNotSaved'));
     });
   }

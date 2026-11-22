@@ -63,7 +63,9 @@ export class CalendarDayListComponent {
           time: this.timeOf(event),
           icon: this.registry.get(event.sourceType)?.icon ?? 'pi pi-calendar',
           toneClass: TONE_CLASS[event.tone],
-          overdue: event.tone === 'danger',
+          overdue: event.status === 'overdue',
+          projected: event.status === 'projected',
+          done: event.status === 'done',
           name: eventName(
             event,
             this.display,

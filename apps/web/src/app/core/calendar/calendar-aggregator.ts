@@ -1,9 +1,16 @@
 import { Injectable, Injector, inject, isDevMode } from '@angular/core';
 import { DataError } from '../../data';
-import { compareLocalDates, isValidInstant, isValidLocalDate, isValidTimeZone } from '../time';
+import {
+  compareLocalDates,
+  isValidInstant,
+  isValidLocalDate,
+  isValidTimeZone,
+  toLocalDate,
+} from '../time';
 import { WidgetRegistry } from '../widgets/widget-registry';
 import { assertCalendarRange, rangeLocalDates } from './calendar-range';
 import {
+  CALENDAR_STATUSES,
   CALENDAR_TONES,
   type CalendarEvent,
   type CalendarRange,
@@ -13,7 +20,7 @@ import {
 export const MAX_CALENDAR_EVENTS = 2000;
 
 export interface AggregatedEvents {
-  /** Deduplicated by id (first kept), sorted: all-day first, then by start (string order). */
+  /** Deduplicated by id (first kept), sorted by day, then all-day before timed, then by start. */
   readonly events: readonly CalendarEvent[];
   /** sourceType of every source whose listEvents rejected (partial result shown). */
   readonly failedSources: readonly string[];
@@ -23,26 +30,40 @@ export interface AggregatedEvents {
   readonly unavailable: boolean;
 }
 
+export interface ListEventsOptions {
+  /** Widget types whose source is neither loaded nor called (unknown types are ignored). */
+  readonly exclude?: readonly string[];
+}
+
 function compareStrings(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+interface SortKey {
+  readonly event: CalendarEvent;
+  /** Day of the start, in the display zone. */
+  readonly day: string;
+  readonly allDay: boolean;
+  /** Instant of a timed event, '' for an all-day one (no other key: the merge order is kept). */
+  readonly start: string;
+}
+
+function sortKey(event: CalendarEvent, timeZone: string): SortKey {
+  const time = event.time;
+  return time.kind === 'all-day'
+    ? { event, day: time.startOn, allDay: true, start: '' }
+    : { event, day: toLocalDate(time.start, timeZone), allDay: false, start: time.start };
+}
+
 /**
- * Only the time keys: ties keep the merge order (registry order of the sources, then the order
- * returned by each source), because Array.prototype.sort is stable. This keeps the `sort_order`
- * of the todo list (PV0).
+ * By day, then all-day before timed, then by start for the timed ones. All-day ties keep the merge
+ * order (registry order of the sources, then the order returned by each source), because
+ * Array.prototype.sort is stable. This keeps the sort_order of the todo list (PV0).
  */
-function compareEvents(a: CalendarEvent, b: CalendarEvent): number {
-  const aAllDay = a.time.kind === 'all-day';
-  const bAllDay = b.time.kind === 'all-day';
-  if (aAllDay !== bAllDay) return aAllDay ? -1 : 1;
-  if (a.time.kind === 'all-day' && b.time.kind === 'all-day') {
-    return compareStrings(a.time.startOn, b.time.startOn);
-  }
-  if (a.time.kind === 'timed' && b.time.kind === 'timed') {
-    return compareStrings(a.time.start, b.time.start);
-  }
-  return 0;
+function compareKeys(a: SortKey, b: SortKey): number {
+  if (a.day !== b.day) return compareStrings(a.day, b.day);
+  if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+  return a.allDay ? 0 : compareStrings(a.start, b.start);
 }
 
 /** Merges the events of every widget that declares a calendar source (ADR-004 3.2.2). */
@@ -54,12 +75,15 @@ export class CalendarAggregator {
   private readonly inFlight = new Map<string, Promise<AggregatedEvents>>();
 
   /** Concurrent calls for the same range share one in-flight request. */
-  async listEvents(range: CalendarRange): Promise<AggregatedEvents> {
+  async listEvents(
+    range: CalendarRange,
+    { exclude = [] }: ListEventsOptions = {},
+  ): Promise<AggregatedEvents> {
     assertCalendarRange(range);
-    const key = `${range.from}|${range.to}|${range.timeZone}`;
+    const key = `${range.from}|${range.to}|${range.timeZone}|${JSON.stringify([...new Set(exclude)].sort())}`;
     const shared = this.inFlight.get(key);
     if (shared) return shared;
-    const request = this.load(range);
+    const request = this.load(range, exclude);
     this.inFlight.set(key, request);
     try {
       return await request;
@@ -68,11 +92,14 @@ export class CalendarAggregator {
     }
   }
 
-  private async load(range: CalendarRange): Promise<AggregatedEvents> {
+  private async load(range: CalendarRange, exclude: readonly string[]): Promise<AggregatedEvents> {
     const { firstOn, lastOn } = rangeLocalDates(range);
     const definitions = this.registry
       .list()
-      .filter((definition) => definition.loadCalendarSource !== undefined);
+      .filter(
+        (definition) =>
+          definition.loadCalendarSource !== undefined && !exclude.includes(definition.type),
+      );
 
     const settled = await Promise.allSettled(
       definitions.map(async (definition) => {
@@ -107,10 +134,13 @@ export class CalendarAggregator {
       }
     });
 
-    merged.sort(compareEvents);
-    const truncated = merged.length > MAX_CALENDAR_EVENTS;
+    const sorted = merged
+      .map((event) => sortKey(event, range.timeZone))
+      .sort(compareKeys)
+      .map((key) => key.event);
+    const truncated = sorted.length > MAX_CALENDAR_EVENTS;
     return {
-      events: truncated ? merged.slice(0, MAX_CALENDAR_EVENTS) : merged,
+      events: truncated ? sorted.slice(0, MAX_CALENDAR_EVENTS) : sorted,
       failedSources,
       truncated,
       unavailable: failedSources.length > 0 && everyFailureUnavailable,
@@ -165,6 +195,7 @@ export class CalendarAggregator {
       return 'id';
     }
     if (!CALENDAR_TONES.includes(event.tone)) return 'tone';
+    if (event.status !== undefined && !CALENDAR_STATUSES.includes(event.status)) return 'status';
     const time = event.time;
     if (time.kind === 'timed') {
       if (

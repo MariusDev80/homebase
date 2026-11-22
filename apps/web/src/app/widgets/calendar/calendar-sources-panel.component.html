@@ -1,0 +1,35 @@
+<div class="flex flex-col gap-2">
+  <div>
+    <button
+      #back
+      type="button"
+      class="btn btn-invisible btn-compact"
+      data-testid="calendar-sources-back"
+      (click)="closed.emit()"
+    >
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>
+      {{ 'widgets.calendar.back' | transloco }}
+    </button>
+  </div>
+  <h3 class="m-0 px-3 text-sm font-semibold" data-testid="calendar-sources-title">
+    {{ 'widgets.calendar.sources' | transloco }}
+  </h3>
+  <ul class="m-0 list-none p-0">
+    @for (row of rows(); track row.type) {
+      <li class="border-b border-muted last:border-b-0">
+        <label class="flex items-center gap-2 px-3 py-2 text-sm">
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            [checked]="row.visible"
+            [attr.data-source]="row.type"
+            (change)="onToggle(row.type, $event)"
+          />
+          <i [class]="row.icon" aria-hidden="true"></i>
+          <span>{{ row.nameKey | transloco }}</span>
+        </label>
+      </li>
+    }
+  </ul>
+</div>
