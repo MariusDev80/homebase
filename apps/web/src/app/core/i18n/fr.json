@@ -450,6 +450,7 @@
       "allDayLong": "toute la journée",
       "overdue": "en retard",
       "overdueLabel": "En retard",
+      "overdueSince": "En retard depuis le {{date}}",
       "nothingToday": "Rien de prévu aujourd'hui.",
       "empty": "Rien de prévu du {{from}} au {{to}}.",
       "moreHint": "Voir les {{count}} autres événements de ce jour",
@@ -461,6 +462,7 @@
       "eventNameStatus": "{{name}}, {{status}}",
       "status": {
         "overdue": "en retard",
+        "overdueSince": "en retard depuis le {{date}}",
         "projected": "répétition prévue",
         "done": "fait",
         "planned": "à faire"

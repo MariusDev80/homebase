@@ -576,6 +576,49 @@ describe('SqliteTodoRepository', () => {
     });
   });
 
+  describe('listOverdueBefore', () => {
+    it('keeps active dated todos strictly before the bound, across lists', async () => {
+      const { list } = await newList();
+      const other = await repo.createList({ name: 'Autre' });
+      await repo.create({ listId: list.id, title: 'old', dueOn: '2026-01-01' });
+      await repo.create({ listId: other.id, title: 'yesterday', dueOn: '2026-11-17' });
+      await repo.create({ listId: list.id, title: 'today', dueOn: '2026-11-18' });
+      await repo.create({ listId: list.id, title: 'no date' });
+      const done = await repo.create({ listId: list.id, title: 'done', dueOn: '2026-11-01' });
+      await repo.setCompleted(done.id, true);
+      const found = await repo.listOverdueBefore('2026-11-18', 10);
+      expect(found.map((t) => t.title)).toEqual(['old', 'yesterday']);
+    });
+
+    it('orders by due_on, sort_order then id and respects the limit', async () => {
+      const { list } = await newList();
+      const a = await repo.create({ listId: list.id, title: 'a', dueOn: '2026-11-11' });
+      const b = await repo.create({ listId: list.id, title: 'b', dueOn: '2026-11-11' });
+      await repo.create({ listId: list.id, title: 'c', dueOn: '2026-11-09' });
+      await repo.reorder(list.id, [b.id, a.id]);
+      expect((await repo.listOverdueBefore('2026-11-30', 10)).map((t) => t.title)).toEqual([
+        'c',
+        'b',
+        'a',
+      ]);
+      expect((await repo.listOverdueBefore('2026-11-30', 2)).map((t) => t.title)).toEqual([
+        'c',
+        'b',
+      ]);
+    });
+
+    it('refuses invalid arguments before any query', async () => {
+      const select = vi.spyOn(db, 'select');
+      expect(await kindOf(repo.listOverdueBefore('2026-1-10', 5))).toBe('invalid_input');
+      expect(await kindOf(repo.listOverdueBefore('nope', 5))).toBe('invalid_input');
+      for (const limit of [0, 1001, 1.5, Number.NaN, -1]) {
+        expect(await kindOf(repo.listOverdueBefore('2026-11-20', limit))).toBe('invalid_input');
+      }
+      expect(select).not.toHaveBeenCalled();
+      expect(await kindOf(repo.listOverdueBefore('2026-11-20', 1000))).toBe('no error');
+    });
+  });
+
   describe('cascades', () => {
     it('instance deletion removes its list and todos, keeping others', async () => {
       const { dashboard, instance, list } = await newList();

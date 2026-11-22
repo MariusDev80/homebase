@@ -94,7 +94,8 @@ describe('TodoCalendarSource', () => {
     const { firstOn, lastOn } = rangeLocalDates(RANGE);
     expect(firstOn).toBe('2026-11-09');
     expect(lastOn).toBe('2026-11-22');
-    expect(repo.calls).toContain(`listDue:${firstOn}:${lastOn}:1000`);
+    // Today (11-18) is in the range: listDue starts at today, the overdue read covers the rest.
+    expect(repo.calls).toContain(`listDue:2026-11-18:${lastOn}:1000`);
     expect(repo.calls).toContain(`listRepeatingDueBy:${lastOn}:1000`);
   });
 
@@ -175,7 +176,7 @@ describe('TodoCalendarSource', () => {
       const events = await source.listEvents(MONTH);
       // 31/10 is in the month grid: overdue current due, then 30/11 (31/12 is out of range).
       expect(summary(events)).toEqual([
-        ['2026-10-31', '2026-10-31', 'danger', 'overdue'],
+        ['2026-10-31', '2026-11-18', 'danger', 'overdue'],
         ['2026-11-30', '2026-11-30', 'neutral', 'projected'],
       ]);
     });
@@ -265,13 +266,19 @@ describe('TodoCalendarSource', () => {
       expect(peak).toBe(8);
     });
 
-    it('late before the range: only the projections, no current due', async () => {
+    it('late before the range: the current due on today, then the projections', async () => {
       scriptEngine();
       repo.seed(listId, 'old', { dueOn: '2026-10-20', rrule: 'FREQ=DAILY' });
       const events = await source.listEvents(MONTH);
-      expect(events).toHaveLength(18);
-      expect(events.every((e) => e.status === 'projected')).toBe(true);
-      expect(events[0].occurrenceKey).toBe('2026-11-19');
+      expect(events).toHaveLength(19);
+      expect(events[0]).toMatchObject({
+        occurrenceKey: '2026-10-20',
+        status: 'overdue',
+        originalOn: '2026-10-20',
+        time: { kind: 'all-day', startOn: '2026-11-18', lastOn: '2026-11-18' },
+      });
+      expect(events.slice(1).every((e) => e.status === 'projected')).toBe(true);
+      expect(events[1].occurrenceKey).toBe('2026-11-19');
     });
 
     it('a rejection of listRepeatingDueBy rejects the source', async () => {
@@ -323,6 +330,161 @@ describe('TodoCalendarSource', () => {
       expect(result.truncated).toBe(false);
       expect(result.events).toHaveLength(direct.length);
       expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('Calendar event dropped'));
+    });
+  });
+
+  describe('overdue todos carried over to today (2026-11-18)', () => {
+    const PAST: CalendarRange = {
+      from: startOfDay('2026-10-01', 'Europe/Paris'),
+      to: startOfDay('2026-11-01', 'Europe/Paris'),
+      timeZone: 'Europe/Paris',
+    };
+    const NEXT: CalendarRange = {
+      from: startOfDay('2026-12-01', 'Europe/Paris'),
+      to: startOfDay('2027-01-01', 'Europe/Paris'),
+      timeZone: 'Europe/Paris',
+    };
+
+    const span = (from: string, to: string): CalendarRange => ({
+      from: startOfDay(from, 'Europe/Paris'),
+      to: startOfDay(to, 'Europe/Paris'),
+      timeZone: 'Europe/Paris',
+    });
+
+    it.each([
+      ['today is the first date', '2026-11-18', '2026-11-25'],
+      ['today is the last date', '2026-11-12', '2026-11-19'],
+    ])('carries over when %s of the range', async (_label, from, to) => {
+      const late = repo.seed(listId, 'late', { dueOn: '2026-11-10' });
+      const events = await source.listEvents(span(from, to));
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        sourceId: late.id,
+        originalOn: '2026-11-10',
+        time: { kind: 'all-day', startOn: '2026-11-18', lastOn: '2026-11-18' },
+      });
+      expect(repo.calls).toContain('listOverdueBefore:2026-11-18:1000');
+    });
+
+    it('reads nothing for a past range', async () => {
+      repo.seed(listId, 'late', { dueOn: '2026-10-10' });
+      expect(await source.listEvents(PAST)).toEqual([]);
+      expect(repo.calls).toEqual([]);
+    });
+
+    it('a future range reads the due dates and the repeating ones, not the overdue', async () => {
+      await source.listEvents(NEXT);
+      expect(repo.calls).toEqual([
+        'listDue:2026-12-01:2026-12-31:1000',
+        'listRepeatingDueBy:2026-12-31:1000',
+      ]);
+    });
+
+    it('moves a todo due yesterday onto the new day after midnight', async () => {
+      const t = repo.seed(listId, 't', { dueOn: '2026-11-18' });
+      expect((await source.listEvents(RANGE))[0].status).toBeUndefined();
+      // 2026-11-19 00:30 in Paris.
+      (TestBed.inject(CLOCK) as ManualClock).set('2026-11-18T23:30:00.000Z');
+      window.dispatchEvent(new Event('focus'));
+      const [event] = await source.listEvents(RANGE);
+      expect(event).toMatchObject({
+        sourceId: t.id,
+        status: 'overdue',
+        originalOn: '2026-11-18',
+        time: { kind: 'all-day', startOn: '2026-11-19', lastOn: '2026-11-19' },
+      });
+    });
+
+    it('shows a simple overdue todo on today with its original date and unchanged id', async () => {
+      const late = repo.seed(listId, 'late', { dueOn: '2026-11-10' });
+      expect(await source.listEvents(RANGE)).toEqual([
+        {
+          id: `todo:${late.id}:`,
+          sourceType: 'todo',
+          sourceId: late.id,
+          occurrenceKey: null,
+          title: 'late',
+          time: { kind: 'all-day', startOn: '2026-11-18', lastOn: '2026-11-18' },
+          tone: 'danger',
+          status: 'overdue',
+          originalOn: '2026-11-10',
+        },
+      ]);
+    });
+
+    it('carries over an overdue todo due before firstOn', async () => {
+      const old = repo.seed(listId, 'old', { dueOn: '2026-08-01' });
+      const events = await source.listEvents(RANGE);
+      expect(events.map((e) => [e.sourceId, e.originalOn])).toEqual([[old.id, '2026-08-01']]);
+      expect(repo.calls).toContain('listOverdueBefore:2026-11-18:1000');
+    });
+
+    it('does not duplicate an overdue todo that is also inside the range', async () => {
+      repo.seed(listId, 'late', { dueOn: '2026-11-10' });
+      repo.seed(listId, 'repeat', { dueOn: '2026-11-12', rrule: 'FREQ=WEEKLY' });
+      const events = await source.listEvents(RANGE);
+      expect(new Set(events.map((e) => e.id)).size).toBe(events.length);
+      expect(events.filter((e) => e.status === 'overdue')).toHaveLength(2);
+    });
+
+    it('a range without today shows nothing carried over and reads no overdue', async () => {
+      repo.seed(listId, 'late', { dueOn: '2026-10-10' });
+      expect(await source.listEvents(PAST)).toEqual([]);
+      expect(await source.listEvents(NEXT)).toEqual([]);
+      expect(repo.calls.some((c) => c.startsWith('listOverdueBefore'))).toBe(false);
+    });
+
+    it('a repeating overdue todo: current due on today, projections unchanged', async () => {
+      engine.respond = () => ({
+        occurrences: series('2026-11-10', 7, '2026-12-06').map((d) => ({
+          kind: 'date' as const,
+          key: d,
+          date: d,
+        })),
+        truncated: false,
+      });
+      const t = repo.seed(listId, 'T', { dueOn: '2026-11-10', rrule: 'FREQ=WEEKLY' });
+      const events = await source.listEvents(MONTH);
+      expect(events.map((e) => [e.id, e.time.kind === 'all-day' ? e.time.startOn : '?'])).toEqual([
+        [`todo:${t.id}:2026-11-10`, '2026-11-18'],
+        [`todo:${t.id}:2026-11-24`, '2026-11-24'],
+        [`todo:${t.id}:2026-12-01`, '2026-12-01'],
+      ]);
+      expect(events[0]).toMatchObject({ status: 'overdue', originalOn: '2026-11-10' });
+    });
+
+    it('orders carried-over todos by due date then sort order, before today', async () => {
+      const today = repo.seed(listId, 'today', { dueOn: '2026-11-18' });
+      const b = repo.seed(listId, 'b', { dueOn: '2026-11-12' });
+      const a = repo.seed(listId, 'a', { dueOn: '2026-11-12' });
+      const first = repo.seed(listId, 'first', { dueOn: '2026-11-01' });
+      await repo.reorder(listId, [today.id, a.id, b.id, first.id]);
+      const events = await source.listEvents(RANGE);
+      expect(events.map((e) => e.sourceId)).toEqual([first.id, a.id, b.id, today.id]);
+    });
+
+    it('the real aggregator keeps them with originalOn', async () => {
+      TestBed.resetTestingModule();
+      const clock = new ManualClock(NOW);
+      TestBed.configureTestingModule({
+        providers: [
+          provideWidget(
+            fixtureDefinition({
+              type: 'todo',
+              loadCalendarSource: () => Promise.resolve(TodoCalendarSource),
+            }),
+          ),
+          { provide: CLOCK, useValue: clock },
+          { provide: TODO_REPOSITORY, useValue: repo },
+          { provide: RECURRENCE_ENGINE, useValue: engine },
+          { provide: SETTINGS_REPOSITORY, useValue: new FakeSettingsRepository() },
+          { provide: SYSTEM_TIME_ZONE_READER, useValue: () => 'Europe/Paris' },
+        ],
+      });
+      repo.seed(listId, 'late', { dueOn: '2026-11-10' });
+      const result = await TestBed.inject(CalendarAggregator).listEvents(RANGE);
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].originalOn).toBe('2026-11-10');
     });
   });
 });

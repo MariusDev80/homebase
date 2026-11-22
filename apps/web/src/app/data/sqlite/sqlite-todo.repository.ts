@@ -58,6 +58,11 @@ const LIST_DUE_SQL = `SELECT ${TODO_COLUMNS} FROM todos
 WHERE completed_at IS NULL AND due_on >= $1 AND due_on <= $2
 ${DUE_ORDER_SQL} $3`;
 
+// NULL due_on never satisfies `due_on < $1`.
+const LIST_OVERDUE_BEFORE_SQL = `SELECT ${TODO_COLUMNS} FROM todos
+WHERE completed_at IS NULL AND due_on < $1
+${DUE_ORDER_SQL} $2`;
+
 // NULL due_on never satisfies `due_on <= $1`.
 const LIST_REPEATING_DUE_BY_SQL = `SELECT ${TODO_COLUMNS} FROM todos
 WHERE completed_at IS NULL AND rrule IS NOT NULL AND due_on <= $1
@@ -278,6 +283,10 @@ export class SqliteTodoRepository implements TodoRepository {
       throw new DataError('invalid_input', 'Due range start must not be after its end');
     }
     return this.selectDue(LIST_DUE_SQL, [range.fromOn, range.toOn], limit);
+  }
+
+  listOverdueBefore(beforeOn: LocalDateIso, limit: number): Promise<Todo[]> {
+    return this.selectDue(LIST_OVERDUE_BEFORE_SQL, [beforeOn], limit);
   }
 
   listRepeatingDueBy(toOn: LocalDateIso, limit: number): Promise<Todo[]> {

@@ -45,7 +45,14 @@ describe('todo calendar helpers', () => {
 
   it('dueEvent is danger and overdue only strictly before today', () => {
     const late = dueEvent(todo({ dueOn: '2026-11-17' }), '2026-11-18');
-    expect(late).toMatchObject({ tone: 'danger', status: 'overdue' });
+    expect(late).toMatchObject({
+      tone: 'danger',
+      status: 'overdue',
+      originalOn: '2026-11-17',
+      id: 'todo:T:2026-11-17',
+      occurrenceKey: '2026-11-17',
+      time: { kind: 'all-day', startOn: '2026-11-18', lastOn: '2026-11-18' },
+    });
     const today = dueEvent(todo(), '2026-11-18');
     expect(today.status).toBeUndefined();
     expect(today.tone).toBe('neutral');

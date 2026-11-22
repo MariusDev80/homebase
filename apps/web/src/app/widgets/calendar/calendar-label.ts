@@ -77,12 +77,26 @@ export function eventName(
     date: eventDateText(event, display, displayZone, t, true),
     time,
   });
-  return event.status === undefined
-    ? name
-    : t('widgets.calendar.eventNameStatus', {
-        name,
-        status: t(`widgets.calendar.status.${event.status}`),
-      });
+  if (event.status === undefined) return name;
+  const status =
+    event.status === 'overdue' && event.originalOn !== undefined
+      ? t('widgets.calendar.status.overdueSince', {
+          date: display.formatLocalDate(event.originalOn, 'long'),
+        })
+      : t(`widgets.calendar.status.${event.status}`);
+  return t('widgets.calendar.eventNameStatus', { name, status });
+}
+
+/** "En retard depuis le 10 novembre 2026" for a carried-over event, else null. */
+export function overdueSinceText(
+  event: CalendarEvent,
+  display: CalendarLabelDisplay,
+  t: CalendarTranslate,
+): string | null {
+  if (event.status !== 'overdue' || event.originalOn === undefined) return null;
+  return t('widgets.calendar.overdueSince', {
+    date: display.formatLocalDate(event.originalOn, 'long'),
+  });
 }
 
 /**

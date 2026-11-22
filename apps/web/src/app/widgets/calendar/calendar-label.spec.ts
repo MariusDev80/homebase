@@ -62,6 +62,13 @@ describe('eventName (CA-C3-4)', () => {
     );
     expect(name('F5')).toMatch(/^Tâche : F5 Tache sur trois jours, du .* au .*, toute la journée$/);
   });
+
+  it('names a carried-over task with its original due date', async () => {
+    const name = await names();
+    expect(name({ ...fixture('F4'), originalOn: '2026-11-10' })).toBe(
+      'Tâche : F4 Tache en retard, mercredi 18 novembre 2026, toute la journée, en retard depuis le 10 novembre 2026',
+    );
+  });
 });
 
 describe('accessible names in the views (CA-C3-4)', () => {

@@ -57,6 +57,9 @@ export interface CalendarEvent {
   readonly tone: CalendarTone;
   /** Absent: an ordinary event. */
   readonly status?: CalendarEventStatus;
+  /** Original date of an item shown on another day (an overdue todo carried over to today). Valid
+   *  local date, checked by the aggregator; ignored by sources that do not carry items over. */
+  readonly originalOn?: LocalDateIso;
 }
 
 export interface CalendarSource {

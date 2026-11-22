@@ -13,7 +13,7 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import type { CalendarEvent } from '../../core/calendar';
 import { TimeDisplay, UserTimeZone, zoneCity } from '../../core/time';
 import { WidgetRegistry } from '../../core/widgets/widget-registry';
-import { eventDateText, recurringKey, sourceLabel } from './calendar-label';
+import { eventDateText, overdueSinceText, recurringKey, sourceLabel } from './calendar-label';
 import type { CalendarTranslate } from './calendar-label';
 import { TONE_CLASS } from './calendar-tone';
 
@@ -55,6 +55,9 @@ export class CalendarEventDetailComponent {
     eventDateText(this.event(), this.display, this.zone.id(), this.t),
   );
   protected readonly status = computed(() => this.event().status ?? null);
+  protected readonly overdueSince = computed(() =>
+    overdueSinceText(this.event(), this.display, this.t),
+  );
   protected readonly recurring = computed(() => recurringKey(this.event()));
 
   /** "à 09:00", plus "(09:00 Paris)" when the event was set in another zone; null when all-day. */
