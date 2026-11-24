@@ -84,6 +84,8 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [x] (S) Lot CO3 : habitudes dans l'Agenda et le Mois (heure du rappel ou toute la journée) (revu)
 - [x] (S) Lot CO4 : réglage « Sources affichées » (revu)
 - [x] (S) Lot CO5 : tâches en retard reportées sur aujourd'hui (spec calendar-occurrences, amendement R7) (revu)
+- [x] (O) Revue de fin de phase 2 (3 volets : Rust et sécurité, front temps et habitudes, calendrier ; 2026-11-22) : OK avec suivis, aucun point bloquant ; 2 points importants (fenêtre cachée après une restauration lancée par l'autostart, données périmées du calendrier après une écriture)
+- [x] (S) Suivis de la revue de fin de phase 2 : les 2 points importants et les mineurs retenus (revu) ; arbitrage R5 du bundle, option 1 : dépôts todo, notes et raccourcis chargés à la demande (initial 498,85 → 488,35 kB), garde de CI sur l'initial et sur l'absence des outils de debug du calendrier ; vérifications manuelles de sortie (MV1, autostart, veille, son des toasts de minuteur) à faire par Marius
 **Sortie** : un rappel sonne à l'heure, fenêtre réduite, application lancée.
 
 ## Phase 3 : Données externes et applications locales
@@ -94,6 +96,8 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [ ] (S) Statut de services (sondes HTTP/TCP, NAS compris)
 - [ ] (O→S) Raccourcis vers applications locales (liste autorisée, capacités Tauri)
 - [ ] (S) Widget objectifs (édition manuelle, durées, étiquettes)
+- [ ] (S) Bundle (arbitrage R5, option 3) : relever l'avertissement initial de 500 à 525 kB avec une valeur de référence enregistrée que la CI fait respecter à 2 kB près ; réserve : PrimeIcons réduit aux icônes utilisées et palette Aura minimale (≈ −14 kB)
+- [ ] (S) Rappels : retirer des `exdates` les dates déjà passées (sinon un rappel quotidien souvent ignoré atteint la limite de 366 et « Ignorer » est refusé)
 **Sortie** : informations externes et lancement d'applications, sans surface d'attaque inutile.
 
 ## Phase 4 : Budget et comptes

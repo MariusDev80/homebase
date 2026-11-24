@@ -18,4 +18,4 @@ Le front garde `sql:allow-execute` (ADR-002). Il peut donc écrire directement d
 
 - **Atténuations** : contraintes `CHECK` en base ; revalidation à la lecture côté Rust (ligne invalide : cache vidé, `status: invalid`) ; CSP stricte et assainissement des contenus externes.
 - **Risque accepté** : un script injecté dans le WebView pourrait modifier ces tables. Il a déjà accès aux autres données du front.
-- **À réévaluer** lors de l'audit de sécurité de la phase 6.
+- **Levée prévue** au début de la phase 3, avant tout contenu externe : O3 de l'ADR-002 remplace `sql:allow-execute`/`sql:allow-select` par des commandes Rust typées (voir `docs/ROADMAP.md`).
