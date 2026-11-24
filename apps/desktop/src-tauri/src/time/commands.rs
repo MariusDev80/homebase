@@ -27,7 +27,7 @@ pub enum AnchorDto {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RecurrenceSpecDto {
     pub anchor: AnchorDto,
     pub rrule: Option<String>,
@@ -35,7 +35,7 @@ pub struct RecurrenceSpecDto {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExpandRangeDto {
     pub from: String,
     pub to: String,

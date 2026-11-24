@@ -153,7 +153,14 @@ async fn fire_due_reminders(
                 continue;
             }
             progressed = true;
-            fire_one(conn, row, now, now_text, report, notices).await?;
+            match fire_one(conn, row, now, now_text, report, notices).await {
+                Ok(()) => {}
+                // A busy database fails the whole pass (retried as a whole).
+                Err(ScheduleError::Busy) => return Err(ScheduleError::Busy),
+                // A line in error must not block the other reminders: already marked as seen,
+                // it is not retried in this pass (id and kind only, no values).
+                Err(e) => eprintln!("schedule: reminder {} failed ({e:?}), skipped", row.id),
+            }
         }
         if !progressed || rows.len() < usize::try_from(DUE_BATCH).unwrap_or(usize::MAX) {
             return Ok(());

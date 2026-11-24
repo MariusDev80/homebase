@@ -346,8 +346,9 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 }
 
 /// First call of the app `.setup()`, before `tray::setup`: confirms a restoration done in this
-/// process and propagates the error (Tauri then stops the application).
-pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
+/// process and propagates the error (Tauri then stops the application). Returns `true` when a
+/// restoration was swapped in and confirmed in this process.
+pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<bool, Box<dyn std::error::Error>> {
     let state = app.state::<BackupState>();
     if let Err(e) = confirm_restore(&state.root, state.clock.as_ref(), state.swap_info.as_ref()) {
         // Tauri creates the `main` window before `.setup()` and the SQL plugin has already opened
@@ -363,7 +364,7 @@ pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::e
         return Err(Box::new(e));
     }
     super::daily::spawn(app);
-    Ok(())
+    Ok(state.swap_info.is_some())
 }
 
 /// `RunEvent::Exit`: stops the daily thread cleanly.
