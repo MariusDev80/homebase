@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { NOTE_REPOSITORY, SHORTCUT_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import { NOTE_REPOSITORY, SHORTCUT_REPOSITORY, TODO_REPOSITORY } from '../../data/content.tokens';
 import type { Clock } from '../../data';
 import { FakeNoteRepository } from '../testing/fake-note.repository';
 import { FakeShortcutRepository } from '../testing/fake-shortcut.repository';

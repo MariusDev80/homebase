@@ -7,7 +7,8 @@ import { FakeTodoRepository } from '../../core/testing/fake-todo.repository';
 import { SYSTEM_TIME_ZONE_READER } from '../../core/time';
 import { ManualClock } from '../../core/time/testing/manual-clock';
 import { PendingWrites } from '../../core/widgets';
-import { CLOCK, DataError, SETTINGS_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import { CLOCK, DataError, SETTINGS_REPOSITORY } from '../../data';
+import { TODO_REPOSITORY } from '../../data/content.tokens';
 import type { Todo } from '../../data';
 import { TODO_DETAIL_SAVE_DEBOUNCE_MS, TodoDetailComponent } from './todo-detail.component';
 

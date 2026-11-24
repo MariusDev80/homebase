@@ -11,7 +11,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { UrlOpener, parseWebUrl } from '../../core/system';
 import type { WebUrlErrorReason } from '../../core/system';
 import { injectWidgetContext } from '../../core/widgets';
-import { SHORTCUT_REPOSITORY } from '../../data';
+import { SHORTCUT_REPOSITORY } from '../../data/content.tokens';
 import type { Shortcut } from '../../data';
 import type { ShortcutsConfig } from './shortcuts.config';
 

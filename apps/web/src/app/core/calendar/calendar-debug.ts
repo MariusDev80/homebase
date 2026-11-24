@@ -1,5 +1,5 @@
 import type { Injector } from '@angular/core';
-import { TODO_REPOSITORY } from '../../data';
+import { TODO_REPOSITORY } from '../../data/content.tokens';
 import { HABIT_REPOSITORY, REMINDER_REPOSITORY } from '../../data/schedule.tokens';
 import { DashboardStore } from '../dashboard/dashboard.store';
 import { Today, UserTimeZone, addDays, startOfDay } from '../time';

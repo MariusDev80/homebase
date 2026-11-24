@@ -4,7 +4,8 @@ import { provideAppI18n } from '../../core/i18n';
 import { FakeNoteRepository } from '../../core/testing/fake-note.repository';
 import { PendingWrites, WIDGET_CONTEXT } from '../../core/widgets';
 import type { WidgetContext } from '../../core/widgets';
-import { DataError, NOTE_REPOSITORY } from '../../data';
+import { DataError } from '../../data';
+import { NOTE_REPOSITORY } from '../../data/content.tokens';
 import { NOTES_SAVE_DEBOUNCE_MS, NotesComponent } from './notes.component';
 import type { NotesConfig } from './notes.config';
 

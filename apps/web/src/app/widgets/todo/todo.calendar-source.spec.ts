@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { CLOCK, DataError, SETTINGS_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import { CLOCK, DataError, SETTINGS_REPOSITORY } from '../../data';
+import { TODO_REPOSITORY } from '../../data/content.tokens';
 import { CalendarAggregator } from '../../core/calendar/calendar-aggregator';
 import { rangeLocalDates } from '../../core/calendar/calendar-range';
 import type { CalendarEvent, CalendarRange } from '../../core/calendar/calendar-source';

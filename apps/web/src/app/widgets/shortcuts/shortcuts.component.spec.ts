@@ -5,7 +5,8 @@ import { UrlOpener } from '../../core/system';
 import { FakeShortcutRepository } from '../../core/testing/fake-shortcut.repository';
 import { WIDGET_CONTEXT } from '../../core/widgets';
 import type { WidgetContext } from '../../core/widgets';
-import { DataError, SHORTCUT_REPOSITORY } from '../../data';
+import { DataError } from '../../data';
+import { SHORTCUT_REPOSITORY } from '../../data/content.tokens';
 import { ShortcutsComponent } from './shortcuts.component';
 import type { ShortcutsConfig } from './shortcuts.config';
 
