@@ -2,7 +2,7 @@
 // SQL of the lazy content repositories (todo, note, shortcut: data/content.tokens.ts). Those
 // repositories must only be reachable through dynamic imports (lazy widgets / calendar sources).
 // Usage: node scripts/check-initial-bundle.mjs [distDir]
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,6 +40,26 @@ while (queue.length > 0) {
   }
   initial.add(name);
   for (const m of readFileSync(file, 'utf8').matchAll(STATIC_IMPORT)) queue.push(m[1]);
+}
+
+// Relevance: each forbidden pattern must exist somewhere in the dist (lazy chunks), else the guard
+// would pass vacuously after a SQL rewrite or a rename.
+function listJs(dir) {
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...listJs(full));
+    else if (entry.name.endsWith('.js')) files.push(full);
+  }
+  return files;
+}
+const allText = listJs(dist).map((f) => readFileSync(f, 'utf8'));
+const stale = FORBIDDEN.filter((needle) => !allText.some((t) => t.includes(needle)));
+if (stale.length > 0) {
+  console.error(
+    `Obsolete pattern(s), found nowhere in the dist (update FORBIDDEN): ${stale.join(', ')}`,
+  );
+  process.exit(2);
 }
 
 const found = [];

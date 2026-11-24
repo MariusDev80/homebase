@@ -9,6 +9,24 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.resolve(process.argv[2] ?? path.join(scriptDir, '..', 'dist', 'web', 'browser'));
 const FORBIDDEN = ['__hbCalendar', 'installCalendarDebug', 'seedRepeatingTodos'];
 
+// Relevance: the production bundle lacks these symbols by construction, so check they still exist
+// in the debug source; otherwise the guard would pass vacuously after a rename.
+const debugSource = path.join(
+  scriptDir,
+  '..',
+  'src',
+  'app',
+  'core',
+  'calendar',
+  'calendar-debug.ts',
+);
+const sourceText = existsSync(debugSource) ? readFileSync(debugSource, 'utf8') : '';
+const stale = FORBIDDEN.filter((symbol) => !sourceText.includes(symbol));
+if (stale.length > 0) {
+  console.error(`Obsolete pattern(s), not found in ${debugSource}: ${stale.join(', ')}`);
+  process.exit(2);
+}
+
 if (!existsSync(dist)) {
   console.error(`Build output not found: ${dist} (run the web build first)`);
   process.exit(2);

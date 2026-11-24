@@ -144,13 +144,13 @@ pub fn run() {
         .invoke_handler(invoke_handler())
         .setup(|app| {
             // First, before anything else: confirms a restoration done in this process.
-            let restored = backup::startup::on_app_ready(app.handle())?;
+            let restore_attempted = backup::startup::on_app_ready(app.handle())?;
             tray::setup(app.handle())?;
             schedule::start(app.handle())?;
             refresh_autostart(app.handle());
             // The window is declared invisible: a manual launch must show it, and so must the
             // restart after a restoration (it reuses the original `--minimized` argument).
-            if should_show_window(restored, std::env::args()) {
+            if should_show_window(restore_attempted, std::env::args()) {
                 show_main_window(app.handle());
             }
             Ok(())
@@ -186,9 +186,13 @@ pub(crate) fn launched_minimized(args: impl IntoIterator<Item = String>) -> bool
 }
 
 /// The main window is shown unless the process was started minimized by the autostart entry; a
-/// restoration restarts the process with the same arguments, so it always shows the window.
-pub(crate) fn should_show_window(restored: bool, args: impl IntoIterator<Item = String>) -> bool {
-    restored || !launched_minimized(args)
+/// restoration (applied or not) restarts the process with the same arguments, so the window is
+/// always shown, which lets the user see a failed one.
+pub(crate) fn should_show_window(
+    restore_attempted: bool,
+    args: impl IntoIterator<Item = String>,
+) -> bool {
+    restore_attempted || !launched_minimized(args)
 }
 
 /// Rewrites the autostart entry (current path and argument) when it is enabled. Never blocking.
@@ -233,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn window_is_shown_unless_minimized_and_not_restored() {
+    fn window_is_shown_unless_minimized_and_no_restore_attempted() {
         let plain = args(&["homebase.exe"]);
         let minimized = args(&["homebase.exe", "--minimized"]);
         assert!(should_show_window(false, plain.clone()));
@@ -269,7 +273,7 @@ mod tests {
         let start = production.find("schedule::start(").expect("start");
         let refresh = production.find("refresh_autostart(app").expect("refresh");
         let show = production
-            .find("if should_show_window(restored, std::env::args())")
+            .find("if should_show_window(restore_attempted, std::env::args())")
             .expect("show");
         assert!(start < refresh && refresh < show);
         assert!(production.contains("Some(vec![MINIMIZED_ARG])"));

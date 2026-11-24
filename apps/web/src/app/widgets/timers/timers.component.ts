@@ -280,10 +280,10 @@ export class TimersComponent {
       this.alarmError.set('widgets.timers.errors.alarmTime');
       return;
     }
+    const reminders = this.injector.get(ReminderStore);
     this.alarmBusy.set(true);
     this.alarmError.set(null);
     let orphan: string | null = null;
-    const reminders = this.injector.get(ReminderStore);
     try {
       // Read lazily: the reminders are only needed once an alarm is set.
       const input: ReminderInput = {
