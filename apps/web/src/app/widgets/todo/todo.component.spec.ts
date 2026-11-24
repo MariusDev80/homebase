@@ -812,7 +812,7 @@ describe('TodoComponent', () => {
   });
 
   describe('calendar notifications (CA-C3-1)', () => {
-    it('notifies on create, check, uncheck and remove, but not on reorder', async () => {
+    it('notifies on create, check, uncheck, reorder and remove', async () => {
       const { all, q, fill, click, press, settle } = await render(seeded());
       const changes = TestBed.inject(CalendarChanges);
       expect(changes.version()).toBe(0);
@@ -826,10 +826,10 @@ describe('TodoComponent', () => {
       await click(all('todo-check')[3]);
       expect(changes.version()).toBe(3);
       await click(all('todo-down')[0]);
-      expect(changes.version()).toBe(3);
+      expect(changes.version()).toBe(4);
       await click(all('todo-remove')[0]);
       await click(q('todo-confirm-yes'));
-      expect(changes.version()).toBe(4);
+      expect(changes.version()).toBe(5);
     });
 
     it('does not notify when a write fails', async () => {

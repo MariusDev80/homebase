@@ -68,9 +68,16 @@ export function habitEvents(
       let time: CalendarEvent['time'] = { kind: 'all-day', startOn: day, lastOn: day };
       if (timed) {
         // Canonical UTC instants (milliseconds): string comparison is chronological.
-        const start: InstantIso = resolveLocal(`${day}T${at.time}:00`, zone);
-        if (start < range.from || start >= range.to) continue;
-        time = { kind: 'timed', start, end: null, timeZone: zone };
+        let start: InstantIso | null = null;
+        try {
+          start = resolveLocal(`${day}T${at.time}:00`, zone);
+        } catch {
+          // Unresolvable reminder time: the habit stays all-day (spec 3.5).
+        }
+        if (start !== null) {
+          if (start < range.from || start >= range.to) continue;
+          time = { kind: 'timed', start, end: null, timeZone: zone };
+        }
       }
       events.push({
         id: `habits:${habit.id}:${day}`,

@@ -13,8 +13,8 @@ import {
   untracked,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { HabitStore, WEEKDAYS } from '../../core/habits';
-import { Today, UserTimeZone } from '../../core/time';
+import { HabitStore } from '../../core/habits';
+import { Today, UserTimeZone, WEEKDAYS } from '../../core/time';
 import { injectWidgetContext } from '../../core/widgets';
 import { DataError, HABIT_LIMITS, randomUuid } from '../../data';
 import type { Habit, HabitInput, WeekdayCode } from '../../data';

@@ -1,9 +1,9 @@
-import { WEEKDAYS } from '../../core/habits';
 import { commandErrorDetails } from '../../core/schedule';
 import {
   COUNT_MAX,
   INTERVAL_MAX,
   TimeError,
+  WEEKDAYS,
   classifyLocal,
   formatInstant,
   formatRecurrenceRule,

@@ -282,9 +282,10 @@ export class TimersComponent {
     }
     this.alarmBusy.set(true);
     this.alarmError.set(null);
+    let orphan: string | null = null;
+    const reminders = this.injector.get(ReminderStore);
     try {
       // Read lazily: the reminders are only needed once an alarm is set.
-      const reminders = this.injector.get(ReminderStore);
       const input: ReminderInput = {
         title: this.alarmLabel().trim() || this.t('widgets.timers.alarm'),
         startLocal: plan.startLocal,
@@ -294,17 +295,24 @@ export class TimersComponent {
         enabled: true,
       };
       let saved = await reminders.create(input);
+      orphan = saved.id;
       if (!this.rings(saved)) {
         // Rust has the last word: nothing ahead for that choice, so try the next day, once.
         const later = dayAfterAlarm(plan, time, zone);
-        if (later === null) throw new Error('unreachable');
+        if (later === null) {
+          await this.discard(reminders, orphan);
+          this.alarmError.set('widgets.timers.errors.alarmNotScheduled');
+          return;
+        }
         plan = later;
         saved = await reminders.update(saved.id, { ...input, startLocal: later.startLocal });
         if (!this.rings(saved)) {
+          await this.discard(reminders, orphan);
           this.alarmError.set('widgets.timers.errors.alarmNotScheduled');
           return;
         }
       }
+      orphan = null;
       this.alarmMessage.set(
         this.t('widgets.timers.alarmSet', { when: this.whenText(saved, zone) }),
       );
@@ -316,9 +324,19 @@ export class TimersComponent {
             : '',
       );
     } catch (error) {
+      if (orphan !== null) await this.discard(reminders, orphan);
       this.alarmError.set(commandErrorKey(error, 'alarm'));
     } finally {
       this.alarmBusy.set(false);
+    }
+  }
+
+  /** Best effort: an alarm that is not scheduled must not stay in the Reminders widget. */
+  private async discard(reminders: ReminderStore, id: string): Promise<void> {
+    try {
+      await reminders.remove(id);
+    } catch {
+      // Ignored: the user sees the alarm error either way.
     }
   }
 

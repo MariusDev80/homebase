@@ -18,12 +18,17 @@ const INPUT: HabitInput = {
 interface Deferred<T> {
   readonly promise: Promise<T>;
   resolve(value: T): void;
+  reject(reason: unknown): void;
 }
 
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => (resolve = r));
-  return { promise, resolve };
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
 }
 
 describe('HabitStore', () => {
@@ -255,6 +260,24 @@ describe('HabitStore', () => {
       expect(store.checks().get(second.id)?.has('2026-11-17')).toBe(true);
       gate.resolve(true);
       await slow;
+    });
+
+    it('an older failing check does not undo a newer one of the same day', async () => {
+      const habit = await repo.create(INPUT);
+      const store = await create();
+      const older = deferred<boolean>();
+      const newer = deferred<boolean>();
+      vi.spyOn(repo, 'setCheck')
+        .mockReturnValueOnce(older.promise)
+        .mockReturnValueOnce(newer.promise);
+      const first = store.setCheck(habit.id, '2026-11-17', true);
+      const second = store.setCheck(habit.id, '2026-11-17', true);
+      const failure = new DataError('invalid_input', 'dayOn');
+      older.reject(failure);
+      await expect(first).rejects.toBe(failure);
+      expect(store.checks().get(habit.id)?.has('2026-11-17')).toBe(true);
+      newer.resolve(true);
+      await second;
     });
 
     it('restores the day locally when the re-read fails too', async () => {

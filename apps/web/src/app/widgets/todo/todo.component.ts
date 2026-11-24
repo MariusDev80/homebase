@@ -360,6 +360,7 @@ export class TodoComponent {
     this.advanced.set(null);
     try {
       await this.repository.reorder(listId, ids);
+      this.calendarChanges.notify('todo');
       this.actionError.set(false);
       await this.refresh();
       // Keep the focus on the same direction button, unless it is now disabled (list end).

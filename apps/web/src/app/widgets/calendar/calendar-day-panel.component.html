@@ -11,7 +11,9 @@
       {{ 'widgets.calendar.back' | transloco }}
     </button>
   </div>
-  <h3 class="m-0 px-3 text-sm font-semibold" data-testid="calendar-panel-title">{{ title() }}</h3>
+  <h3 [id]="titleId" class="m-0 px-3 text-sm font-semibold" data-testid="calendar-panel-title">
+    {{ title() }}
+  </h3>
   <app-calendar-day-list
     [events]="events()"
     [firstOn]="day()"

@@ -11,8 +11,15 @@ import {
   untracked,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { HabitStore, WEEKDAYS, currentStreak, ratePercent, successRate } from '../../core/habits';
-import { TimeDisplay, Today, addDays, compareLocalDates, startOfIsoWeek } from '../../core/time';
+import { HabitStore, currentStreak, ratePercent, successRate } from '../../core/habits';
+import {
+  TimeDisplay,
+  Today,
+  WEEKDAYS,
+  addDays,
+  compareLocalDates,
+  startOfIsoWeek,
+} from '../../core/time';
 import type { Habit, LocalDateIso } from '../../data';
 import {
   activeDay,

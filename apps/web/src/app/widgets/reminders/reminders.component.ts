@@ -158,7 +158,11 @@ export class RemindersComponent {
     return this.safe(() => {
       const date = this.display.formatLocalDate(r.startLocal.slice(0, 10), 'short');
       const suffix = zoneSuffix(r.startLocal, r.timeZone, this.userZone.id());
-      return `${date} ${r.startLocal.slice(11, 16)}${suffix === '' ? '' : ` ${suffix}`}`;
+      const text = this.t('widgets.reminders.dateTime', {
+        date,
+        time: r.startLocal.slice(11, 16),
+      });
+      return suffix === '' ? text : `${text} ${suffix}`;
     });
   }
 

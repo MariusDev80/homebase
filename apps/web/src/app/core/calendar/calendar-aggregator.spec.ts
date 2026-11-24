@@ -5,6 +5,7 @@ import { fixtureDefinition } from '../testing/fixture-definitions';
 import { addDays, startOfDay } from '../time';
 import { provideWidget } from '../widgets/widget-registry';
 import { MAX_CALENDAR_EVENTS, CalendarAggregator } from './calendar-aggregator';
+import { CalendarChanges } from './calendar-changes';
 import type {
   CalendarEvent,
   CalendarEventTime,
@@ -408,6 +409,22 @@ describe('CalendarAggregator', () => {
     await aggregator.listEvents(RANGE);
     expect(alpha.calls).toBe(2);
     expect(loadAlpha).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not share an in-flight request across a notified write', async () => {
+    const { alpha, aggregator } = setup();
+    const resolvers: (() => void)[] = [];
+    alpha.result = () => new Promise((resolve) => resolvers.push(() => resolve([])));
+    const changes = TestBed.inject(CalendarChanges);
+    const first = aggregator.listEvents(RANGE);
+    const second = aggregator.listEvents(RANGE);
+    await vi.waitFor(() => expect(alpha.calls).toBe(1));
+    changes.notify('todo');
+    const third = aggregator.listEvents(RANGE);
+    await vi.waitFor(() => expect(alpha.calls).toBe(2));
+    resolvers.forEach((resolve) => resolve());
+    await Promise.all([first, second, third]);
+    expect(alpha.calls).toBe(2);
   });
 
   it('forgets a shared request that was rejected by the source', async () => {

@@ -1,5 +1,6 @@
 import { ApplicationInitStatus, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TimeSessionStore } from '../../core/timers';
 import { provideAppI18n } from '../../core/i18n';
 import { FakeSettingsRepository } from '../../core/testing/fake-settings.repository';
 import { FakeTimeSessionRepository } from '../../core/testing/fake-time-session.repository';
@@ -362,6 +363,20 @@ describe('PomodoroComponent', () => {
       prepare: (sessions) =>
         sessions.items.push(ended('w0', 'pomodoro_work', '2026-11-16T09:30:00.000Z', 25)),
     });
+    expect(t.text('pomodoro-status')).toBe('');
+  });
+
+  it('does not announce an old session after a failed first read', async () => {
+    const t = await render({
+      prepare: (sessions) => {
+        sessions.items.push(ended('w0', 'pomodoro_work', '2026-11-16T09:30:00.000Z', 25));
+        sessions.failNext(new DataError('busy', 'busy'));
+      },
+    });
+    expect(t.q('pomodoro-load-error')).not.toBeNull();
+    await TestBed.inject(TimeSessionStore).refresh();
+    await t.settle();
+    expect(t.q('pomodoro-load-error')).toBeNull();
     expect(t.text('pomodoro-status')).toBe('');
   });
 

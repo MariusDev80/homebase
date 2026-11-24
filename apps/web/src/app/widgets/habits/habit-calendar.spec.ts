@@ -209,6 +209,13 @@ describe('habitEvents reminder time (CA-CO3-2, O10)', () => {
     expect(events.every((e) => e.time.kind === 'all-day')).toBe(true);
   });
 
+  it('falls back to all-day, without throwing, when the reminder time cannot be resolved', () => {
+    const h = daily({ reminder: reminder({ time: '99:99' }) });
+    const events = run([h], [check('h', '2026-11-18')]);
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((e) => e.time.kind === 'all-day')).toBe(true);
+  });
+
   it('does not emit a start outside [from, to) (K5)', () => {
     const range: CalendarRange = {
       from: '2026-11-17T10:00:00.000Z', // 2026-11-18T00:00 in Kiritimati (UTC+14)

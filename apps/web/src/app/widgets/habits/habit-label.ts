@@ -1,4 +1,4 @@
-import { WEEKDAYS } from '../../core/habits';
+import { WEEKDAYS } from '../../core/time';
 import type { Rate, Streak, WeekProgress } from '../../core/habits';
 import { zoneCity } from '../../core/time';
 import type { HabitReminder, HabitSchedule, LocalDateIso, TimeZoneId } from '../../data';

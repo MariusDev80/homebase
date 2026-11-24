@@ -79,12 +79,17 @@ export function deliveryLabel(
 ): string {
   const date = toLocalDate(delivery.dueAt, userZone);
   const time = fmt.formatTime(delivery.dueAt, userZone);
-  const withDay = `${fmt.formatDate(date, 'weekday-day-month')}, ${time}`;
+  const withDay = fmt.t(P + 'dayAtTime', {
+    date: fmt.formatDate(date, 'weekday-day-month'),
+    time,
+  });
   const when =
     delivery.outcome === 'on_time' && date === toLocalDate(now, userZone) ? time : withDay;
   const suffix = zoneSuffix(delivery.occurrenceKey, delivery.timeZone, userZone);
   const text = suffix === '' ? when : `${when} ${suffix}`;
-  return delivery.outcome === 'missed' ? `${fmt.t(P + 'missed')} · ${text}` : text;
+  return delivery.outcome === 'missed'
+    ? fmt.t(P + 'missedAt', { missed: fmt.t(P + 'missed'), text })
+    : text;
 }
 
 function weekdayName(day: Weekday, fmt: LabelFormat): string {

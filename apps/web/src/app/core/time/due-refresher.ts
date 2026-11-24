@@ -31,7 +31,12 @@ export class DueRefresher {
     const win = doc.defaultView;
     const onVisibility = (): void => {
       if (doc.visibilityState === 'hidden') this.clear();
-      else this.refreshFromEvent();
+      else {
+        // A focus may already have refreshed while still hidden (no timer armed then), and the
+        // debounce would swallow this event: re-arm the known deadline unconditionally.
+        this.arm(this.target);
+        this.refreshFromEvent();
+      }
     };
     const onFocus = (): void => this.refreshFromEvent();
     doc.addEventListener('visibilitychange', onVisibility);
