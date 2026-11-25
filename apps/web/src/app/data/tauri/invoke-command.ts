@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { isTauriRuntime } from '../../tauri-runtime';
 import { DataError, type DataErrorKind } from '../data-error';
 
-// Rust `ScheduleError` is serialised as `{ kind, ... }` (schedule/error.rs).
+// Rust `ScheduleError` (schedule/error.rs) and `DataError` (data/error.rs) are serialised as `{ kind, ... }`.
 const KIND_MAP: Readonly<Record<string, DataErrorKind>> = {
   invalid_input: 'invalid_input',
   time: 'invalid_input',

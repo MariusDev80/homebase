@@ -32,48 +32,55 @@ import {
 /**
  * Settings, dashboards and widget instances. Implemented by Rust commands (data/tauri), never by
  * SQL in the front (spec typed-data-commands). Errors are DataError (see data/tauri/invoke-command.ts).
+ * Every write rejects with `unavailable` while a restoration is armed (T7).
  */
 export interface SettingsRepository {
   get(key: string): Promise<JsonValue | undefined>;
   getAll(): Promise<ReadonlyMap<string, JsonValue>>;
   /**
-   * Upsert in one statement. Check order: 1) "secret-like" key (case-insensitive
-   * /(secret|token|passw(or)?d|api[-_.]?key|credential)/i): forbidden;
-   * 2) key format (/^[a-z][a-z0-9._-]{0,127}$/): invalid_input.
+   * Creates or replaces the value. Check order: 1) "secret-like" key (case-insensitive
+   * /(secret|token|passw(or)?d|api[-_.]?key|credential)/i): forbidden; 2) key format
+   * (/^[a-z][a-z0-9._-]{0,127}$/): invalid_input. forbidden also when a new key would exceed the
+   * 200 settings (T6).
    */
   set(key: string, value: JsonValue): Promise<void>;
   remove(key: string): Promise<boolean>;
 }
 
 export interface DashboardRepository {
-  /** ORDER BY sort_order, created_at, id */
+  /** Ordered by sort_order, created_at, id. */
   list(): Promise<Dashboard[]>;
   get(id: string): Promise<Dashboard | null>;
-  /** sort_order = max + 1 (or 0), computed in the same INSERT … SELECT. Icon defaults to DEFAULT_DASHBOARD_ICON. Theme defaults to {} / DEFAULT_DASHBOARD_THEME_VERSION, validated like updateTheme. */
+  /**
+   * Appended after the others (sort_order = max + 1, or 0). Icon defaults to DEFAULT_DASHBOARD_ICON.
+   * Theme defaults to {} / DEFAULT_DASHBOARD_THEME_VERSION, validated like updateTheme. invalid_input
+   * when a given id is not a lowercase UUID, or on an invalid name, icon or theme; conflict when
+   * the id exists; forbidden beyond 100 dashboards (T6).
+   */
   create(input: NewDashboard): Promise<Dashboard>;
   /**
-   * INSERT … SELECT … WHERE NOT EXISTS (SELECT 1 FROM dashboards); true when created. Same
-   * defaults as create (icon DEFAULT_DASHBOARD_ICON; theme {} and DEFAULT_DASHBOARD_THEME_VERSION),
-   * and the theme is validated like updateTheme even when nothing is inserted (invalid_input).
+   * Creates the dashboard only when none exists; true when created. Same defaults and validation
+   * as create (invalid_input even when nothing is created).
    */
   createIfNone(input: NewDashboard): Promise<boolean>;
   /**
-   * Replaces name and icon in one statement. not_found when absent. Name trimmed, 1 to 100
-   * characters; icon matching DASHBOARD_ICON_PATTERN (invalid_input otherwise).
+   * Replaces name and icon. not_found when absent. Name trimmed, 1 to 100 characters; icon matching
+   * DASHBOARD_ICON_PATTERN (invalid_input otherwise).
    */
   update(id: string, patch: DashboardPatch): Promise<Dashboard>;
   /**
-   * Replaces theme and theme_version in one statement; returns the updated dashboard. not_found
-   * when absent. invalid_input when the serialized object exceeds MAX_DASHBOARD_THEME_CHARS code
-   * points or when themeVersion is not a safe integer >= 1. The data layer never interprets it.
+   * Replaces theme and theme_version; returns the updated dashboard. not_found when absent.
+   * invalid_input when the serialized object exceeds MAX_DASHBOARD_THEME_CHARS code points or when
+   * themeVersion is not an integer in 1..=10 000. The data layer never interprets the theme.
    */
   updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard>;
   /**
-   * One transaction: creates the dashboard (same defaults and validation as create) and moves the
-   * listed instances of `sourceDashboardId` to it with their new rectangles. `items` must be
-   * non-empty (invalid_input), without duplicates. conflict when no instance of the source could
-   * be moved (nothing is created); forbidden when the dashboard limit is reached. Returns the
-   * created dashboard and the number of instances moved.
+   * Atomic: creates the dashboard (same defaults and validation as create) and moves the listed
+   * instances of `sourceDashboardId` to it with their new rectangles. Ids that are not instances of
+   * the source are ignored. invalid_input when `items` is empty, has duplicate ids or a rectangle
+   * outside the grid bounds (x, y in 0..=10 000; w, h in 1..=10 000), or when the new id or `sourceDashboardId` is malformed;
+   * conflict when no instance could be moved (nothing is created); forbidden when the dashboard
+   * limit (100) is reached. Returns the created dashboard and the number of instances moved.
    */
   createWithWidgets(
     input: NewDashboard,
@@ -83,21 +90,26 @@ export interface DashboardRepository {
 }
 
 export interface WidgetInstanceRepository {
-  /** ORDER BY grid_y, grid_x, created_at, id */
+  /** Ordered by grid_y, grid_x, created_at, id. */
   listByDashboard(dashboardId: string): Promise<WidgetInstanceRecord[]>;
   get(id: string): Promise<WidgetInstanceRecord | null>;
-  /** Missing dashboard (FK): DataError('constraint'). */
+  /**
+   * invalid_input on a malformed id, a widgetType outside 1 to 64 characters, a grid outside the
+   * bounds (x, y in 0..=10 000; w, h in 1..=10 000) or a configVersion outside 1..=10 000;
+   * conflict when the id exists; missing dashboard: DataError('constraint'); forbidden beyond
+   * 200 instances in the dashboard or 1 000 in total (T6).
+   */
   create(input: NewWidgetInstance): Promise<WidgetInstanceRecord>;
-  /** not_found when absent. */
+  /** not_found when absent; invalid_input when configVersion is outside 1..=10 000. */
   updateConfig(
     id: string,
     config: JsonObject,
     configVersion: number,
   ): Promise<WidgetInstanceRecord>;
   /**
-   * Single UPDATE … FROM json_each($2) statement; returns the number of rows changed.
-   * Empty batch: 0 without a query. Duplicate ids or non-integer/negative values:
-   * invalid_input before any query.
+   * Returns the number of instances of `dashboardId` updated; unknown ids and
+   * instances of another dashboard are ignored. Empty batch: 0. invalid_input on duplicate ids, more
+   * than 1 000 items or a rectangle outside the grid bounds (x, y in 0..=10 000; w, h in 1..=10 000).
    */
   updateLayout(dashboardId: string, items: readonly LayoutItem[]): Promise<number>;
   /**

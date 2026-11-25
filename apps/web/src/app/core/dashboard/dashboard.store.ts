@@ -374,6 +374,7 @@ export class DashboardStore implements WidgetConfigWriter {
 
   /** Drops the instances moved to another dashboard from the displayed ones (ids of another dashboard match nothing). */
   dropMoved(ids: readonly string[]): void {
+    // No token guard on purpose: the ids only designate instances of the source dashboard, moved at commit; a guard would break A -> B -> A.
     const moved = new Set(ids);
     for (const id of moved) {
       this.persistedGrids.delete(id);

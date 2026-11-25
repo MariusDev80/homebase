@@ -83,6 +83,36 @@ describe('TauriWidgetInstanceRepository', () => {
     });
   });
 
+  it.each([
+    ['BigInt', { n: 1n }],
+    [
+      'cycle',
+      (() => {
+        const c: Record<string, unknown> = {};
+        c['self'] = c;
+        return c;
+      })(),
+    ],
+  ])(
+    'create and updateConfig are invalid_input before any call for a %s config',
+    async (_name, config) => {
+      const bad = config as never;
+      await expect(
+        repo.create({
+          dashboardId: 'd1',
+          widgetType: 'todo',
+          grid: GRID,
+          config: bad,
+          configVersion: 1,
+        }),
+      ).rejects.toMatchObject({ kind: 'invalid_input' });
+      await expect(repo.updateConfig('w1', bad, 1)).rejects.toMatchObject({
+        kind: 'invalid_input',
+      });
+      expect(invoke).not.toHaveBeenCalled();
+    },
+  );
+
   it('updateLayout sends the items with exact grids and returns the count', async () => {
     vi.mocked(invoke).mockResolvedValueOnce(2);
     await expect(

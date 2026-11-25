@@ -397,10 +397,14 @@ describe('DashboardComponent', () => {
 
       it('shows an error and creates nothing when the move is a conflict, with no deletion to call', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        const { fixture, el, dashboards } = await seededAt(full);
+        const { fixture, el, dashboards, instances } = await seededAt(full);
         const list = TestBed.inject(DashboardListStore);
         await list.load('Accueil');
-        dashboards.failNext(new DataError('conflict', 'stale'));
+        // The displayed state is stale: the instances now live elsewhere, so none can be moved.
+        instances.relocate(
+          'elsewhere',
+          instances.items.map((i) => ({ id: i.id, grid: i.grid })),
+        );
         move(el);
         await vi.waitFor(() => {
           fixture.detectChanges();
@@ -410,7 +414,6 @@ describe('DashboardComponent', () => {
         });
         expect(dashboards.items.map((d) => d.name)).toEqual(['Accueil']);
         expect(el.querySelector('[data-testid="dashboard-unplaced"]')).not.toBeNull();
-        expect('remove' in dashboards).toBe(false);
       });
 
       it('shows the dashboards limit message when the repository refuses (forbidden)', async () => {
@@ -422,8 +425,8 @@ describe('DashboardComponent', () => {
           fixture.detectChanges();
           expect(el.querySelector('[data-testid="dashboard-move-error"]')).not.toBeNull();
         });
-        expect(el.querySelector('[data-testid="dashboard-move-error"]')?.textContent).not.toContain(
-          'Impossible de déplacer',
+        expect(el.querySelector('[data-testid="dashboard-move-error"]')?.textContent).toContain(
+          'Nombre maximal de tableaux atteint (100).',
         );
       });
 
@@ -440,9 +443,34 @@ describe('DashboardComponent', () => {
           expect(el.querySelector('[data-testid="dashboard-move-error"]')).not.toBeNull();
         });
         expect(spy).not.toHaveBeenCalled();
-        expect(el.querySelector('[data-testid="dashboard-move-error"]')?.textContent).not.toContain(
-          'Impossible de déplacer',
+        expect(el.querySelector('[data-testid="dashboard-move-error"]')?.textContent).toContain(
+          'Nombre maximal de tableaux atteint (100).',
         );
+      });
+
+      it('keeps the widgets of the displayed dashboard when it changed during the move', async () => {
+        const { instances, dashboards, el } = await seededAt(full);
+        const store = TestBed.inject(DashboardStore);
+        const other = await dashboards.create({ name: 'Autre' });
+        const kept = instances.seed({ dashboardId: other.id, widgetType: 'fixture' });
+        let release: () => void = () => undefined;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        const original = dashboards.createWithWidgets.bind(dashboards);
+        vi.spyOn(dashboards, 'createWithWidgets').mockImplementation(async (...args) => {
+          await gate;
+          return original(...args);
+        });
+        move(el);
+        await vi.waitFor(() => expect(dashboards.createWithWidgets).toHaveBeenCalled());
+        await store.open(other.id, 'Accueil');
+        expect(store.instances().map((i) => i.id)).toEqual([kept.id]);
+        release();
+        await vi.waitFor(() => expect(dashboards.items).toHaveLength(3));
+        await vi.waitFor(() =>
+          expect(instances.items.some((i) => i.dashboardId === dashboards.items[2].id)).toBe(true),
+        );
+        expect(store.dashboard()?.id).toBe(other.id);
+        expect(store.instances().map((i) => i.id)).toEqual([kept.id]);
       });
     });
 

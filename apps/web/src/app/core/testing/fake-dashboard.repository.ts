@@ -14,6 +14,9 @@ import type {
 } from '../../data';
 import type { FakeWidgetInstanceRepository } from './fake-widget-instance.repository';
 
+/** Same limit as the Rust command (MAX_DASHBOARDS). */
+const MAX_DASHBOARDS = 100;
+
 /** In-memory DashboardRepository with deterministic ids and timestamps (specs only). */
 export class FakeDashboardRepository implements DashboardRepository {
   readonly items: Dashboard[] = [];
@@ -129,8 +132,9 @@ export class FakeDashboardRepository implements DashboardRepository {
   }
 
   /**
-   * Creates the dashboard and, when linked to the instance fake, moves the listed instances of the
-   * source dashboard (conflict, and nothing created, when none moves). Unlinked: moved = items.length.
+   * Same checks and order as the Rust command: empty batch and duplicate ids (invalid_input), then
+   * the limit of 100 dashboards (forbidden), then conflict, creating nothing, when no listed instance
+   * belongs to the source. Needs a fake linked to the instance fake (`linked`).
    */
   async createWithWidgets(
     input: NewDashboard,
@@ -139,16 +143,24 @@ export class FakeDashboardRepository implements DashboardRepository {
   ): Promise<{ readonly dashboard: Dashboard; readonly moved: number }> {
     await this.check();
     if (items.length === 0) throw new DataError('invalid_input', 'items must not be empty');
-    const movable = this.instances
-      ? items.filter((item) =>
-          this.instances?.items.some(
-            (i) => i.id === item.id && i.dashboardId === sourceDashboardId,
-          ),
-        )
-      : items;
+    if (new Set(items.map((item) => item.id)).size !== items.length) {
+      throw new DataError('invalid_input', 'items must not contain duplicate ids');
+    }
+    const instances = this.instances;
+    if (!instances) {
+      throw new Error(
+        'FakeDashboardRepository.createWithWidgets needs FakeDashboardRepository.linked()',
+      );
+    }
+    if (this.items.length >= MAX_DASHBOARDS) {
+      throw new DataError('forbidden', 'Dashboard limit reached');
+    }
+    const movable = items.filter((item) =>
+      instances.items.some((i) => i.id === item.id && i.dashboardId === sourceDashboardId),
+    );
     if (movable.length === 0) throw new DataError('conflict', 'No widget instance could be moved');
     const dashboard = this.build(input);
-    this.instances?.relocate(dashboard.id, movable);
+    instances.relocate(dashboard.id, movable);
     return { dashboard, moved: movable.length };
   }
 }

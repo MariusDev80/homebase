@@ -33,10 +33,44 @@ describe('FakeDashboardRepository.createWithWidgets', () => {
     expect(dashboards.items).toHaveLength(0);
   });
 
-  it('refuses an empty batch', async () => {
+  it('refuses an empty batch with invalid_input', async () => {
+    const dashboards = FakeDashboardRepository.linked(new FakeWidgetInstanceRepository());
+    const error = await dashboards.createWithWidgets({ name: 'x' }, 's', []).catch((e) => e);
+    expect(error).toBeInstanceOf(DataError);
+    expect(error).toMatchObject({ kind: 'invalid_input' });
+  });
+
+  it('refuses duplicate ids with invalid_input, creating nothing', async () => {
+    const instances = new FakeWidgetInstanceRepository();
+    const dashboards = FakeDashboardRepository.linked(instances);
+    const source = await dashboards.create({ name: 'Source' });
+    const a = instances.seed({ dashboardId: source.id });
+    await expect(
+      dashboards.createWithWidgets({ name: 'Suite' }, source.id, [
+        { id: a.id, grid: GRID },
+        { id: a.id, grid: GRID },
+      ]),
+    ).rejects.toMatchObject({ kind: 'invalid_input' });
+    expect(dashboards.items).toHaveLength(1);
+  });
+
+  it('is forbidden at 100 dashboards, moving nothing', async () => {
+    const instances = new FakeWidgetInstanceRepository();
+    const dashboards = FakeDashboardRepository.linked(instances);
+    const source = await dashboards.create({ name: 'Source' });
+    const a = instances.seed({ dashboardId: source.id });
+    for (let i = 1; i < 100; i++) await dashboards.create({ name: `T${i}` });
+    await expect(
+      dashboards.createWithWidgets({ name: 'Suite' }, source.id, [{ id: a.id, grid: GRID }]),
+    ).rejects.toMatchObject({ kind: 'forbidden' });
+    expect(dashboards.items).toHaveLength(100);
+    expect(instances.items.find((i) => i.id === a.id)?.dashboardId).toBe(source.id);
+  });
+
+  it('refuses to run without a linked instance fake', async () => {
     const dashboards = new FakeDashboardRepository();
-    await expect(dashboards.createWithWidgets({ name: 'x' }, 's', [])).rejects.toBeInstanceOf(
-      DataError,
-    );
+    await expect(
+      dashboards.createWithWidgets({ name: 'x' }, 's', [{ id: 'i', grid: GRID }]),
+    ).rejects.toThrow(/linked/);
   });
 });

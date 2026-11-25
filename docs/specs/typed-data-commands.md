@@ -469,7 +469,7 @@ Fichiers de production après TC4 : `index.ts`, `models.ts`, `repositories.ts`, 
 - `apps/web/package.json` et `package-lock.json` : retirer `@tauri-apps/plugin-sql` (`npm uninstall @tauri-apps/plugin-sql --workspace=web`).
 
 ### 4.8 Débordement et suppression de tableau (T3)
-- `DashboardStore.unplacedItems(): LayoutItem[]` : le calcul actuel de `moveUnplacedTo` (`fitLayout` des widgets sans place) sans écriture ; `DashboardStore.dropMoved(ids)` : retire les instances déplacées (garde de `token` actuelle).
+- `DashboardStore.unplacedItems(): LayoutItem[]` : le calcul actuel de `moveUnplacedTo` (`fitLayout` des widgets sans place) sans écriture ; `DashboardStore.dropMoved(ids)` : retire les instances déplacées, sans garde de `token` : les ids ne désignent que des instances du tableau source, déplacées au commit, donc sans effet sur un autre tableau affiché, et une garde dégraderait le cas A → B → A.
 - `DashboardListStore.createWithWidgets(input, sourceDashboardId, items)` : `DashboardLimitError` si 100 tableaux (comme `create`) ; appelle le dépôt ; ajoute le tableau renvoyé à la liste.
 - `DashboardComponent.moveUnplaced()` : items vides → rien ; sinon `createWithWidgets` puis `dropMoved` ; `DashboardLimitError` ou `forbidden` → `dashboards.limit` ; toute autre erreur (dont `conflict`) → `dashboard.moveUnplacedError`. Plus de `createdId`, plus de `discardEmpty`.
 - Supprimés : `DashboardListStore.discardEmpty`, `DashboardStore.moveUnplacedTo`, `DashboardRepository.remove`, `WidgetInstanceRepository.moveToDashboard` (+ fakes `core/testing/fake-dashboard.repository.ts`, `fake-widget-instance.repository.ts` et leurs specs mis à jour).

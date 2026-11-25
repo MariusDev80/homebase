@@ -65,9 +65,14 @@ export function toSettingValue(valueJson: string): JsonValue {
   return parseJsonValue(valueJson);
 }
 
-/** JSON.stringify that refuses what has no JSON form (undefined, function, symbol). */
+/** JSON.stringify that refuses what has no JSON form (undefined, function, symbol, BigInt, cycle). */
 export function stringifyJson(value: unknown): string {
-  const json = JSON.stringify(value) as string | undefined;
+  let json: string | undefined;
+  try {
+    json = JSON.stringify(value) as string | undefined;
+  } catch {
+    throw new DataError('invalid_input', 'Value is not serializable to JSON');
+  }
   if (json === undefined) {
     throw new DataError('invalid_input', 'Value is not serializable to JSON');
   }
