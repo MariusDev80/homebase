@@ -1,7 +1,7 @@
 import type { IdGenerator } from '../clock';
 import type { NewTodo, NewTodoList, Todo, TodoChanges, TodoList, TodoSearchHit } from '../models';
 import type { TodoRepository } from '../repositories';
-import { excerptAround } from '../search';
+import { excerptAround, hbTrim } from '../search';
 import type { LocalDateIso } from '../time-formats';
 import { invokeCommand } from './invoke-command';
 import { toTodo, toTodoList, type TodoHitWire, type TodoListWire, type TodoWire } from './wire';
@@ -110,7 +110,7 @@ export class TauriTodoRepository implements TodoRepository {
 
   async search(query: string, limit: number): Promise<TodoSearchHit[]> {
     const rows = await invokeCommand<TodoHitWire[]>('todo_search', { query, limit });
-    const term = query.trim();
+    const term = hbTrim(query);
     return rows.map((r) => ({
       id: r.id,
       title: r.title,

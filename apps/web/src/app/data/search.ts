@@ -5,6 +5,21 @@ export const SEARCH_LIMIT_MAX = 20;
 const EXCERPT_BEFORE = 30;
 const EXCERPT_LENGTH = 100;
 
+// JS \s is exactly the Rust set (spec 4.3) minus U+0085.
+const HB_TRIM = /[\s\u0085]/;
+
+/**
+ * Same trim as Rust `hb_trim` (data/validate.rs): JS `trim()` whitespace plus U+0085, which JS
+ * keeps. Used for the excerpt term so it matches the query the commands searched.
+ */
+export function hbTrim(text: string): string {
+  let start = 0;
+  let end = text.length;
+  while (start < end && HB_TRIM.test(text.charAt(start))) start++;
+  while (end > start && HB_TRIM.test(text.charAt(end - 1))) end--;
+  return text.slice(start, end);
+}
+
 /**
  * Validates search arguments: query trimmed to 1..200 characters, limit an integer in 1..20
  * (invalid_input otherwise). Returns the trimmed query.

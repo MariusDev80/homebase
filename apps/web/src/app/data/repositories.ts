@@ -30,9 +30,13 @@ import {
 } from './models';
 
 /**
- * Settings, dashboards and widget instances. Implemented by Rust commands (data/tauri), never by
- * SQL in the front (spec typed-data-commands). Errors are DataError (see data/tauri/invoke-command.ts).
- * Every write rejects with `unavailable` while a restoration is armed (T7).
+ * Settings, dashboards, widget instances, notes, shortcuts and todos. Implemented by Rust commands
+ * (data/tauri), never by SQL in the front (spec typed-data-commands). Errors are DataError (see
+ * data/tauri/invoke-command.ts). Every write rejects with `unavailable` while a restoration is armed
+ * (T7), and every call outside Tauri rejects with `unavailable`, except where the adapter checks
+ * first (a JSON value that cannot be serialized, an invalid theme: `invalid_input`). Stored
+ * timestamps (created_at, updated_at, completed_at) come from the Rust clock, not from CLOCK
+ * (spec 4.9-2). Text is trimmed like Rust `hb_trim` (also U+0085).
  */
 export interface SettingsRepository {
   get(key: string): Promise<JsonValue | undefined>;
@@ -120,7 +124,13 @@ export interface WidgetInstanceRepository {
   remove(id: string): Promise<boolean>;
 }
 
+/**
+ * Implemented by Rust commands (note_*). Errors: `unavailable` on any write while a restoration is
+ * armed and on any call outside Tauri; `invalid_input` on a malformed id at creation (a lowercase
+ * UUID is required), on a title or body over the limits, and on a bad search query or limit.
+ */
 export interface NoteRepository {
+  /** null when absent, including for a malformed id. */
   get(id: string): Promise<Note | null>;
   /** title <= 200 and body <= 100000 characters (invalid_input otherwise); both default to ''.
    * widgetInstanceId: the owning widget instance (cascade delete); a missing instance
@@ -138,13 +148,17 @@ export interface NoteRepository {
   search(query: string, limit: number): Promise<NoteSearchHit[]>;
 }
 
+/**
+ * Implemented by Rust commands (shortcut_*). Errors: `unavailable` on any write while a restoration
+ * is armed and on any call outside Tauri (`reorder([])` included: it now makes a call);
+ * `invalid_input` as described per method.
+ */
 export interface ShortcutRepository {
   /** ORDER BY sort_order, created_at, id */
   list(): Promise<Shortcut[]>;
   /**
    * Label trimmed, 1 to 80 characters; url at most 2048 characters and starting with
-   * http:// or https:// (invalid_input otherwise). sort_order = max + 1 (or 0), computed
-   * in the same INSERT ... SELECT.
+   * http:// or https:// (invalid_input otherwise, as for a malformed id). sort_order = max + 1 (or 0).
    */
   create(input: NewShortcut): Promise<Shortcut>;
   /** Same validation as create. not_found when absent. Keeps sort_order. */
@@ -152,10 +166,10 @@ export interface ShortcutRepository {
   /** false when already absent. */
   remove(id: string): Promise<boolean>;
   /**
-   * Single UPDATE ... FROM json_each($1): the shortcut at index i of `ids` gets
-   * sort_order = i. Unknown ids are ignored; shortcuts absent from `ids` keep their
-   * sort_order. More than 1000 ids or duplicates: invalid_input before any query. Empty: no query.
-   * Only rows whose sort_order actually changes are written.
+   * The shortcut at index i of `ids` gets sort_order = i. Unknown ids are ignored; shortcuts absent
+   * from `ids` keep their sort_order. More than 1000 ids, duplicates or an id over 64 bytes:
+   * invalid_input before the disk. Empty: succeeds without touching the disk (after the
+   * unavailable checks). Only rows whose sort_order actually changes are written.
    */
   reorder(ids: readonly string[]): Promise<void>;
   /**
@@ -165,6 +179,13 @@ export interface ShortcutRepository {
   search(query: string, limit: number): Promise<Shortcut[]>;
 }
 
+/**
+ * Implemented by Rust commands (todo_*). Errors: `unavailable` on any write while a restoration is
+ * armed and on any call outside Tauri (`reorder(listId, [])` included: it now makes a call);
+ * `invalid_input` on a malformed id at creation, on a date out of 1900-01-01..=2199-12-31 or
+ * malformed, and as described per method. The order of checks changed outside Tauri: for example
+ * `search('', 5)` is `unavailable`, not `invalid_input`.
+ */
 export interface TodoRepository {
   /** The list owned by this widget instance, or null. */
   getListForInstance(widgetInstanceId: string): Promise<TodoList | null>;
@@ -175,28 +196,30 @@ export interface TodoRepository {
   listTodos(listId: string): Promise<Todo[]>;
   /**
    * Title trimmed, 1 to 500 characters; dueOn a valid calendar date YYYY-MM-DD
-   * (invalid_input on a bad shape, constraint on an impossible date). Appended at the end:
+   * (invalid_input on a bad shape or a date outside 1900-01-01..=2199-12-31, constraint on an
+   * impossible date such as 2026-02-30). Appended at the end:
    * sort_order = max + 1 (or 0) within the list. A missing list is DataError('constraint').
    */
   create(input: NewTodo): Promise<Todo>;
   /**
-   * Omitted fields are kept. Title trimmed, 1 to 500 characters; dueOn a YYYY-MM-DD shape or null;
+   * Omitted fields are kept. An explicit null for title, description or important is invalid_input
+   * (null only clears dueOn and rrule). Title trimmed, 1 to 500 characters; dueOn a YYYY-MM-DD shape or null;
    * description at most TODO_DESCRIPTION_MAX UTF-16 units (kept as typed, not trimmed); rrule null or
    * 10 to 256 characters starting with 'FREQ=' (invalid_input otherwise). rrule non-null together
    * with dueOn null: invalid_input before any query. dueOn null without rrule also clears the rule.
    * A rule written on a todo without due date (dueOn omitted): DataError('constraint').
-   * not_found when absent. One statement.
+   * not_found when absent.
    */
   update(id: string, changes: TodoChanges): Promise<Todo>;
   /**
    * Compare-and-set of the due date of a repeating, active todo: writes `toDueOn` only if the row
-   * still has due_on = `fromDueOn`, a rule, and no completed_at (one statement). Otherwise conflict,
-   * or not_found when absent. Both dates must have the YYYY-MM-DD shape (invalid_input); a well-formed but impossible date
+   * still has due_on = `fromDueOn`, a rule, and no completed_at (atomic). Otherwise conflict,
+   * or not_found when absent. Both dates must have the YYYY-MM-DD shape within 1900-01-01..=2199-12-31 (invalid_input); a well-formed but impossible date
    * (e.g. 2026-02-30) is DataError('constraint'). Used to
    * advance a repeating todo when it is checked, and to undo that. Keeps sort_order.
    */
   shiftRepeatDue(id: string, fromDueOn: string, toDueOn: string): Promise<Todo>;
-  /** completed = true sets completed_at to the Clock's now (kept if already set); false sets NULL
+  /** completed = true sets completed_at to the Rust clock's now (kept if already set); false sets NULL
    * and moves a previously completed todo to the end of the active ones (sort_order = max + 1).
    * not_found when absent. */
   setCompleted(id: string, completed: boolean): Promise<Todo>;
@@ -224,9 +247,10 @@ export interface TodoRepository {
    */
   listRepeatingDueBy(toOn: LocalDateIso, limit: number): Promise<Todo[]>;
   /**
-   * Single UPDATE ... FROM json_each($1): the todo at index i of `ids` gets sort_order = i
-   * (only todos of `listId`; unknown ids are ignored). More than 1000 ids or duplicates:
-   * invalid_input before any query. Empty: no query. Only rows whose sort_order changes are written.
+   * The todo at index i of `ids` gets sort_order = i (only todos of `listId`; unknown ids are
+   * ignored). More than 1000 ids, duplicates or an id over 64 bytes: invalid_input before the disk.
+   * Empty: succeeds without touching the disk (after the unavailable checks). Only rows whose
+   * sort_order changes are written.
    */
   reorder(listId: string, ids: readonly string[]): Promise<void>;
   /** Deletes the completed todos of the list; returns how many. */

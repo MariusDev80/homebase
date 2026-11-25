@@ -1,7 +1,7 @@
 import type { IdGenerator } from '../clock';
 import type { NewNote, Note, NoteSearchHit } from '../models';
 import type { NoteRepository } from '../repositories';
-import { excerptAround } from '../search';
+import { excerptAround, hbTrim } from '../search';
 import { invokeCommand } from './invoke-command';
 import { toNote, type NoteHitWire, type NoteWire } from './wire';
 
@@ -37,7 +37,7 @@ export class TauriNoteRepository implements NoteRepository {
 
   async search(query: string, limit: number): Promise<NoteSearchHit[]> {
     const rows = await invokeCommand<NoteHitWire[]>('note_search', { query, limit });
-    const term = query.trim();
+    const term = hbTrim(query);
     return rows.map((r) => ({
       id: r.id,
       title: r.title,

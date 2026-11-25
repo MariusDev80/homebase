@@ -176,13 +176,13 @@ export interface TodoSearchHit {
 
 export interface TodoChanges {
   title?: string;
-  /** undefined keeps the current value; null clears it, and the rule with it (same statement). */
+  /** undefined keeps the current value; null clears it, and the rule with it. */
   dueOn?: string | null;
   /** undefined keeps the current value; '' clears it. */
   description?: string;
   /** undefined keeps the current value; null removes the repetition. A rule needs a due date. */
   rrule?: string | null;
-  /** undefined keeps the current value. Bound as 1/0, never as a JS boolean (ADR-002 F13). */
+  /** undefined keeps the current value; null is invalid_input. Sent as a JSON boolean (Rust `Option<bool>`). */
   important?: boolean;
 }
 
