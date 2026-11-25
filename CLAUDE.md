@@ -24,6 +24,7 @@ Toutes depuis la racine (npm workspaces ; front = workspace `web` dans `apps/web
 - Lint : `npm run lint` (ESLint + frontières entre widgets), `npm run format:check` (Prettier), `npm run rust:fmt:check`, `npm run rust:lint` (clippy `-D warnings`)
 - Build : `npm run build` (installateurs NSIS + MSI non signés sous `apps/desktop/src-tauri/target/release/bundle/`) ; front seul : `npm run web:build`
 - Vérification complète avant « terminé » : `format:check`, `lint`, `test`, `rust:fmt:check`, `rust:lint`, `rust:test` (ce que fait `.github/workflows/ci.yml`)
+- La CI vérifie aussi le bundle : `web:build` puis `web:check-bundle` (aucun outil de debug en release, aucun dépôt de contenu dans le chargement initial)
 
 ## Conventions
 - Code, identifiants, commits : anglais. Textes d'interface : français, via i18n (prêt pour d'autres langues).
