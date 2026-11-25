@@ -28,7 +28,8 @@ export const COUNT_MAX = 1000;
 const SYNTAX_PATTERN = /^[A-Z]+=[^;=]+(;[A-Z]+=[^;=]+)*$/;
 const ALLOWED_PARTS = ['FREQ', 'INTERVAL', 'BYDAY', 'BYMONTHDAY', 'COUNT', 'UNTIL'];
 const FREQS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
-const WEEKDAYS: readonly Weekday[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+/** Monday-first weekday codes (single definition, also used by habits and reminders). */
+export const WEEKDAYS: readonly Weekday[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 export const INTERVAL_MAX: Readonly<Record<RecurrenceRule['freq'], number>> = {
   DAILY: 366,
   WEEKLY: 52,

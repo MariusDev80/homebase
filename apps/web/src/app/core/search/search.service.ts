@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { NOTE_REPOSITORY, SHORTCUT_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import { NOTE_REPOSITORY, SHORTCUT_REPOSITORY, TODO_REPOSITORY } from '../../data/content.tokens';
 
 export type SearchKind = 'shortcut' | 'note' | 'todo';
 

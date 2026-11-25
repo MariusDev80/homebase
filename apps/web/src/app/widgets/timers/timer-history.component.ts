@@ -161,13 +161,10 @@ export class TimerHistoryComponent {
 
   protected async loadMore(): Promise<void> {
     this.errorKey.set(null);
-    const before = this.store.error();
     await this.store.loadMoreHistory();
-    // The store reports a failed page in `error` without throwing.
-    const after = this.store.error();
-    if (after !== null && after !== before) {
-      this.errorKey.set(commandErrorKey(after, 'session'));
-    }
+    // The store reports a failed page in `historyError` (not `error`) without throwing.
+    const failure = this.store.historyError();
+    if (failure !== null) this.errorKey.set(commandErrorKey(failure, 'session'));
   }
 
   protected onEscape(): void {

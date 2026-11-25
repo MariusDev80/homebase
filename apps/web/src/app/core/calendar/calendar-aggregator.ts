@@ -8,6 +8,7 @@ import {
   toLocalDate,
 } from '../time';
 import { WidgetRegistry } from '../widgets/widget-registry';
+import { CalendarChanges } from './calendar-changes';
 import { assertCalendarRange, rangeLocalDates } from './calendar-range';
 import {
   CALENDAR_STATUSES,
@@ -71,16 +72,20 @@ function compareKeys(a: SortKey, b: SortKey): number {
 export class CalendarAggregator {
   private readonly registry = inject(WidgetRegistry);
   private readonly injector = inject(Injector);
+  private readonly changes = inject(CalendarChanges);
   private readonly sources = new Map<string, Promise<CalendarSource>>();
   private readonly inFlight = new Map<string, Promise<AggregatedEvents>>();
 
-  /** Concurrent calls for the same range share one in-flight request. */
+  /**
+   * Concurrent calls for the same range share one in-flight request, unless a write was notified
+   * in between (the version is part of the key: a request started before the write is stale).
+   */
   async listEvents(
     range: CalendarRange,
     { exclude = [] }: ListEventsOptions = {},
   ): Promise<AggregatedEvents> {
     assertCalendarRange(range);
-    const key = `${range.from}|${range.to}|${range.timeZone}|${JSON.stringify([...new Set(exclude)].sort())}`;
+    const key = `${this.changes.version()}|${range.from}|${range.to}|${range.timeZone}|${JSON.stringify([...new Set(exclude)].sort())}`;
     const shared = this.inFlight.get(key);
     if (shared) return shared;
     const request = this.load(range, exclude);

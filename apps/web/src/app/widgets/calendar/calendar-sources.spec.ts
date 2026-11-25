@@ -166,6 +166,17 @@ describe('CalendarSourcesPanelComponent (CA-CO4-4)', () => {
     );
   });
 
+  it('names the panel as a region labelled by its title', async () => {
+    const { el, settle } = await mountCalendar({ config: base, sourceTypes: SOURCES });
+    button(el).click();
+    await settle();
+    const panel = el.querySelector('[data-testid="calendar-sources-panel"]')!;
+    const title = el.querySelector('[data-testid="calendar-sources-title"]')!;
+    expect(panel.getAttribute('role')).toBe('region');
+    expect(title.id).not.toBe('');
+    expect(panel.getAttribute('aria-labelledby')).toBe(title.id);
+  });
+
   it('gives every switch an accessible name, visible by default', async () => {
     const { el, settle } = await mountCalendar({ config: base, sourceTypes: SOURCES });
     button(el).click();

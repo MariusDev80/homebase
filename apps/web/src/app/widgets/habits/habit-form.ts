@@ -1,4 +1,4 @@
-import { WEEKDAYS } from '../../core/habits';
+import { WEEKDAYS } from '../../core/time';
 import { commandErrorDetails } from '../../core/schedule';
 import {
   classifyLocal,

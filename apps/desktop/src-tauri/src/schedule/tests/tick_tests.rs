@@ -749,7 +749,7 @@ fn a_pass_waits_for_the_gate_without_deadlock() {
 }
 
 #[test]
-fn toasts_of_committed_deliveries_survive_a_later_error() {
+fn a_line_in_error_after_a_delivery_does_not_fail_the_pass() {
     let fx = Fx::new("2026-11-16T07:00:00.000Z");
     run(async {
         fx.add(1, "2026-11-16T09:00:00", None, "[]").await;
@@ -766,13 +766,103 @@ fn toasts_of_committed_deliveries_survive_a_later_error() {
         store::close(conn).await;
 
         fx.set("2026-11-16T08:02:00.000Z");
-        let result = tick(&fx.ctx, Phase::Regular).await;
-        assert_eq!(result, Err(ScheduleError::Database));
+        // A line in error no longer fails the pass: the others are still delivered.
+        tick(&fx.ctx, Phase::Regular).await.expect("tick");
         let toasts = fx.toasts();
         assert_eq!(toasts.len(), 1);
         assert_eq!(toasts[0].title, "R1");
         assert_eq!(fx.deliveries().await, 1);
         assert!(fx.delivery(1, "2026-11-16T09:00:00").await.is_some());
+    });
+}
+
+#[test]
+fn toasts_of_committed_deliveries_survive_a_later_error() {
+    let fx = Fx::new("2026-11-16T07:00:00.000Z");
+    run(async {
+        fx.add(1, "2026-11-16T09:00:00", None, "[]").await;
+        // Not due at the pass, with a stale cache that only the startup refresh rewrites.
+        fx.add(2, "2026-11-16T12:00:00", None, "[]").await;
+        let mut conn = fx.conn().await;
+        sqlx::query(&format!(
+            "UPDATE reminders SET next_fire_at = '2026-11-16T10:30:00.000Z' WHERE id = '{}'",
+            uuid(2)
+        ))
+        .execute(&mut conn)
+        .await
+        .expect("stale cache");
+        sqlx::query(&format!(
+            "CREATE TRIGGER boom BEFORE UPDATE ON reminders WHEN NEW.id = '{}' \
+             BEGIN SELECT RAISE(ABORT, 'x'); END",
+            uuid(2)
+        ))
+        .execute(&mut conn)
+        .await
+        .expect("trigger");
+        store::close(conn).await;
+
+        fx.set("2026-11-16T08:02:00.000Z");
+        let result = tick(&fx.ctx, Phase::Startup).await;
+        assert_eq!(result, Err(ScheduleError::Database));
+        let toasts = fx.toasts();
+        assert_eq!(toasts.len(), 1);
+        assert_eq!(toasts[0].title, "R1");
+        assert!(fx.delivery(1, "2026-11-16T09:00:00").await.is_some());
+    });
+}
+
+#[test]
+fn a_pass_gives_up_after_three_failed_reminders_in_a_row() {
+    let fx = Fx::new("2026-11-16T07:00:00.000Z");
+    run(async {
+        for n in 1..=4 {
+            fx.add(n, &format!("2026-11-16T09:0{n}:00"), None, "[]")
+                .await;
+        }
+        let mut conn = fx.conn().await;
+        sqlx::query(
+            "CREATE TRIGGER boom BEFORE UPDATE ON reminders \
+             BEGIN SELECT RAISE(ABORT, 'x'); END",
+        )
+        .execute(&mut conn)
+        .await
+        .expect("trigger");
+        store::close(conn).await;
+
+        fx.set("2026-11-16T08:10:00.000Z");
+        let result = tick(&fx.ctx, Phase::Regular).await;
+        assert_eq!(result, Err(ScheduleError::Database));
+        assert!(fx.toasts().is_empty());
+        assert_eq!(fx.deliveries().await, 0);
+    });
+}
+
+#[test]
+fn a_failing_reminder_does_not_block_the_next_ones() {
+    let fx = Fx::new("2026-11-16T07:00:00.000Z");
+    run(async {
+        // Reminder 1 is due first and always fails; reminder 2 must still be delivered.
+        fx.add(1, "2026-11-16T09:00:00", None, "[]").await;
+        fx.add(2, "2026-11-16T09:01:00", None, "[]").await;
+        let mut conn = fx.conn().await;
+        sqlx::query(&format!(
+            "CREATE TRIGGER boom BEFORE UPDATE ON reminders WHEN NEW.id = '{}' \
+             BEGIN SELECT RAISE(ABORT, 'x'); END",
+            uuid(1)
+        ))
+        .execute(&mut conn)
+        .await
+        .expect("trigger");
+        store::close(conn).await;
+
+        fx.set("2026-11-16T08:02:00.000Z");
+        let report = tick(&fx.ctx, Phase::Regular).await.expect("tick");
+        assert_eq!(report.reminders_processed, 1);
+        let toasts = fx.toasts();
+        assert_eq!(toasts.len(), 1);
+        assert_eq!(toasts[0].title, "R2");
+        assert!(fx.delivery(1, "2026-11-16T09:00:00").await.is_none());
+        assert!(fx.delivery(2, "2026-11-16T09:01:00").await.is_some());
     });
 }
 

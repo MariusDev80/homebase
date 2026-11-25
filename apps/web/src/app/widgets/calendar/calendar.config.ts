@@ -26,7 +26,14 @@ export const calendarDefaults = (): CalendarConfig => ({
   hiddenSources: [],
 });
 
-/** v1 -> v2: nothing is hidden. A non-object is left to the schema, which refuses it. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  const proto: unknown = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/** v1 -> v2: nothing is hidden. Anything but a plain object is left as is: the schema refuses it. */
 export const calendarMigrations = {
-  1: (previous: unknown): unknown => ({ ...(previous as object), hiddenSources: [] }),
+  1: (previous: unknown): unknown =>
+    isPlainObject(previous) ? { ...previous, hiddenSources: [] } : previous,
 } as const;

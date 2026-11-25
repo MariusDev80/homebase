@@ -1,6 +1,7 @@
 import { Injector } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { CLOCK, SETTINGS_REPOSITORY, TODO_REPOSITORY } from '../../data';
+import { CLOCK, SETTINGS_REPOSITORY } from '../../data';
+import { TODO_REPOSITORY } from '../../data/content.tokens';
 import { HABIT_REPOSITORY } from '../../data/schedule.tokens';
 import { FakeHabitRepository } from '../testing/fake-habit.repository';
 import { DashboardStore } from '../dashboard/dashboard.store';

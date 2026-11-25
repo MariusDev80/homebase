@@ -15,7 +15,7 @@ const DEFAULT_LIMIT: u32 = 500;
 const MAX_EXDATE_CHARS: usize = 19;
 
 #[derive(serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum AnchorDto {
     #[serde(rename_all = "camelCase")]
     DateTime {
@@ -27,7 +27,7 @@ pub enum AnchorDto {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RecurrenceSpecDto {
     pub anchor: AnchorDto,
     pub rrule: Option<String>,
@@ -35,7 +35,7 @@ pub struct RecurrenceSpecDto {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ExpandRangeDto {
     pub from: String,
     pub to: String,
@@ -205,6 +205,35 @@ mod tests {
     }
 
     const TIMED: &str = r#"{"anchor":{"kind":"date-time","startLocal":"2027-03-27T02:30:00","timeZone":"Europe/Paris"},"rrule":"FREQ=DAILY;COUNT=3","exdates":[]}"#;
+
+    #[test]
+    fn unknown_fields_are_refused_at_every_level() {
+        // Sanity: the valid shapes parse.
+        assert!(serde_json::from_str::<RecurrenceSpecDto>(TIMED).is_ok());
+        assert!(serde_json::from_str::<ExpandRangeDto>(
+            r#"{"from":"a","to":"b","timeZone":"UTC"}"#
+        )
+        .is_ok());
+        // Root of the spec.
+        assert!(serde_json::from_str::<RecurrenceSpecDto>(
+            r#"{"anchor":{"kind":"date","startOn":"2028-02-29"},"rrule":null,"exdates":[],"extra":1}"#
+        )
+        .is_err());
+        // Range.
+        assert!(serde_json::from_str::<ExpandRangeDto>(
+            r#"{"from":"a","to":"b","timeZone":"UTC","extra":1}"#
+        )
+        .is_err());
+        // Anchor, both variants.
+        assert!(serde_json::from_str::<RecurrenceSpecDto>(
+            r#"{"anchor":{"kind":"date","startOn":"2028-02-29","extra":1},"rrule":null,"exdates":[]}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<RecurrenceSpecDto>(
+            r#"{"anchor":{"kind":"date-time","startLocal":"2027-03-27T02:30:00","timeZone":"Europe/Paris","extra":1},"rrule":null,"exdates":[]}"#
+        )
+        .is_err());
+    }
 
     #[test]
     fn expands_a_camel_case_dto() {

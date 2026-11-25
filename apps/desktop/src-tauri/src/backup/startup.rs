@@ -35,6 +35,10 @@ pub struct StartupOutcome {
     pub swapped: bool,
     /// The `restore-info.json` of that exchange, kept in memory for the confirmation.
     pub swap_info: Option<RestoreInfo>,
+    /// A `restore-pending` folder was there at startup, whatever came out of it (swapped,
+    /// discarded as invalid, or swap rolled back). The relaunch after a restoration reuses the
+    /// original arguments, so the window must be shown for the user to see the result.
+    pub restore_attempted: bool,
 }
 
 /// The original state could not be put back (or its description is unreadable): the application
@@ -139,7 +143,8 @@ pub fn startup_sequence_with(
 
     // 4. pending restoration.
     let mut swap_info = None;
-    if present(&root.restore_pending()).unwrap_or(false) {
+    let restore_attempted = present(&root.restore_pending()).unwrap_or(false);
+    if restore_attempted {
         match verify_pending(root) {
             Err(invalid) => {
                 eprintln!("startup: restore-pending is not valid, discarded");
@@ -186,6 +191,7 @@ pub fn startup_sequence_with(
     Ok(StartupOutcome {
         swapped: swap_info.is_some(),
         swap_info,
+        restore_attempted,
     })
 }
 
@@ -332,6 +338,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 Ok(outcome) => {
                     app.manage(
                         BackupState::new(root, clock, outcome.swap_info)
+                            .with_restore_attempted(outcome.restore_attempted)
                             .with_process_lock(process_lock),
                     );
                     Ok(())
@@ -346,8 +353,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 }
 
 /// First call of the app `.setup()`, before `tray::setup`: confirms a restoration done in this
-/// process and propagates the error (Tauri then stops the application).
-pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
+/// process and propagates the error (Tauri then stops the application). Returns `true` when a
+/// restoration was attempted at this startup (`restore-pending` present), successful or not: the
+/// caller then shows the window even when launched `--minimized`.
+pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<bool, Box<dyn std::error::Error>> {
     let state = app.state::<BackupState>();
     if let Err(e) = confirm_restore(&state.root, state.clock.as_ref(), state.swap_info.as_ref()) {
         // Tauri creates the `main` window before `.setup()` and the SQL plugin has already opened
@@ -363,7 +372,7 @@ pub fn on_app_ready<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::e
         return Err(Box::new(e));
     }
     super::daily::spawn(app);
-    Ok(())
+    Ok(state.restore_attempted)
 }
 
 /// `RunEvent::Exit`: stops the daily thread cleanly.

@@ -262,6 +262,7 @@ fn nominal_swap_then_confirmation_applies_the_restoration() {
     write_db_missing(&root, clock().now()).expect("db-missing");
     let outcome = start(&root).expect("start");
     assert!(outcome.swapped);
+    assert!(outcome.restore_attempted);
     assert_eq!(
         snapshot(&root),
         restored_snapshot(&original, true, true),
@@ -284,7 +285,9 @@ fn nominal_swap_then_confirmation_applies_the_restoration() {
     assert_eq!(snapshot(&root), restored_snapshot(&original, true, true));
 
     // Next start: nothing left to do, and the restored state stays.
-    assert!(!start(&root).expect("restart").swapped);
+    let restart = start(&root).expect("restart");
+    assert!(!restart.swapped);
+    assert!(!restart.restore_attempted);
     assert_eq!(snapshot(&root), restored_snapshot(&original, true, true));
 }
 
@@ -576,6 +579,7 @@ fn failing_swap_step_rolls_back_and_records_failed() {
         };
         let outcome = startup_sequence_with(&root, &clock(), &faults).expect("not blocked");
         assert!(!outcome.swapped, "{step:?}");
+        assert!(outcome.restore_attempted, "{step:?}");
         assert_eq!(snapshot(&root), original, "{step:?}");
         assert_eq!(
             last_outcome(&root),

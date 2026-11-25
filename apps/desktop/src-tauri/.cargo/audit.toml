@@ -6,9 +6,12 @@ ignore = [
     # RUSTSEC-2026-0459 (CVE-2026-119375, 6.8, local): libsqlite3-sys 0.30.1 bundles SQLite < 3.54.0, which
     # can return uninitialized memory when a database is opened together with a crafted sibling -wal file
     # whose page size differs. Path: tauri-plugin-sql 2.6.0 -> sqlx 0.8.6 -> sqlx-sqlite -> libsqlite3-sys.
-    # Not exploitable here: the only database is the app's own local file; restoring a backup requires a
-    # folder with exactly manifest.json + the listed files (no -wal/-shm/-journal, see backup/restore.rs),
-    # so an attacker-crafted db+wal pair cannot reach SQLite. Mono-user, no network access to the database.
+    # The `homebase` crate also depends directly on sqlx (modules `schedule` and `backup`), not only
+    # through tauri-plugin-sql. The justification holds for both: they open only the app's own database
+    # file (`create_if_missing(false)`), and a restored archive may only contain manifest.json, the
+    # database and images: any -wal/-shm/-journal entry is refused (`is_allowed_name` in
+    # backup/archive.rs, used by the restore validation in backup/restore.rs). So an attacker-crafted
+    # db+wal pair cannot reach SQLite. Mono-user, no network access to the database.
     # Fix needs libsqlite3-sys >= 0.39 (sqlx 0.9); only tauri-plugin-sql 3.0.0-alpha.3 (major, alpha) exists.
     # Added 2026-11-16. Remove when a stable tauri-plugin-sql pulls libsqlite3-sys >= 0.39.
     "RUSTSEC-2026-0459",

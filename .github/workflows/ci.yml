@@ -83,6 +83,11 @@ jobs:
       - name: Build (unsigned installers)
         run: npm run build
 
+      # The build above ran the production web build: no calendar debug helper may ship in it and
+      # no content repository SQL (todo, note, shortcut) may reach the initial chunks.
+      - name: Check the production bundle (no debug code, lazy content SQL)
+        run: npm run web:check-bundle
+
       - name: Upload installers
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

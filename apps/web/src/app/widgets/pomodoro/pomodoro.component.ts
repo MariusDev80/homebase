@@ -11,7 +11,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { TimeSessionStore } from '../../core/timers';
 import {
@@ -141,6 +141,7 @@ export class PomodoroComponent {
   /** Announced by the permanent status region; only its text changes. */
   protected readonly announcement = signal('');
   /** Id of the last completed session seen; undefined until the first read. */
+  private readonly doc = inject(DOCUMENT);
   private seenCompleted: string | null | undefined;
   private wasRunning = false;
   /** The running list when the last action failed: a later successful re-read clears the message. */
@@ -149,7 +150,8 @@ export class PomodoroComponent {
   constructor() {
     // A new completed session is announced; starting a phase empties the region.
     effect(() => {
-      if (this.store.loading()) return;
+      // A failed read says nothing about what already ended: wait for a successful one.
+      if (this.store.loading() || this.store.error() !== null) return;
       const latest = this.latestCompleted();
       const running = this.current() !== null;
       untracked(() => {
@@ -177,10 +179,10 @@ export class PomodoroComponent {
       const running = this.current() !== null;
       untracked(() => {
         if (this.wasRunning && !running) {
-          const active = document.activeElement;
+          const active = this.doc.activeElement;
           if (
             active === null ||
-            active === document.body ||
+            active === this.doc.body ||
             this.host.nativeElement.contains(active)
           ) {
             this.focus('start');

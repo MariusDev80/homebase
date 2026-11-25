@@ -68,6 +68,8 @@ pub struct BackupState {
     restart_pending: AtomicBool,
     /// The exchange done by the startup sequence of this process (confirmed in `.setup()`).
     pub swap_info: Option<restore::RestoreInfo>,
+    /// A restoration was pending at startup (swapped or not): the window must be shown.
+    pub restore_attempted: bool,
     /// Exclusive lock on the data root, held for the whole life of the process.
     _process_lock: Option<lock::ProcessLock>,
     /// The daily backup thread (spec 4.9) and its stop signal.
@@ -98,10 +100,16 @@ impl BackupState {
             busy: AtomicBool::new(false),
             restart_pending: AtomicBool::new(false),
             swap_info,
+            restore_attempted: false,
             _process_lock: None,
             daily: daily::DailyThread::default(),
             last_auto_error: Mutex::new(None),
         }
+    }
+
+    pub fn with_restore_attempted(mut self, attempted: bool) -> Self {
+        self.restore_attempted = attempted;
+        self
     }
 
     pub fn with_process_lock(mut self, lock: lock::ProcessLock) -> Self {

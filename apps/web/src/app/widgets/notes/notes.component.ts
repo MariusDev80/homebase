@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { DataError, NOTE_REPOSITORY } from '../../data';
+import { DataError } from '../../data';
+import { NOTE_REPOSITORY } from '../../data/content.tokens';
 import { PendingWrites, injectWidgetContext } from '../../core/widgets';
 import type { NotesConfig } from './notes.config';
 

@@ -31,6 +31,9 @@ pub struct TickReport {
     pub next_due: Option<Timestamp>,
 }
 
+/// Failed reminders in a row (not `Busy`) after which a pass is abandoned.
+const MAX_CONSECUTIVE_FAILURES: u32 = 3;
+
 /// A cached next occurrence: instant text and occurrence key.
 pub(super) type Cache = (String, String);
 
@@ -145,6 +148,7 @@ async fn fire_due_reminders(
 ) -> Result<(), ScheduleError> {
     // A row that a pass cannot move forward (cache changed under us) is not retried forever.
     let mut seen: HashSet<String> = HashSet::new();
+    let mut consecutive_failures = 0_u32;
     loop {
         let rows = store::due_reminders(conn, now_text, DUE_BATCH).await?;
         let mut progressed = false;
@@ -153,7 +157,24 @@ async fn fire_due_reminders(
                 continue;
             }
             progressed = true;
-            fire_one(conn, row, now, now_text, report, notices).await?;
+            match fire_one(conn, row, now, now_text, report, notices).await {
+                Ok(()) => consecutive_failures = 0,
+                // A busy database fails the whole pass (retried as a whole).
+                Err(ScheduleError::Busy) => return Err(ScheduleError::Busy),
+                Err(e) => {
+                    // The error carries no code that tells a line problem from an environment
+                    // one (full disk, I/O, read-only, corruption): after
+                    // `MAX_CONSECUTIVE_FAILURES` in a row the pass gives up, so that such an
+                    // error is neither hammered nor logged hundreds of times.
+                    consecutive_failures += 1;
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
+                        return Err(e);
+                    }
+                    // A line in error must not block the other reminders: already marked as seen,
+                    // it is not retried in this pass (id and kind only, no values).
+                    eprintln!("schedule: reminder {} failed ({e:?}), skipped", row.id);
+                }
+            }
         }
         if !progressed || rows.len() < usize::try_from(DUE_BATCH).unwrap_or(usize::MAX) {
             return Ok(());

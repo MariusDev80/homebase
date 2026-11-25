@@ -10,7 +10,10 @@ use jiff::Timestamp;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     not(test),
-    expect(dead_code, reason = "used by the phase 2 reminder scheduler")
+    expect(
+        dead_code,
+        reason = "kept for the ADR-003 tests; no production caller yet"
+    )
 )]
 pub enum LocalTimeKind {
     Unique,
@@ -27,7 +30,10 @@ pub fn resolve_local(local: DateTime, tz: &TimeZone) -> Result<Timestamp, TimeEr
 
 #[cfg_attr(
     not(test),
-    expect(dead_code, reason = "used by the phase 2 reminder scheduler")
+    expect(
+        dead_code,
+        reason = "kept for the ADR-003 tests; no production caller yet"
+    )
 )]
 pub fn classify_local(local: DateTime, tz: &TimeZone) -> LocalTimeKind {
     match tz.to_ambiguous_timestamp(local).offset() {

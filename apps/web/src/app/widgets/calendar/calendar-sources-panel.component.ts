@@ -20,6 +20,8 @@ export interface SourceToggle {
   readonly visible: boolean;
 }
 
+let nextTitleId = 0;
+
 /**
  * The "Sources affichées" panel (spec calendar-occurrences 3.6): replaces the body of the card like
  * the Day panel. Escape and "Retour" close it; the host gives the focus back to the filter button.
@@ -31,11 +33,14 @@ export interface SourceToggle {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'absolute inset-0 overflow-y-auto bg-canvas',
+    role: 'region',
+    '[attr.aria-labelledby]': 'titleId',
     'data-testid': 'calendar-sources-panel',
     '(keydown.escape)': 'onEscape($event)',
   },
 })
 export class CalendarSourcesPanelComponent {
+  protected readonly titleId = `calendar-sources-panel-title-${nextTitleId++}`;
   private readonly registry = inject(WidgetRegistry);
   private readonly back = viewChild.required<ElementRef<HTMLButtonElement>>('back');
 

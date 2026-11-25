@@ -15,7 +15,7 @@ export const CALENDAR_TONES: readonly CalendarTone[] = [
   'danger',
 ];
 
-/** Range [from, to); to - from <= 400 days. timeZone = display (user) zone, used to place
+/** Range [from, to); at most 62 days (MAX_CALENDAR_RANGE_DAYS). timeZone = display (user) zone, used to place
  *  all-day events. */
 export interface CalendarRange {
   readonly from: InstantIso;
@@ -63,6 +63,10 @@ export interface CalendarEvent {
 }
 
 export interface CalendarSource {
-  /** Rejects with DataError; only returns events that overlap the range. */
+  /**
+   * Rejects with DataError. A timed event is returned when its start is in [from, to) (no source
+   * emits an `end`, so one that began before `from` is not returned); an all-day event is returned
+   * when its days overlap the range.
+   */
   listEvents(range: CalendarRange): Promise<readonly CalendarEvent[]>;
 }

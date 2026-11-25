@@ -11,12 +11,8 @@ import { FakeShortcutRepository } from '../../core/testing/fake-shortcut.reposit
 import { FakeTodoRepository } from '../../core/testing/fake-todo.repository';
 import { WIDGET_CONTEXT } from '../../core/widgets';
 import type { WidgetContext } from '../../core/widgets';
-import {
-  NOTE_REPOSITORY,
-  SHORTCUT_REPOSITORY,
-  TODO_REPOSITORY,
-  WIDGET_INSTANCE_REPOSITORY,
-} from '../../data';
+import { NOTE_REPOSITORY, SHORTCUT_REPOSITORY, TODO_REPOSITORY } from '../../data/content.tokens';
+import { WIDGET_INSTANCE_REPOSITORY } from '../../data';
 import type { Clock } from '../../data';
 import { SEARCH_DEBOUNCE_MS, SearchComponent } from './search.component';
 import type { SearchConfig } from './search.config';

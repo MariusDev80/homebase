@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injector, afterNextRender } from '@angular/core';
 import { isExpected, weekdayCode } from '../../core/habits';
 import { addDays, compareLocalDates } from '../../core/time';
@@ -113,13 +114,14 @@ export function focusCell(
   afterRender: boolean,
   injector: Injector,
 ): void {
+  const doc = injector.get(DOCUMENT);
   const run = (): void => {
     const target = Array.from(host.querySelectorAll<HTMLElement>('[data-cell]')).find(
       (e) => e.dataset['cell'] === key,
     );
     if (target === undefined) return;
-    const active = document.activeElement;
-    if (!afterRender || active === null || active === document.body || active === target) {
+    const active = doc.activeElement;
+    if (!afterRender || active === null || active === doc.body || active === target) {
       target.focus();
     }
   };

@@ -2,7 +2,6 @@ export { HabitStore } from './habit.store';
 export {
   RATE_DAYS,
   RATE_WEEKS,
-  WEEKDAYS,
   currentStreak,
   isExpected,
   ratePercent,

@@ -102,6 +102,19 @@ describe('Event sheet (CA-C3-3)', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it('names the Day panel as a region labelled by its title', async () => {
+    const { el, settle } = await mountCalendar();
+    el.querySelector<HTMLElement>(
+      `[title="Voir les ${F10_COUNT - 2} autres événements de ce jour"]`,
+    )!.click();
+    await settle();
+    const panel = el.querySelector<HTMLElement>('[data-testid="calendar-day-panel"]')!;
+    const title = panel.querySelector<HTMLElement>('[data-testid="calendar-panel-title"]')!;
+    expect(panel.getAttribute('role')).toBe('region');
+    expect(title.id).not.toBe('');
+    expect(panel.getAttribute('aria-labelledby')).toBe(title.id);
+  });
+
   it('from the Day panel, Back returns to the panel with the focus on the row', async () => {
     const { el, settle } = await mountCalendar();
     el.querySelector<HTMLElement>(

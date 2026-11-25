@@ -16,6 +16,8 @@ import type { LocalDateIso } from '../../data';
 import { CalendarDayListComponent } from './calendar-day-list.component';
 import type { DayListSelection } from './calendar-day-list.component';
 
+let nextTitleId = 0;
+
 /**
  * The Day panel (spec calendar T2): replaces the body of the card, scrolls inside it. Escape and
  * "Retour" close it; the host gives the focus back.
@@ -27,11 +29,14 @@ import type { DayListSelection } from './calendar-day-list.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'absolute inset-0 overflow-y-auto bg-canvas',
+    role: 'region',
+    '[attr.aria-labelledby]': 'titleId',
     'data-testid': 'calendar-day-panel',
     '(keydown.escape)': 'onEscape($event)',
   },
 })
 export class CalendarDayPanelComponent {
+  protected readonly titleId = `calendar-day-panel-title-${nextTitleId++}`;
   private readonly display = inject(TimeDisplay);
   private readonly back = viewChild.required<ElementRef<HTMLButtonElement>>('back');
 

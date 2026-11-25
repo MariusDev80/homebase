@@ -1,5 +1,5 @@
 import { Injectable, inject, isDevMode } from '@angular/core';
-import { TODO_REPOSITORY } from '../../data';
+import { TODO_REPOSITORY } from '../../data/content.tokens';
 import type { LocalDateIso, Todo } from '../../data';
 import { MAX_CALENDAR_RANGE_DAYS, rangeLocalDates } from '../../core/calendar/calendar-range';
 import { mapLimited } from '../../core/calendar/map-limited';

@@ -40,6 +40,7 @@ export class TimeSessionStore {
   private readonly hasMoreState = signal(false);
   private readonly loadingState = signal(false);
   private readonly errorState = signal<DataError | null>(null);
+  private readonly historyErrorState = signal<DataError | null>(null);
   private sequence = 0;
   private loaded = false;
   private reading = 0;
@@ -52,6 +53,8 @@ export class TimeSessionStore {
   readonly hasMoreHistory: Signal<boolean> = this.hasMoreState.asReadonly();
   readonly loading: Signal<boolean> = this.loadingState.asReadonly();
   readonly error: Signal<DataError | null> = this.errorState.asReadonly();
+  /** Failure of the last `loadMoreHistory` only (read by the history panel, not by the widgets). */
+  readonly historyError: Signal<DataError | null> = this.historyErrorState.asReadonly();
 
   constructor() {
     void this.refresh();
@@ -79,6 +82,7 @@ export class TimeSessionStore {
       this.hasMoreState.set(recent.length === HISTORY_PAGE_SIZE);
       this.loaded = true;
       this.errorState.set(null);
+      this.historyErrorState.set(null);
       this.refresher.arm(nextDeadline(running));
     } catch (error) {
       if (mine !== this.sequence) return;
@@ -97,6 +101,7 @@ export class TimeSessionStore {
       return;
     }
     this.loadingMore = true;
+    this.historyErrorState.set(null);
     const mine = this.sequence;
     try {
       const page = await this.repository.history({
@@ -107,7 +112,7 @@ export class TimeSessionStore {
       this.recentState.update((list) => [...list, ...page]);
       this.hasMoreState.set(page.length === HISTORY_PAGE_SIZE);
     } catch (error) {
-      if (mine === this.sequence) this.errorState.set(asDataError(error));
+      if (mine === this.sequence) this.historyErrorState.set(asDataError(error));
     } finally {
       this.loadingMore = false;
     }

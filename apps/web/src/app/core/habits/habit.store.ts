@@ -168,19 +168,23 @@ export class HabitStore {
   async setCheck(habitId: string, dayOn: LocalDateIso, done: boolean): Promise<boolean> {
     const key = `${habitId}|${dayOn}`;
     const before = this.checksState().get(habitId)?.has(dayOn) ?? false;
-    this.pendingChecks.set(key, { habitId, dayOn, done });
+    const entry = { habitId, dayOn, done };
+    this.pendingChecks.set(key, entry);
     this.applyCheck(habitId, dayOn, done);
     try {
       const changed = await this.repository.setCheck(habitId, dayOn, done);
-      this.pendingChecks.delete(key);
+      if (this.pendingChecks.get(key) === entry) this.pendingChecks.delete(key);
       this.calendarChanges.notify('habits');
       // A read still in flight may have been answered before the commit: read again.
       if (this.activeReads > 0) void this.refresh();
       return changed;
     } catch (error) {
       const failure = asDataError(error);
-      this.pendingChecks.delete(key);
-      this.applyCheck(habitId, dayOn, before);
+      // A newer check of the same day owns the display now: do not undo it.
+      if (this.pendingChecks.get(key) === entry) {
+        this.pendingChecks.delete(key);
+        this.applyCheck(habitId, dayOn, before);
+      }
       await this.refresh();
       await this.latest;
       throw failure;

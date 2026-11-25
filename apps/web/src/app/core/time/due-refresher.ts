@@ -31,9 +31,16 @@ export class DueRefresher {
     const win = doc.defaultView;
     const onVisibility = (): void => {
       if (doc.visibilityState === 'hidden') this.clear();
-      else this.refreshFromEvent();
+      else {
+        // A focus may already have refreshed while still hidden (no timer armed then), and the
+        // debounce would swallow this event: re-arm the known deadline in that case only. When the
+        // refresh runs, the store re-arms through `arm` itself (arming twice skips a back-off step).
+        if (this.refreshFromEvent()) this.arm(this.target);
+      }
     };
-    const onFocus = (): void => this.refreshFromEvent();
+    const onFocus = (): void => {
+      this.refreshFromEvent();
+    };
     doc.addEventListener('visibilitychange', onVisibility);
     win?.addEventListener('focus', onFocus);
     destroyRef.onDestroy(() => {
@@ -68,17 +75,19 @@ export class DueRefresher {
     }, delay);
   }
 
-  private refreshFromEvent(): void {
+  /** Returns true when the debounce absorbed the event (no refresh ran). */
+  private refreshFromEvent(): boolean {
     const now = this.clock.nowIso();
     if (this.lastEventRefresh !== null) {
       try {
-        if (durationBetween(this.lastEventRefresh, now) < EVENT_DEBOUNCE_MS) return;
+        if (durationBetween(this.lastEventRefresh, now) < EVENT_DEBOUNCE_MS) return true;
       } catch {
         // Unreadable clock: refresh anyway.
       }
     }
     this.lastEventRefresh = now;
     this.refresh();
+    return false;
   }
 
   private clear(): void {

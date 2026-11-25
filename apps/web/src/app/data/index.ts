@@ -67,10 +67,7 @@ export type {
 export {
   CLOCK,
   DASHBOARD_REPOSITORY,
-  NOTE_REPOSITORY,
   SETTINGS_REPOSITORY,
-  SHORTCUT_REPOSITORY,
-  TODO_REPOSITORY,
   WIDGET_INSTANCE_REPOSITORY,
   provideDataLayer,
 } from './data.providers';

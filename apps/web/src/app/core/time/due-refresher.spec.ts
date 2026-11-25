@@ -81,6 +81,34 @@ describe('DueRefresher', () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
+  it('re-arms the deadline when it becomes visible right after a focus that read while hidden', () => {
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    window.dispatchEvent(new Event('focus'));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    // The read came back while still hidden: nothing is armed.
+    refresher.arm('2026-11-16T10:00:30.000Z');
+    expect(vi.getTimerCount()).toBe(0);
+    clock.advance(100);
+    visibility.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    // Debounced (no second read), but the timer is armed.
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it('advances the back-off once when visible again with a past deadline and the store re-arms', () => {
+    const late = '2026-11-16T09:00:00.000Z';
+    refresh.mockImplementation(() => refresher.arm(late));
+    refresher.arm(late); // attempt 1 (1 s)
+    clock.advance(1000);
+    document.dispatchEvent(new Event('visibilitychange')); // refresh runs and re-arms: attempt 2 (2 s)
+    refresh.mockClear();
+    vi.advanceTimersByTime(1999);
+    expect(refresh).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(refresh).toHaveBeenCalledTimes(1); // 2 s, not 4 s
+  });
+
   it('caps a far deadline at 15 minutes', () => {
     refresher.arm('2026-11-17T10:00:00.000Z');
     vi.advanceTimersByTime(15 * 60 * 1000);

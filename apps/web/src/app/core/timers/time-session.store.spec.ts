@@ -156,6 +156,20 @@ describe('TimeSessionStore', () => {
       expect(store.recent()[0].label).toBe(`s${HISTORY_PAGE_SIZE + 4}`);
     });
 
+    it('reports a failed page in historyError, not in the global error', async () => {
+      await seedHistory(HISTORY_PAGE_SIZE + 5);
+      const store = await create();
+      const failure = new DataError('busy', 'busy');
+      repo.failNext(failure);
+      await store.loadMoreHistory();
+      expect(store.historyError()).toBe(failure);
+      expect(store.error()).toBeNull();
+      expect(store.recent()).toHaveLength(HISTORY_PAGE_SIZE);
+      await store.loadMoreHistory();
+      expect(store.historyError()).toBeNull();
+      expect(store.recent()).toHaveLength(HISTORY_PAGE_SIZE + 5);
+    });
+
     it('does nothing when there is no more history', async () => {
       await seedHistory(2);
       const store = await create();

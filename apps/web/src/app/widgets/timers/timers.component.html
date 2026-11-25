@@ -230,6 +230,7 @@
               data-testid="timers-alarm-time"
               [id]="ids.alarmTime"
               [attr.aria-invalid]="alarmError() === 'widgets.timers.errors.alarmTime'"
+              [attr.aria-describedby]="alarmError() ? ids.alarmTime + '-error' : null"
               [value]="alarmTime()"
               (input)="onAlarmTime($event)"
             />
@@ -260,7 +261,12 @@
           </button>
         </div>
         @if (alarmError(); as key) {
-          <p class="field-error" role="alert" data-testid="timers-alarm-error">
+          <p
+            class="field-error"
+            role="alert"
+            data-testid="timers-alarm-error"
+            [id]="ids.alarmTime + '-error'"
+          >
             {{ key | transloco }}
           </p>
         }

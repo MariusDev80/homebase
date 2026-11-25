@@ -14,7 +14,8 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { CalendarChanges } from '../../core/calendar/calendar-changes';
 import { TimeDisplay, Today } from '../../core/time';
 import { injectWidgetContext } from '../../core/widgets';
-import { DataError, TODO_REPOSITORY } from '../../data';
+import { DataError } from '../../data';
+import { TODO_REPOSITORY } from '../../data/content.tokens';
 import type { LocalDateIso, Todo, TodoList } from '../../data';
 import { TodoDetailComponent } from './todo-detail.component';
 import { dueLabel } from './todo-due';
@@ -360,6 +361,7 @@ export class TodoComponent {
     this.advanced.set(null);
     try {
       await this.repository.reorder(listId, ids);
+      this.calendarChanges.notify('todo');
       this.actionError.set(false);
       await this.refresh();
       // Keep the focus on the same direction button, unless it is now disabled (list end).

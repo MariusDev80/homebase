@@ -685,6 +685,8 @@ describe('TimersComponent', () => {
         'Homebase est occupé : réessayez dans un instant.',
       );
       expect(t.all('timer-history-row')).toHaveLength(100);
+      // The failed page is not a load failure of the widget itself.
+      expect(t.q('timers-load-error')).toBeNull();
       await t.click(t.q('timer-history-more'));
       expect(t.q('timer-history-error')).toBeNull();
       expect(t.all('timer-history-row')).toHaveLength(101);
@@ -736,6 +738,30 @@ describe('TimersComponent', () => {
         expect(t.reminders.calls.update).toBe(1);
         expect(t.text('timers-alarm-error')).toContain('aucune occurrence à venir');
         expect(t.text('timers-alarm-text')).toBe('');
+        expect(t.reminders.items).toHaveLength(0);
+      });
+
+      it('removes the created reminder when the retry update fails', async () => {
+        const t = await render();
+        TestBed.inject(ReminderStore);
+        await t.settle();
+        t.reminders.unscheduled = 1;
+        vi.spyOn(t.reminders, 'update').mockRejectedValue(new DataError('busy', 'busy'));
+        await t.type('timers-alarm-time', '18:30');
+        await t.click(t.q('timers-alarm-set'));
+        expect(t.q('timers-alarm-error')).not.toBeNull();
+        expect(t.reminders.items).toHaveLength(0);
+      });
+
+      it('links the time field to its error with aria-describedby', async () => {
+        const t = await render();
+        const input = t.q('timers-alarm-time')!;
+        expect(input.getAttribute('aria-describedby')).toBeNull();
+        await t.type('timers-alarm-time', '');
+        await t.click(t.q('timers-alarm-set'));
+        const error = t.q('timers-alarm-error')!;
+        expect(error.id).not.toBe('');
+        expect(input.getAttribute('aria-describedby')).toBe(error.id);
       });
 
       it('explains an invalid_input refusal of the label', async () => {

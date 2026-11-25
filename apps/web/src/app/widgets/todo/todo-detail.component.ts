@@ -21,7 +21,8 @@ import {
 } from '../../core/time/date-rule';
 import type { DateRuleFreq } from '../../core/time/date-rule';
 import { PendingWrites } from '../../core/widgets';
-import { DataError, TODO_REPOSITORY, TODO_TITLE_MAX } from '../../data';
+import { DataError, TODO_TITLE_MAX } from '../../data';
+import { TODO_REPOSITORY } from '../../data/content.tokens';
 import type { Todo, TodoChanges } from '../../data';
 import { mergeChanges } from './todo-changes';
 import { dueLabel } from './todo-due';
