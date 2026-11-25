@@ -6,7 +6,8 @@ import {
   TODO_TITLE_MAX,
   hasLocalDateShape,
 } from '../../data';
-import { excerptAround, validSearch } from '../../data/search';
+import { excerptAround } from '../../data/search';
+import { validSearch } from './valid-search';
 import { isValidLocalDate } from '../time';
 import type {
   Clock,

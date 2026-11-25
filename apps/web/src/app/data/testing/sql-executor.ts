@@ -1,4 +1,4 @@
-import { DataError } from './data-error';
+import { DataError } from '../data-error';
 
 /** No boolean, no object: the plugin would bind them as JSON text (ADR-002 F13). */
 export type SqlParam = string | number | null;

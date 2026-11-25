@@ -124,8 +124,6 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-todo-reorder",
             "allow-todo-clear-completed",
             "allow-todo-search",
-            "sql:allow-execute",
-            "sql:allow-select",
             "opener:allow-open-url",
         ]
     );
@@ -205,16 +203,67 @@ fn cargo_toml_has_no_http_plugin() {
 }
 
 #[test]
-fn csp_keeps_network_local() {
+fn csp_is_exact() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json");
     let config: Value =
         serde_json::from_str(&fs::read_to_string(path).expect("read tauri.conf.json"))
             .expect("valid json");
-    let csp = config["app"]["security"]["csp"]
-        .as_str()
-        .expect("csp string");
-    assert!(csp.contains("connect-src 'self' ipc: http://ipc.localhost;"));
-    assert!(!csp.contains("open-meteo"));
+    assert_eq!(
+        config["app"]["security"]["csp"]
+            .as_str()
+            .expect("csp string"),
+        concat!(
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; ",
+            "img-src 'self' data:; font-src 'self' data:; ",
+            "connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; ",
+            "base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
+        )
+    );
+    assert_eq!(
+        config["app"]["security"]["dangerousDisableAssetCspModification"],
+        serde_json::json!(["style-src"])
+    );
+}
+
+#[test]
+fn debug_capability_is_exact() {
+    let capability: Value = serde_json::from_str(&read_capability("debug.json")).expect("json");
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(
+        capability["permissions"],
+        serde_json::json!([
+            "allow-schedule-test-notification",
+            "core:webview:allow-internal-toggle-devtools"
+        ])
+    );
+    assert!(capability.get("remote").is_none());
+    assert!(capability.get("webviews").is_none());
+}
+
+/// The front has no SQL access: tauri-plugin-sql only runs the migrations from Rust (preload).
+#[test]
+fn no_sql_plugin_permission() {
+    for name in ["default.json", "debug.json"] {
+        let text = read_capability(name);
+        assert!(!text.contains("\"sql:"), "{name}");
+        let capability: Value = serde_json::from_str(&text).expect("valid json");
+        for permission in capability["permissions"].as_array().expect("permissions") {
+            let identifier = match permission {
+                Value::String(s) => s.as_str(),
+                other => other["identifier"].as_str().expect("identifier"),
+            };
+            assert!(!identifier.starts_with("sql:"), "{name}: {identifier}");
+        }
+    }
+}
+
+#[test]
+fn front_has_no_sql_plugin_package() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    for package in ["package.json", "apps/web/package.json", "package-lock.json"] {
+        let text = fs::read_to_string(root.join(package)).expect("read package file");
+        assert!(!text.contains("plugin-sql"), "{package}");
+    }
 }
 
 #[test]

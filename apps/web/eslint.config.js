@@ -28,7 +28,8 @@ function restrict({
   if (plugin) {
     paths.push({
       name: '@tauri-apps/plugin-sql',
-      message: 'Only data/sqlite/tauri-sql-executor.ts may import the SQL plugin.',
+      message:
+        'The front has no SQL access: all data goes through typed Rust commands (data/tauri).',
     });
   }
   const patterns = [{ group: ['node:*'], message: 'Node built-ins are test-only.' }];
@@ -53,11 +54,7 @@ function restrict({
   }
   if (internals) {
     patterns.push({
-      group: [
-        '**/data/sqlite/**',
-        '**/data/testing/**',
-        ...(tauriRepos ? [] : ['**/data/tauri/**']),
-      ],
+      group: ['**/data/testing/**', ...(tauriRepos ? [] : ['**/data/tauri/**'])],
       message: 'Import from the data layer public API (data/index.ts) instead.',
     });
   }
@@ -165,15 +162,6 @@ module.exports = defineConfig([
     files: ['src/app/data/tauri/**/*.ts'],
     rules: {
       'no-restricted-imports': ['error', restrict({ plugin: true, internals: false })],
-    },
-  },
-  {
-    files: ['src/app/data/sqlite/tauri-sql-executor.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        restrict({ plugin: false, internals: false, tauriApi: true }),
-      ],
     },
   },
   {
