@@ -90,7 +90,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 
 ## Phase 3 : Données externes et applications locales
 - [ ] (O→S) **Avant tout contenu externe** : O3 de l'ADR-002, remplacer `sql:allow-execute`/`sql:allow-select` par des commandes Rust typées (un XSS ne doit plus donner d'accès SQL complet ni d'écriture de fichier via `ATTACH`/`VACUUM INTO`) ; durcir les tests de capabilities (CSP comparée en chaîne exacte, liste exacte de `debug.json`) ; toute suppression de tableau passe alors par `dashboard_delete` (aujourd'hui `DashboardRepository.remove`, utilisé par `discardEmpty`, supprime sans sauvegarde `pre-delete`)
-- [ ] (H, scout) Lister les flux RSS des sources de Marius
+- [x] (H, scout) Lister les flux RSS des sources de Marius (`docs/rss-sources.md` : 3 flux hypixel.net, dont les notes Alpha filtrées sur l'auteur « Hypixel Team »)
 - [ ] (O) Spec du client HTTP sortant en Rust (liste d'hôtes, anti-SSRF, exception NAS)
 - [ ] (S) Widget RSS
 - [ ] (S) Statut de services (sondes HTTP/TCP, NAS compris)

@@ -1,6 +1,11 @@
 mod backup;
 #[cfg(test)]
 mod capability_tests;
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "lot TC1: the commands arrive with TC2 and TC3")
+)]
+mod data;
 mod db;
 mod net;
 mod schedule;
@@ -145,6 +150,8 @@ pub fn run() {
         .setup(|app| {
             // First, before anything else: confirms a restoration done in this process.
             let restore_attempted = backup::startup::on_app_ready(app.handle())?;
+            // Right after: WAL is applied by Rust before any data command can run (never fails).
+            data::bootstrap::at_startup(app.handle());
             tray::setup(app.handle())?;
             schedule::start(app.handle())?;
             refresh_autostart(app.handle());
@@ -438,6 +445,26 @@ mod tests {
         assert!(ready < tray, "on_app_ready must come before tray::setup");
         assert!(!production.contains("app_restart"));
         assert!(!production.contains("tauri_plugin_process"));
+    }
+
+    #[test]
+    fn wal_is_applied_after_the_confirmation_and_before_the_tray_and_the_scheduler() {
+        let source = include_str!("lib.rs");
+        let production = source
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production part");
+        let ready = production
+            .find("backup::startup::on_app_ready(")
+            .expect("on_app_ready");
+        let wal = production
+            .find("data::bootstrap::at_startup(")
+            .expect("at_startup");
+        let tray = production.find("tray::setup(").expect("tray");
+        let start = production.find("schedule::start(").expect("schedule start");
+        assert!(ready < wal, "at_startup must come after on_app_ready");
+        assert!(wal < tray, "at_startup must come before tray::setup");
+        assert!(tray < start, "schedule::start must come after tray::setup");
     }
 
     #[test]
