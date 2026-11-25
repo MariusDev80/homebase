@@ -81,6 +81,24 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-habit-delete",
             "allow-habit-checks",
             "allow-habit-set-check",
+            "allow-setting-get",
+            "allow-setting-list",
+            "allow-setting-set",
+            "allow-setting-delete",
+            "allow-dashboard-list",
+            "allow-dashboard-get",
+            "allow-dashboard-create",
+            "allow-dashboard-ensure-default",
+            "allow-dashboard-update",
+            "allow-dashboard-update-theme",
+            "allow-dashboard-create-with-widgets",
+            "allow-widget-list",
+            "allow-widget-get",
+            "allow-widget-create",
+            "allow-widget-update-config",
+            "allow-widget-update-layout",
+            "allow-widget-find-first-of-type",
+            "allow-widget-delete",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",
@@ -257,4 +275,22 @@ fn schedule_commands_add_no_plugin_permission() {
         .filter(|p| p.as_str().is_some_and(|s| s.starts_with("allow-habit-")))
         .count();
     assert_eq!(habits, 7);
+}
+
+/// Typed data commands (spec typed-data-commands, lot TC2: settings, dashboards, widget
+/// instances): 18 permissions, no more (`allow-dashboard-delete` is the older backup command).
+#[test]
+fn data_commands_of_lot_tc2_add_exactly_eighteen_permissions() {
+    let data = permissions()
+        .iter()
+        .filter(|p| {
+            p.as_str().is_some_and(|s| {
+                s != "allow-dashboard-delete"
+                    && (s.starts_with("allow-setting-")
+                        || s.starts_with("allow-dashboard-")
+                        || s.starts_with("allow-widget-"))
+            })
+        })
+        .count();
+    assert_eq!(data, 18);
 }

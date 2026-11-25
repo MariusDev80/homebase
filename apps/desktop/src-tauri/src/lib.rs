@@ -1,10 +1,6 @@
 mod backup;
 #[cfg(test)]
 mod capability_tests;
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "lot TC1: the commands arrive with TC2 and TC3")
-)]
 mod data;
 mod db;
 mod net;
@@ -59,6 +55,24 @@ fn invoke_handler<R: tauri::Runtime>(
         schedule::habit_commands::habit_delete,
         schedule::habit_commands::habit_checks,
         schedule::habit_commands::habit_set_check,
+        data::settings::setting_get,
+        data::settings::setting_list,
+        data::settings::setting_set,
+        data::settings::setting_delete,
+        data::dashboards::dashboard_list,
+        data::dashboards::dashboard_get,
+        data::dashboards::dashboard_create,
+        data::dashboards::dashboard_ensure_default,
+        data::dashboards::dashboard_update,
+        data::dashboards::dashboard_update_theme,
+        data::dashboards::dashboard_create_with_widgets,
+        data::widgets::widget_list,
+        data::widgets::widget_get,
+        data::widgets::widget_create,
+        data::widgets::widget_update_config,
+        data::widgets::widget_update_layout,
+        data::widgets::widget_find_first_of_type,
+        data::widgets::widget_delete,
     ]
 }
 
@@ -102,6 +116,24 @@ fn invoke_handler<R: tauri::Runtime>(
         schedule::habit_commands::habit_delete,
         schedule::habit_commands::habit_checks,
         schedule::habit_commands::habit_set_check,
+        data::settings::setting_get,
+        data::settings::setting_list,
+        data::settings::setting_set,
+        data::settings::setting_delete,
+        data::dashboards::dashboard_list,
+        data::dashboards::dashboard_get,
+        data::dashboards::dashboard_create,
+        data::dashboards::dashboard_ensure_default,
+        data::dashboards::dashboard_update,
+        data::dashboards::dashboard_update_theme,
+        data::dashboards::dashboard_create_with_widgets,
+        data::widgets::widget_list,
+        data::widgets::widget_get,
+        data::widgets::widget_create,
+        data::widgets::widget_update_config,
+        data::widgets::widget_update_layout,
+        data::widgets::widget_find_first_of_type,
+        data::widgets::widget_delete,
     ]
 }
 
@@ -330,6 +362,24 @@ mod tests {
             "schedule::habit_commands::habit_delete",
             "schedule::habit_commands::habit_checks",
             "schedule::habit_commands::habit_set_check",
+            "data::settings::setting_get",
+            "data::settings::setting_list",
+            "data::settings::setting_set",
+            "data::settings::setting_delete",
+            "data::dashboards::dashboard_list",
+            "data::dashboards::dashboard_get",
+            "data::dashboards::dashboard_create",
+            "data::dashboards::dashboard_ensure_default",
+            "data::dashboards::dashboard_update",
+            "data::dashboards::dashboard_update_theme",
+            "data::dashboards::dashboard_create_with_widgets",
+            "data::widgets::widget_list",
+            "data::widgets::widget_get",
+            "data::widgets::widget_create",
+            "data::widgets::widget_update_config",
+            "data::widgets::widget_update_layout",
+            "data::widgets::widget_find_first_of_type",
+            "data::widgets::widget_delete",
         ] {
             assert_eq!(
                 production.matches(&format!("        {command},")).count(),
@@ -377,6 +427,24 @@ mod tests {
             "habit_delete",
             "habit_checks",
             "habit_set_check",
+            "setting_get",
+            "setting_list",
+            "setting_set",
+            "setting_delete",
+            "dashboard_list",
+            "dashboard_get",
+            "dashboard_create",
+            "dashboard_ensure_default",
+            "dashboard_update",
+            "dashboard_update_theme",
+            "dashboard_create_with_widgets",
+            "widget_list",
+            "widget_get",
+            "widget_create",
+            "widget_update_config",
+            "widget_update_layout",
+            "widget_find_first_of_type",
+            "widget_delete",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }

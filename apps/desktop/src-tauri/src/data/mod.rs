@@ -1,5 +1,5 @@
-//! Typed data commands (docs/specs/typed-data-commands.md). Lot TC1: the foundations only
-//! (errors, validation, connection, WAL, search arguments); no command is exposed yet.
+//! Typed data commands (docs/specs/typed-data-commands.md). Lot TC1: the foundations (errors,
+//! validation, connection, WAL, search arguments). Lot TC2: settings, dashboards, widget instances.
 
 use crate::backup::BackupState;
 use crate::time::clock::Clock;
@@ -14,13 +14,6 @@ use std::time::Duration;
 /// Opens a dedicated connection (no application lock, T4), runs the body, closes it. The body
 /// returns a `Result<_, DataError>`; `?` works inside it. Defined before the submodules so that
 /// their code sees it (textual scope); the paths are absolute.
-#[cfg_attr(
-    not(test),
-    expect(
-        unused_macros,
-        reason = "lot TC1: the commands arrive with TC2 and TC3"
-    )
-)]
 macro_rules! with_conn {
     ($ctx:expr, $conn:ident => $body:expr) => {{
         let mut $conn = $crate::data::connect($ctx).await?;
@@ -31,9 +24,13 @@ macro_rules! with_conn {
 }
 
 pub mod bootstrap;
+pub mod dashboards;
 pub mod error;
+#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub mod search;
+pub mod settings;
 pub mod validate;
+pub mod widgets;
 
 /// Wait for another writer (the scheduler, an import, a backup).
 pub const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
@@ -103,7 +100,11 @@ pub async fn close(conn: SqliteConnection) {
 mod tests {
     mod bootstrap_tests;
     mod ctx_tests;
+    mod dashboards_tests;
     mod error_tests;
     mod search_tests;
+    mod settings_tests;
+    mod support;
     mod validate_tests;
+    mod widgets_tests;
 }

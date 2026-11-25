@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dashboard-update"
+description = "Enables the dashboard_update command without any pre-configured scope."
+commands.allow = ["dashboard_update"]
+
+[[permission]]
+identifier = "deny-dashboard-update"
+description = "Denies the dashboard_update command without any pre-configured scope."
+commands.deny = ["dashboard_update"]
