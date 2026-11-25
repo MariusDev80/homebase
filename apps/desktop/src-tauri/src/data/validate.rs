@@ -11,7 +11,6 @@ use std::collections::HashSet;
 /// IPC cap of `configJson`, `themeJson` and `valueJson`.
 pub const MAX_JSON_BYTES: usize = 262_144;
 /// IPC cap of a note body.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_NOTE_BODY_BYTES: usize = 400_000;
 pub const DEFAULT_ICON: &str = "th-large";
 pub const DEFAULT_THEME: &str = "{}";
@@ -22,30 +21,18 @@ pub const MAX_THEME_DEPTH: usize = 100;
 pub const MAX_THEME_CHARS: usize = 4_096;
 pub const MAX_GRID: i64 = 10_000;
 pub const MAX_NAME_CHARS: usize = 100;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_LABEL_CHARS: usize = 80;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_LIST_NAME_CHARS: usize = 80;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_TODO_TITLE_CHARS: usize = 500;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_NOTE_TITLE_CHARS: usize = 200;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_NOTE_BODY_CHARS: usize = 100_000;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_URL_CHARS: usize = 2_048;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_DESCRIPTION_CHARS: usize = 10_000;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const RRULE_MIN_CHARS: usize = 10;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const RRULE_MAX_CHARS: usize = 256;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_DUE_LIMIT: u32 = 1_000;
 /// Bounds of a local date (`MIN_LOCAL_DATE`, `MAX_LOCAL_DATE` of the front; years of `time::formats`).
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MIN_DATE: &str = "1900-01-01";
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub const MAX_DATE: &str = "2199-12-31";
 const MAX_SETTING_KEY_CHARS: usize = 128;
 const MAX_ICON_CHARS: usize = 32;
@@ -151,17 +138,14 @@ pub fn config_version(version: i64) -> Result<(), DataError> {
     }
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn list_name(raw: &str) -> Result<&str, DataError> {
     trimmed_text(raw, MAX_LIST_NAME_CHARS, "name")
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn shortcut_label(raw: &str) -> Result<&str, DataError> {
     trimmed_text(raw, MAX_LABEL_CHARS, "label")
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn todo_title(raw: &str) -> Result<&str, DataError> {
     trimmed_text(raw, MAX_TODO_TITLE_CHARS, "title")
 }
@@ -244,7 +228,6 @@ pub fn check_items(items: &[LayoutItemDto], max: usize) -> Result<(), DataError>
 }
 
 /// A batch of at most 1 000 elements (an empty one is the caller's business: no disk access).
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn batch_len(len: usize, field: &str) -> Result<(), DataError> {
     if len > MAX_BATCH {
         Err(DataError::invalid(field))
@@ -283,7 +266,6 @@ pub fn setting_key_for_write(key: &str) -> Result<(), DataError> {
     Ok(())
 }
 
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn note_title(title: &str) -> Result<(), DataError> {
     if utf16_len(title) > MAX_NOTE_TITLE_CHARS {
         Err(DataError::invalid("title"))
@@ -293,7 +275,6 @@ pub fn note_title(title: &str) -> Result<(), DataError> {
 }
 
 /// UTF-16 length <= 100 000 and IPC cap of 400 000 bytes.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn note_body(body: &str) -> Result<(), DataError> {
     if body.len() > MAX_NOTE_BODY_BYTES || utf16_len(body) > MAX_NOTE_BODY_CHARS {
         Err(DataError::invalid("body"))
@@ -303,7 +284,6 @@ pub fn note_body(body: &str) -> Result<(), DataError> {
 }
 
 /// <= 2 048 UTF-16 units, starts with `http://` or `https://` (case-sensitive).
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn shortcut_url(url: &str) -> Result<(), DataError> {
     let scheme_ok = url.starts_with("http://") || url.starts_with("https://");
     if utf16_len(url) > MAX_URL_CHARS || !scheme_ok {
@@ -315,7 +295,6 @@ pub fn shortcut_url(url: &str) -> Result<(), DataError> {
 
 /// Shape `YYYY-MM-DD` within 1900-01-01..=2199-12-31 (like `hasLocalDateShape`); an impossible
 /// date such as 2026-02-30 is the `CHECK`'s business.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn date(value: &str, field: &str) -> Result<(), DataError> {
     let b = value.as_bytes();
     let ok = b.len() == 10
@@ -331,7 +310,6 @@ pub fn date(value: &str, field: &str) -> Result<(), DataError> {
 }
 
 /// <= 10 000 UTF-16 units, kept as is (no trim).
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn description(text: &str) -> Result<(), DataError> {
     if utf16_len(text) > MAX_DESCRIPTION_CHARS {
         Err(DataError::invalid("description"))
@@ -341,7 +319,6 @@ pub fn description(text: &str) -> Result<(), DataError> {
 }
 
 /// 10..=256 UTF-16 units and starts with `FREQ=`.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn rrule(rule: &str) -> Result<(), DataError> {
     let len_ok = (RRULE_MIN_CHARS..=RRULE_MAX_CHARS).contains(&utf16_len(rule));
     if len_ok && rule.starts_with("FREQ=") {
@@ -352,7 +329,6 @@ pub fn rrule(rule: &str) -> Result<(), DataError> {
 }
 
 /// `limit` of the due-date queries: 1..=1 000.
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
 pub fn due_limit(limit: u32) -> Result<(), DataError> {
     if (1..=MAX_DUE_LIMIT).contains(&limit) {
         Ok(())

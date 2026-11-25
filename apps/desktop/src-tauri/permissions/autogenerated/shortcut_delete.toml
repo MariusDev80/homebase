@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shortcut-delete"
+description = "Enables the shortcut_delete command without any pre-configured scope."
+commands.allow = ["shortcut_delete"]
+
+[[permission]]
+identifier = "deny-shortcut-delete"
+description = "Denies the shortcut_delete command without any pre-configured scope."
+commands.deny = ["shortcut_delete"]

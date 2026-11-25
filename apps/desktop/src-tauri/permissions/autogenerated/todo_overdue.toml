@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-todo-overdue"
+description = "Enables the todo_overdue command without any pre-configured scope."
+commands.allow = ["todo_overdue"]
+
+[[permission]]
+identifier = "deny-todo-overdue"
+description = "Denies the todo_overdue command without any pre-configured scope."
+commands.deny = ["todo_overdue"]

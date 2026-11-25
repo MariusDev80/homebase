@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-todo-reorder"
+description = "Enables the todo_reorder command without any pre-configured scope."
+commands.allow = ["todo_reorder"]
+
+[[permission]]
+identifier = "deny-todo-reorder"
+description = "Denies the todo_reorder command without any pre-configured scope."
+commands.deny = ["todo_reorder"]

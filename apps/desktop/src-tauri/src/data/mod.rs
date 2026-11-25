@@ -1,5 +1,6 @@
 //! Typed data commands (docs/specs/typed-data-commands.md). Lot TC1: the foundations (errors,
 //! validation, connection, WAL, search arguments). Lot TC2: settings, dashboards, widget instances.
+//! Lot TC3: notes, shortcuts, todos (search included).
 
 use crate::backup::BackupState;
 use crate::time::clock::Clock;
@@ -26,9 +27,11 @@ macro_rules! with_conn {
 pub mod bootstrap;
 pub mod dashboards;
 pub mod error;
-#[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
+pub mod notes;
 pub mod search;
 pub mod settings;
+pub mod shortcuts;
+pub mod todos;
 pub mod validate;
 pub mod widgets;
 
@@ -102,9 +105,12 @@ mod tests {
     mod ctx_tests;
     mod dashboards_tests;
     mod error_tests;
+    mod notes_tests;
     mod search_tests;
     mod settings_tests;
+    mod shortcuts_tests;
     mod support;
+    mod todos_tests;
     mod validate_tests;
     mod widgets_tests;
 }

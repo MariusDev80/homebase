@@ -90,6 +90,33 @@ impl Fixture {
         });
     }
 
+    /// `true` if the statements are refused (a `CHECK`, a foreign key...): used to show that the
+    /// schema is still a safety net behind the commands' own validation.
+    pub fn exec_fails(&self, sql: &str) -> bool {
+        run(async {
+            let mut conn = self.open().await;
+            let result = sqlx::raw_sql(sql).execute(&mut conn).await;
+            conn.close().await.expect("close");
+            result.is_err()
+        })
+    }
+
+    /// A widget instance `uid(id)` of type `todo` on the shared dashboard `uid(900)` (created on
+    /// the first call), to own a note or a todo list.
+    pub fn instance(&self, id: u32) {
+        self.exec(&format!(
+            "INSERT OR IGNORE INTO dashboards
+               (id, name, sort_order, icon, theme, theme_version, created_at, updated_at)
+             VALUES ('{d}', 'Home', 0, 'th-large', '{{}}', 1, '{T0}', '{T0}');
+             INSERT INTO widget_instances
+               (id, dashboard_id, widget_type, grid_x, grid_y, grid_w, grid_h, config,
+                config_version, created_at, updated_at)
+             VALUES ('{i}', '{d}', 'todo', 0, 0, 4, 4, '{{}}', 1, '{T0}', '{T0}')",
+            d = uid(900),
+            i = uid(id)
+        ));
+    }
+
     pub fn scalar(&self, sql: &str) -> i64 {
         run(async {
             let mut conn = self.open().await;

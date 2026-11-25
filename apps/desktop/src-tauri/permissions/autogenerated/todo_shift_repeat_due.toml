@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-todo-shift-repeat-due"
+description = "Enables the todo_shift_repeat_due command without any pre-configured scope."
+commands.allow = ["todo_shift_repeat_due"]
+
+[[permission]]
+identifier = "deny-todo-shift-repeat-due"
+description = "Denies the todo_shift_repeat_due command without any pre-configured scope."
+commands.deny = ["todo_shift_repeat_due"]

@@ -99,6 +99,31 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-widget-update-layout",
             "allow-widget-find-first-of-type",
             "allow-widget-delete",
+            "allow-note-get",
+            "allow-note-create",
+            "allow-note-update",
+            "allow-note-delete",
+            "allow-note-search",
+            "allow-shortcut-list",
+            "allow-shortcut-create",
+            "allow-shortcut-update",
+            "allow-shortcut-delete",
+            "allow-shortcut-reorder",
+            "allow-shortcut-search",
+            "allow-todo-list-for-widget",
+            "allow-todo-list-create",
+            "allow-todo-list-items",
+            "allow-todo-create",
+            "allow-todo-update",
+            "allow-todo-shift-repeat-due",
+            "allow-todo-set-completed",
+            "allow-todo-delete",
+            "allow-todo-due",
+            "allow-todo-overdue",
+            "allow-todo-repeating-due",
+            "allow-todo-reorder",
+            "allow-todo-clear-completed",
+            "allow-todo-search",
             "sql:allow-execute",
             "sql:allow-select",
             "opener:allow-open-url",
@@ -293,4 +318,18 @@ fn data_commands_of_lot_tc2_add_exactly_eighteen_permissions() {
         })
         .count();
     assert_eq!(data, 18);
+}
+
+/// Typed data commands, lot TC3 (notes, shortcuts, todos, search included): 25 permissions.
+#[test]
+fn data_commands_of_lot_tc3_add_exactly_twenty_five_permissions() {
+    let count = |prefix: &str| {
+        permissions()
+            .iter()
+            .filter(|p| p.as_str().is_some_and(|s| s.starts_with(prefix)))
+            .count()
+    };
+    assert_eq!(count("allow-note-"), 5);
+    assert_eq!(count("allow-shortcut-"), 6);
+    assert_eq!(count("allow-todo-"), 14);
 }

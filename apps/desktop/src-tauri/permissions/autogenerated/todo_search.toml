@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-todo-search"
+description = "Enables the todo_search command without any pre-configured scope."
+commands.allow = ["todo_search"]
+
+[[permission]]
+identifier = "deny-todo-search"
+description = "Denies the todo_search command without any pre-configured scope."
+commands.deny = ["todo_search"]
