@@ -87,4 +87,6 @@ if (found.length > 0) {
   for (const line of found) console.error(`  ${line}`);
   process.exit(1);
 }
-console.log(`OK: no content repository command in ${initial.size} initial chunk(s).`);
+console.log(
+  `OK: no content repository command in ${initial.size} initial chunk(s), no plugin:sql anywhere in the dist.`,
+);

@@ -13,6 +13,7 @@ function restrict({
   tauriApi = false,
   timeBarrel = false,
   tauriRepos = false,
+  testingRelative = false,
 }) {
   const paths = [
     { name: 'better-sqlite3', message: 'Test-only dependency (data/testing).' },
@@ -44,6 +45,12 @@ function restrict({
       regex: '(^|/)core/time/?$',
       message:
         'Initial bundle: esbuild puts in the initial chunk every module re-exported by a barrel imported from main. Import the real file (core/time/time-zone, ...).',
+    });
+  }
+  if (testingRelative) {
+    patterns.push({
+      regex: '(^|/)testing(/|$)',
+      message: 'data/testing is test-only: production code must not import it.',
     });
   }
   if (temporal) {
@@ -153,7 +160,7 @@ module.exports = defineConfig([
     rules: {
       'no-restricted-imports': [
         'error',
-        restrict({ plugin: true, internals: false, tauriApi: true }),
+        restrict({ plugin: true, internals: false, tauriApi: true, testingRelative: true }),
       ],
     },
   },
@@ -161,7 +168,10 @@ module.exports = defineConfig([
     // The Rust-command repositories: the only part of data/ that reaches the Tauri API.
     files: ['src/app/data/tauri/**/*.ts'],
     rules: {
-      'no-restricted-imports': ['error', restrict({ plugin: true, internals: false })],
+      'no-restricted-imports': [
+        'error',
+        restrict({ plugin: true, internals: false, testingRelative: true }),
+      ],
     },
   },
   {

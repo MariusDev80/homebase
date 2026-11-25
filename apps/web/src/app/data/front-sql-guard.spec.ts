@@ -23,6 +23,8 @@ const SQL_PATTERNS = [
   /@tauri-apps\/plugin-sql/,
 ];
 
+const EXECUTOR = /\bSqlExecutor\b/;
+
 function sourceFiles(dir: URL): URL[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const child = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir);
@@ -38,7 +40,7 @@ describe('front SQL guard', () => {
     expect(files.length).toBeGreaterThan(50);
     const offenders = files.flatMap((file) => {
       const text = readFileSync(file, 'utf8');
-      const hit = SQL_PATTERNS.some((pattern) => pattern.test(text)) || /bSqlExecutorb/.test(text);
+      const hit = SQL_PATTERNS.some((pattern) => pattern.test(text)) || EXECUTOR.test(text);
       return hit ? [fileURLToPath(file).split('\\').join('/')] : [];
     });
     expect(offenders).toEqual([]);
@@ -61,6 +63,9 @@ describe('front SQL guard', () => {
     }
     expect(hits('const attached = true; // select a note, then update the set')).toBe(false);
     expect(hits('updated_at')).toBe(false);
+    expect(EXECUTOR.test("import { SqlExecutor } from './testing/sql-executor'")).toBe(true);
+    expect(EXECUTOR.test('const executor: SqlExecutorFactory = null')).toBe(false);
+    expect(EXECUTOR.test('const sqlExecutor = 1')).toBe(false);
   });
 
   it('finds no SQL on the Rust-owned tables in the front sources', () => {
