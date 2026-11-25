@@ -361,27 +361,25 @@ export class DashboardStore implements WidgetConfigWriter {
     }
   }
 
-  /** Places the widgets without room on an empty dashboard; returns how many were moved. */
-  async moveUnplacedTo(targetDashboardId: string): Promise<number> {
+  /** Fitted rectangles of the widgets without room (what a new dashboard would receive); nothing is written. */
+  unplacedItems(): LayoutItem[] {
     const unplaced = new Set(this.layout().unplaced);
     const candidates = this.instancesState().filter((i) => unplaced.has(i.id));
-    if (candidates.length === 0) return 0;
+    if (candidates.length === 0) return [];
     const fitted = fitLayout(
       candidates.map((i) => ({ id: i.id, grid: i.grid, constraints: this.constraintsOf(i) })),
     );
-    const items: LayoutItem[] = [...fitted.placed].map(([id, grid]) => ({ id, grid }));
-    if (items.length === 0) return 0;
-    const token = this.token;
-    const moved = await this.instanceRepository.moveToDashboard(targetDashboardId, items);
-    if (token === this.token) {
-      const ids = new Set(items.map((i) => i.id));
-      for (const id of ids) {
-        this.persistedGrids.delete(id);
-        this.layoutPending.delete(id);
-      }
-      this.instancesState.update((list) => list.filter((i) => !ids.has(i.id)));
+    return [...fitted.placed].map(([id, grid]) => ({ id, grid }));
+  }
+
+  /** Drops the instances moved to another dashboard from the displayed ones (ids of another dashboard match nothing). */
+  dropMoved(ids: readonly string[]): void {
+    const moved = new Set(ids);
+    for (const id of moved) {
+      this.persistedGrids.delete(id);
+      this.layoutPending.delete(id);
     }
-    return moved;
+    this.instancesState.update((list) => list.filter((i) => !moved.has(i.id)));
   }
 
   private constraintsOf(instance: WidgetInstanceRecord): WidgetSizeConstraints {

@@ -2,9 +2,8 @@ import { DataError } from '../data-error';
 import { FixedClock, sequentialIds } from '../testing/fixed-clock';
 import { createTestDatabase } from '../testing/migrations';
 import { NodeSqliteExecutor } from '../testing/node-sqlite-executor';
-import { SqliteDashboardRepository } from './sqlite-dashboard.repository';
+import { FixtureDashboards, FixtureWidgetInstances } from '../testing/fixture-repositories';
 import { REORDER_TODOS_SQL, SqliteTodoRepository } from './sqlite-todo.repository';
-import { SqliteWidgetInstanceRepository } from './sqlite-widget-instance.repository';
 
 const STAMP = '2026-01-01T00:00:00.000Z';
 const LIST = '00000000-0000-4000-8000-0000000000aa';
@@ -97,8 +96,8 @@ describe('SqliteTodoRepository', () => {
   let db: NodeSqliteExecutor;
   let clock: FixedClock;
   let repo: SqliteTodoRepository;
-  let dashboards: SqliteDashboardRepository;
-  let instances: SqliteWidgetInstanceRepository;
+  let dashboards: FixtureDashboards;
+  let instances: FixtureWidgetInstances;
   const grid = { x: 0, y: 0, w: 4, h: 4 };
 
   beforeEach(() => {
@@ -106,8 +105,8 @@ describe('SqliteTodoRepository', () => {
     clock = new FixedClock(STAMP);
     const ids = sequentialIds();
     repo = new SqliteTodoRepository(db, clock, ids);
-    dashboards = new SqliteDashboardRepository(db, clock, ids);
-    instances = new SqliteWidgetInstanceRepository(db, clock, ids);
+    dashboards = new FixtureDashboards(db, clock, ids);
+    instances = new FixtureWidgetInstances(db, clock, ids);
   });
   afterEach(() => db.close());
 

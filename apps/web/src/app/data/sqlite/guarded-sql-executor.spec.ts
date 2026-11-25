@@ -1,9 +1,7 @@
 import { DataError } from '../data-error';
-import { SqlExecutor } from '../sql-executor';
 import { createTestDatabase } from '../testing/migrations';
 import { NodeSqliteExecutor } from '../testing/node-sqlite-executor';
 import { DataLayerHealth, GuardedSqlExecutor } from './guarded-sql-executor';
-import { initDatabase } from './database-bootstrap';
 
 describe('DataLayerHealth / GuardedSqlExecutor', () => {
   let db: NodeSqliteExecutor;
@@ -58,23 +56,6 @@ describe('DataLayerHealth / GuardedSqlExecutor', () => {
       throw new Error('Database.get failed');
     });
     await expect(guarded.select('SELECT 1')).rejects.toBeInstanceOf(DataError);
-  });
-});
-
-describe('initDatabase', () => {
-  function fake(mode: string): SqlExecutor {
-    return {
-      execute: () => Promise.resolve({ rowsAffected: 0 }),
-      select: <T>() => Promise.resolve([{ journal_mode: mode }] as unknown as T[]),
-    } as SqlExecutor;
-  }
-
-  it('succeeds when WAL is active', async () => {
-    await expect(initDatabase(fake('wal'))).resolves.toBeUndefined();
-  });
-
-  it('fails when WAL is not active', async () => {
-    await expect(initDatabase(fake('delete'))).rejects.toBeInstanceOf(DataError);
   });
 });
 

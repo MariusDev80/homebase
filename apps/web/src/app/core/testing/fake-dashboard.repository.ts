@@ -9,8 +9,10 @@ import type {
   DashboardPatch,
   DashboardRepository,
   JsonObject,
+  LayoutItem,
   NewDashboard,
 } from '../../data';
+import type { FakeWidgetInstanceRepository } from './fake-widget-instance.repository';
 
 /** In-memory DashboardRepository with deterministic ids and timestamps (specs only). */
 export class FakeDashboardRepository implements DashboardRepository {
@@ -18,6 +20,15 @@ export class FakeDashboardRepository implements DashboardRepository {
   private counter = 0;
   private writes = 0;
   private nextFailure: unknown;
+
+  private instances?: FakeWidgetInstanceRepository;
+
+  /** Links an instance fake: createWithWidgets then really moves the instances of the source dashboard. */
+  static linked(instances: FakeWidgetInstanceRepository): FakeDashboardRepository {
+    const repo = new FakeDashboardRepository();
+    repo.instances = instances;
+    return repo;
+  }
 
   /** The next call rejects with `error`. */
   failNext(error: unknown): void {
@@ -117,11 +128,27 @@ export class FakeDashboardRepository implements DashboardRepository {
     return updated;
   }
 
-  async remove(id: string): Promise<boolean> {
+  /**
+   * Creates the dashboard and, when linked to the instance fake, moves the listed instances of the
+   * source dashboard (conflict, and nothing created, when none moves). Unlinked: moved = items.length.
+   */
+  async createWithWidgets(
+    input: NewDashboard,
+    sourceDashboardId: string,
+    items: readonly LayoutItem[],
+  ): Promise<{ readonly dashboard: Dashboard; readonly moved: number }> {
     await this.check();
-    const index = this.items.findIndex((d) => d.id === id);
-    if (index < 0) return false;
-    this.items.splice(index, 1);
-    return true;
+    if (items.length === 0) throw new DataError('invalid_input', 'items must not be empty');
+    const movable = this.instances
+      ? items.filter((item) =>
+          this.instances?.items.some(
+            (i) => i.id === item.id && i.dashboardId === sourceDashboardId,
+          ),
+        )
+      : items;
+    if (movable.length === 0) throw new DataError('conflict', 'No widget instance could be moved');
+    const dashboard = this.build(input);
+    this.instances?.relocate(dashboard.id, movable);
+    return { dashboard, moved: movable.length };
   }
 }

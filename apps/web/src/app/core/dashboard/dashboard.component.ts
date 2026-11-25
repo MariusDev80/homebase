@@ -14,6 +14,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Gridster, GridsterItem } from 'angular-gridster2';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { DataError } from '../../data';
 import type { LayoutItem, WidgetInstanceRecord } from '../../data';
 import { WidgetHostComponent } from '../widgets/widget-host.component';
 import { WidgetRegistry } from '../widgets/widget-registry';
@@ -195,34 +196,39 @@ export class DashboardComponent {
   }
 
   /**
-   * Moves the widgets without room to a new dashboard (same icon), without navigating. Creation
-   * and move are not atomic: if the move fails, the empty dashboard is removed (best effort).
+   * Moves the widgets without room to a new dashboard (same icon and theme), without navigating.
+   * Creation and move are one atomic repository call: when it fails, nothing was created.
    */
   protected async moveUnplaced(): Promise<void> {
     const opened = this.store.dashboard();
     if (!opened || this.moving()) return;
+    const items = this.store.unplacedItems();
+    if (items.length === 0) return;
     // The list is up to date after an edit (rename, icon); the store keeps what was loaded.
     const current = this.list.dashboards().find((d) => d.id === opened.id) ?? opened;
     this.moving.set(true);
     this.moveErrorKey.set(null);
-    let createdId: string | null = null;
     try {
-      const created = await this.list.create({
-        name: this.overflowName(current.name),
-        icon: current.icon,
-        theme: current.theme,
-        themeVersion: current.themeVersion,
-      });
-      createdId = created.id;
-      const moved = await this.store.moveUnplacedTo(created.id);
-      if (moved === 0) throw new Error('No widget was moved');
+      await this.list.createWithWidgets(
+        {
+          name: this.overflowName(current.name),
+          icon: current.icon,
+          theme: current.theme,
+          themeVersion: current.themeVersion,
+        },
+        opened.id,
+        items,
+      );
+      this.store.dropMoved(items.map((i) => i.id));
     } catch (error: unknown) {
-      if (error instanceof DashboardLimitError) {
+      if (
+        error instanceof DashboardLimitError ||
+        (error instanceof DataError && error.kind === 'forbidden')
+      ) {
         this.moveErrorKey.set('dashboards.limit');
       } else {
         console.error('Could not move the widgets without room', error);
         this.moveErrorKey.set('dashboard.moveUnplacedError');
-        if (createdId !== null) await this.list.discardEmpty(createdId);
       }
     } finally {
       this.moving.set(false);

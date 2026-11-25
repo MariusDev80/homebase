@@ -29,6 +29,10 @@ import {
   WidgetInstanceRecord,
 } from './models';
 
+/**
+ * Settings, dashboards and widget instances. Implemented by Rust commands (data/tauri), never by
+ * SQL in the front (spec typed-data-commands). Errors are DataError (see data/tauri/invoke-command.ts).
+ */
 export interface SettingsRepository {
   get(key: string): Promise<JsonValue | undefined>;
   getAll(): Promise<ReadonlyMap<string, JsonValue>>;
@@ -64,8 +68,18 @@ export interface DashboardRepository {
    * points or when themeVersion is not a safe integer >= 1. The data layer never interprets it.
    */
   updateTheme(id: string, theme: JsonObject, themeVersion: number): Promise<Dashboard>;
-  /** Cascades to widget_instances. false when already absent. */
-  remove(id: string): Promise<boolean>;
+  /**
+   * One transaction: creates the dashboard (same defaults and validation as create) and moves the
+   * listed instances of `sourceDashboardId` to it with their new rectangles. `items` must be
+   * non-empty (invalid_input), without duplicates. conflict when no instance of the source could
+   * be moved (nothing is created); forbidden when the dashboard limit is reached. Returns the
+   * created dashboard and the number of instances moved.
+   */
+  createWithWidgets(
+    input: NewDashboard,
+    sourceDashboardId: string,
+    items: readonly LayoutItem[],
+  ): Promise<{ readonly dashboard: Dashboard; readonly moved: number }>;
 }
 
 export interface WidgetInstanceRepository {
@@ -86,14 +100,6 @@ export interface WidgetInstanceRepository {
    * invalid_input before any query.
    */
   updateLayout(dashboardId: string, items: readonly LayoutItem[]): Promise<number>;
-  /**
-   * Single UPDATE … FROM json_each($2) statement moving the listed instances to the target
-   * dashboard with their new rectangles; returns the number of rows changed. Empty batch: 0
-   * without a query. Duplicate ids or invalid values: invalid_input; missing dashboard: constraint.
-   * maxInstances is not enforced here: the target is expected to be a freshly created, empty
-   * dashboard.
-   */
-  moveToDashboard(targetDashboardId: string, items: readonly LayoutItem[]): Promise<number>;
   /**
    * First instance of the type, in dashboard order (sort_order, created_at, id) then
    * listByDashboard order; null when there is none.

@@ -3,11 +3,10 @@ import { excerptAround, likeContains } from '../search';
 import { FixedClock, sequentialIds } from '../testing/fixed-clock';
 import { createTestDatabase } from '../testing/migrations';
 import { NodeSqliteExecutor } from '../testing/node-sqlite-executor';
-import { SqliteDashboardRepository } from './sqlite-dashboard.repository';
+import { FixtureDashboards, FixtureWidgetInstances } from '../testing/fixture-repositories';
 import { SqliteNoteRepository } from './sqlite-note.repository';
 import { SqliteShortcutRepository } from './sqlite-shortcut.repository';
 import { SqliteTodoRepository } from './sqlite-todo.repository';
-import { SqliteWidgetInstanceRepository } from './sqlite-widget-instance.repository';
 
 const STAMP = '2026-01-01T00:00:00.000Z';
 
@@ -136,10 +135,10 @@ describe('repositories search', () => {
     });
 
     it('returns the owning widget instance id', async () => {
-      const dashboard = await new SqliteDashboardRepository(db, clock, sequentialIds()).create({
+      const dashboard = await new FixtureDashboards(db, clock, sequentialIds()).create({
         name: 'Home',
       });
-      const instance = await new SqliteWidgetInstanceRepository(db, clock, sequentialIds()).create({
+      const instance = await new FixtureWidgetInstances(db, clock, sequentialIds()).create({
         dashboardId: dashboard.id,
         widgetType: 'notes',
         grid: { x: 0, y: 0, w: 4, h: 3 },
@@ -153,9 +152,9 @@ describe('repositories search', () => {
 
   describe('todos', () => {
     async function listFor(): Promise<{ listId: string; instanceId: string }> {
-      const dashboards = new SqliteDashboardRepository(db, clock, sequentialIds());
+      const dashboards = new FixtureDashboards(db, clock, sequentialIds());
       const dashboard = await dashboards.create({ name: 'Home' });
-      const instance = await new SqliteWidgetInstanceRepository(db, clock, sequentialIds()).create({
+      const instance = await new FixtureWidgetInstances(db, clock, sequentialIds()).create({
         dashboardId: dashboard.id,
         widgetType: 'todo',
         grid: { x: 0, y: 0, w: 4, h: 3 },
