@@ -3,7 +3,7 @@
 //! The overflow of a dashboard goes through [`create_with_widgets`], one transaction.
 
 use super::error::DataError;
-use super::widgets::{layout_payload, GridDto, LayoutItemDto};
+use super::widgets::{layout_payload, LayoutItemDto};
 use super::{validate, DataCtx, MAX_DASHBOARDS, MAX_WIDGETS_PER_DASHBOARD};
 use crate::backup::names::is_uuid_shape;
 use crate::backup::BackupState;
@@ -251,18 +251,6 @@ pub(crate) async fn update_dashboard_theme(
     })
 }
 
-/// Checks a batch of layout items (1..=`max`, distinct ids, valid rectangles).
-pub(crate) fn check_items(items: &[LayoutItemDto], max: usize) -> Result<(), DataError> {
-    if items.len() > max {
-        return Err(DataError::invalid("items"));
-    }
-    validate::distinct(items.iter().map(|i| i.id.as_str()), "items")?;
-    for GridDto { x, y, w, h } in items.iter().map(|i| i.grid) {
-        validate::grid(x, y, w, h)?;
-    }
-    Ok(())
-}
-
 /// T3: creates the "(next)" dashboard and moves the widgets of the source dashboard into it in
 /// one transaction. Nothing is created when anything fails.
 pub(crate) async fn create_with_widgets(
@@ -278,7 +266,7 @@ pub(crate) async fn create_with_widgets(
         return Err(DataError::invalid("items"));
     }
     let max = usize::try_from(MAX_WIDGETS_PER_DASHBOARD).unwrap_or(200);
-    check_items(&input.items, max)?;
+    validate::check_items(&input.items, max)?;
     let payload = layout_payload(&input.items)?;
     write_with_widgets(ctx, &checked, &input.source_dashboard_id, &payload).await
 }

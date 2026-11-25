@@ -88,9 +88,9 @@ fn theme_defaults_and_bounds() {
         theme(None, Some(-1)),
         Err(DataError::invalid("themeVersion"))
     );
-    assert!(theme(None, Some(9_007_199_254_740_991)).is_ok());
+    assert!(theme(None, Some(10_000)).is_ok());
     assert_eq!(
-        theme(None, Some(9_007_199_254_740_992)),
+        theme(None, Some(10_001)),
         Err(DataError::invalid("themeVersion"))
     );
     // The version is checked before the text.
@@ -288,4 +288,18 @@ fn due_limits() {
     assert_eq!(due_limit(1), Ok(()));
     assert_eq!(due_limit(1_000), Ok(()));
     assert_eq!(due_limit(1_001), invalid("limit"));
+}
+
+#[test]
+fn widget_type_name_and_version_bounds_match_the_import() {
+    assert_eq!(widget_type("a"), Ok(()));
+    assert_eq!(widget_type(&"x".repeat(64)), Ok(()));
+    assert_eq!(widget_type(&"x".repeat(65)), invalid("widgetType"));
+    assert_eq!(widget_type(""), invalid("widgetType"));
+    assert_eq!(widget_type("a\0"), invalid("widgetType"));
+    assert_eq!(config_version(1), Ok(()));
+    assert_eq!(config_version(10_000), Ok(()));
+    assert_eq!(config_version(0), invalid("configVersion"));
+    assert_eq!(config_version(10_001), invalid("configVersion"));
+    assert_eq!(dashboard_name("a\0b"), Err(DataError::invalid("name")));
 }

@@ -482,6 +482,8 @@ Fichiers de production après TC4 : `index.ts`, `models.ts`, `repositories.ts`, 
 4. Limites T6 (`limit_reached` → `forbidden`).
 5. `moveToDashboard` et `DashboardRepository.remove` remplacés par `createWithWidgets` (T3), qui ne déplace que des instances du tableau source.
 6. Écritures refusées (`unavailable`) quand une restauration est armée (T7).
+7. `widget_update_layout` : mêmes bornes de grille que l'import (`x`, `y` dans 0..=10 000, `w`, `h` dans 1..=10 000) ; une valeur hors borne ou des ids en double donnent `invalid_input` avec le champ `items` (lot trop long, doublons) ou `grid` (rectangle).
+8. Bornes alignées sur l'import de configuration (principe : tout export est réimportable, donc toute valeur acceptée par une commande l'est par l'import ; validateurs partagés dans `data/validate.rs`) : `widget_create` refuse un `widgetType` hors 1..=64 points de code ou contenant NUL, une grille hors 0..=10 000 (`grid`) et un `configVersion` hors 1..=10 000 ; `widget_update_config` refuse un `configVersion` hors 1..=10 000 ; la version de thème est bornée à 10 000 (et non plus 2^53-1) ; un nom de tableau contenant NUL est refusé. Avant : le `CHECK` décidait (`constraint`), ou rien (versions, NUL).
 
 À préserver (ce n'est pas un écart) : le texte `JSON.stringify` de `settings.value`, `config` et `theme` est stocké tel quel, octet pour octet comme aujourd'hui. Rust ne le désérialise ni ne le « normalise » : `serde_json` trierait les clés et écrirait `1.0` au lieu de `1`.
 
@@ -683,5 +685,6 @@ Remplacer la première tâche par :
 | R6. Lot TC2 volumineux (Rust + front + T3) | Revue difficile | Découpage interne autorisé (TC2a : Rust ; TC2b : front), mêmes CA |
 | R7. Commandes destructrices accessibles à un XSS | Perte de données | Résiduel documenté (§4.13) ; sauvegardes ; à réévaluer à l'audit de phase 6 (sauvegarde avant `widget_delete` ?) |
 | R8. Transition TC2–TC3 : deux chemins d'accès coexistent | Incohérence temporaire | Branche unique `phase-3-typed-sql`, fusion sur `main` seulement après TC4 et MC1 à MC8 |
+| R9. Une écriture acceptée pendant la préparation d'une restauration (avant `mark_restart_pending`) est perdue au redémarrage | Perte de la dernière modification | Résiduel assumé ; suivi possible : poser le drapeau d'écritures refusées au début de `backup_restore` |
 
 Points à vérifier : **PV1** latence (MC7) ; **PV2** texte exact de l'erreur de désérialisation (MC1, S2) ; **PV3** valeur de l'initial avant TC2 et après TC4 (CA-TC4-5).

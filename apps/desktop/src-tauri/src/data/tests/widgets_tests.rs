@@ -156,7 +156,7 @@ fn creation_checks_the_id_then_lets_the_check_decide() {
     for bad in [grid(0, 0, 0, 1), grid(-1, 0, 1, 1), grid(0, 0, 1, 0)] {
         assert_eq!(
             run(create_widget(&f.ctx, &input(3, DASHBOARD, "todo", bad))),
-            Err(DataError::Constraint),
+            Err(DataError::invalid("grid")),
             "{bad:?}"
         );
     }
@@ -177,7 +177,7 @@ fn creation_checks_the_id_then_lets_the_check_decide() {
     );
     assert_eq!(
         run(create_widget(&f.ctx, &input(3, DASHBOARD, "", rect(0, 0)))),
-        Err(DataError::Constraint)
+        Err(DataError::invalid("widgetType"))
     );
     assert_eq!(ids(&f, DASHBOARD), [uid(2)]);
 }
@@ -221,7 +221,7 @@ fn update_config_bumps_version_and_updated_at_or_is_not_found() {
     );
     assert_eq!(
         run(update_widget_config(&f.ctx, &uid(2), "{}", 0)),
-        Err(DataError::Constraint)
+        Err(DataError::invalid("configVersion"))
     );
     assert_eq!(
         run(update_widget_config(
@@ -601,4 +601,87 @@ fn widget_dtos_are_camel_case_and_inputs_refuse_unknown_fields() {
     let mut extra = layout;
     extra["extra"] = serde_json::json!(1);
     assert!(serde_json::from_value::<LayoutItemDto>(extra).is_err());
+}
+
+/// T6: what a command accepts the import accepts; checked before the disk.
+#[test]
+fn widget_type_is_bounded_like_the_import() {
+    let f = fixture();
+    let offline = f.without_disk();
+    for bad in ["", &"x".repeat(65), "to\0do", "\0"] {
+        assert_eq!(
+            run(create_widget(
+                &offline,
+                &input(2, DASHBOARD, bad, rect(0, 0))
+            )),
+            Err(DataError::invalid("widgetType")),
+            "{bad:?}"
+        );
+    }
+    // The import counts code points: 64 of them pass, 65 do not.
+    run(create_widget(&f.ctx, &input(3, DASHBOARD, "a", rect(0, 0)))).expect("1");
+    run(create_widget(
+        &f.ctx,
+        &input(4, DASHBOARD, &"𝔸".repeat(64), rect(0, 0)),
+    ))
+    .expect("64 code points");
+    assert_eq!(
+        run(create_widget(
+            &f.ctx,
+            &input(5, DASHBOARD, &"𝔸".repeat(65), rect(0, 0))
+        )),
+        Err(DataError::invalid("widgetType"))
+    );
+}
+
+#[test]
+fn widget_grid_is_bounded_to_10_000_on_creation() {
+    let f = fixture();
+    let offline = f.without_disk();
+    for bad in [
+        grid(10_001, 0, 1, 1),
+        grid(0, 10_001, 1, 1),
+        grid(0, 0, 10_001, 1),
+        grid(0, 0, 1, 10_001),
+    ] {
+        assert_eq!(
+            run(create_widget(&offline, &input(2, DASHBOARD, "todo", bad))),
+            Err(DataError::invalid("grid")),
+            "{bad:?}"
+        );
+    }
+    let edge = grid(10_000, 10_000, 10_000, 10_000);
+    assert_eq!(add(&f, 2, edge).grid, edge);
+}
+
+#[test]
+fn config_version_is_bounded_to_1_10_000() {
+    let f = fixture();
+    let offline = f.without_disk();
+    for bad in [0, -1, 10_001, i64::MAX] {
+        let new = WidgetNewDto {
+            config_version: bad,
+            ..input(2, DASHBOARD, "todo", rect(0, 0))
+        };
+        assert_eq!(
+            run(create_widget(&offline, &new)),
+            Err(DataError::invalid("configVersion")),
+            "{bad}"
+        );
+        assert_eq!(
+            run(update_widget_config(&offline, &uid(2), "{}", bad)),
+            Err(DataError::invalid("configVersion")),
+            "{bad}"
+        );
+    }
+    for good in [1, 10_000] {
+        let new = WidgetNewDto {
+            config_version: good,
+            ..input(2, DASHBOARD, "todo", rect(0, 0))
+        };
+        run(create_widget(&f.ctx, &new)).expect("create");
+        let updated = run(update_widget_config(&f.ctx, &uid(2), "{}", good)).expect("update");
+        assert_eq!(updated.config_version, good);
+        run(delete_widget(&f.ctx, &uid(2))).expect("delete");
+    }
 }

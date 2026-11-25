@@ -170,6 +170,18 @@ fn creation_checks_id_name_in_order_and_trims() {
     };
     assert_eq!(create(&f, &bad_id), Err(DataError::invalid("id")));
     assert_eq!(create(&f, &new(1, "   ")), Err(DataError::invalid("name")));
+    // Like the import: a NUL is refused (the `CHECK` `length()` stops at it).
+    for name in ["a\0b", "\0", "\0\0 x"] {
+        assert_eq!(
+            create(&f, &new(1, name)),
+            Err(DataError::invalid("name")),
+            "{name:?}"
+        );
+        assert_eq!(
+            run(update_dashboard(&f.ctx, &uid(1), name, "home")),
+            Err(DataError::invalid("name"))
+        );
+    }
     assert_eq!(
         create(&f, &new(1, &"x".repeat(101))),
         Err(DataError::invalid("name"))
@@ -334,7 +346,7 @@ fn invalid_version_or_oversized_theme_is_refused_everywhere() {
         };
         assert_eq!(create(&f, &input), Err(DataError::invalid("themeVersion")));
     }
-    let beyond_js = 9_007_199_254_740_992;
+    let beyond_js = 10_001;
     assert_eq!(
         run(update_dashboard_theme(&f.ctx, &d.id, "{}", beyond_js)),
         Err(DataError::invalid("themeVersion"))
@@ -779,10 +791,94 @@ fn dashboard_dto_is_camel_case_and_inputs_refuse_unknown_fields() {
     assert!(serde_json::from_value::<DashboardWithWidgetsDto>(extra).is_err());
 }
 
-/// P4 (CA-TC2-6): the data module has no `DELETE FROM dashboards` outside its tests.
+/// P4 (CA-TC2-6): no production source outside `backup/dashboard_delete.rs` and
+/// `backup/config_transfer.rs` deletes from `dashboards` (any case, any spacing).
 #[test]
-fn the_dashboard_module_has_no_delete_statement() {
-    let source = include_str!("../dashboards.rs");
-    let production = source.split("#[cfg(test)]").next().expect("production");
-    assert!(!production.to_uppercase().contains("DELETE FROM"));
+fn only_the_backup_modules_delete_dashboards() {
+    fn walk(dir: &std::path::Path, found: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).expect("dir") {
+            let path = entry.expect("entry").path();
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
+            if path.is_dir() {
+                if name != "tests" {
+                    walk(&path, found);
+                }
+                continue;
+            }
+            let allowed = path.ends_with("backup/dashboard_delete.rs")
+                || path.ends_with("backup/config_transfer.rs");
+            if !name.ends_with(".rs") || name.ends_with("_tests.rs") || allowed {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path)
+                .expect("source")
+                .to_lowercase();
+            let words: Vec<&str> = text.split_whitespace().collect();
+            if words
+                .windows(3)
+                .any(|w| w[0] == "delete" && w[1] == "from" && w[2].starts_with("dashboards"))
+            {
+                found.push(path.display().to_string());
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut found,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+/// T6: the theme version stops at 10 000, like the import.
+#[test]
+fn theme_version_is_bounded_to_10_000() {
+    let f = Fixture::create();
+    let d = create(&f, &new(1, "A")).expect("create");
+    assert_eq!(
+        run(update_dashboard_theme(&f.ctx, &d.id, "{}", 10_001)),
+        Err(DataError::invalid("themeVersion"))
+    );
+    let top = run(update_dashboard_theme(&f.ctx, &d.id, "{}", 10_000)).expect("10 000");
+    assert_eq!(top.theme_version, 10_000);
+}
+
+/// A well formed source id that designates nothing moves nothing: `Conflict`, no dashboard.
+#[test]
+fn create_with_widgets_with_an_unknown_source_is_a_conflict() {
+    let f = Fixture::create();
+    let input = overflow_input(2, &uid(MISSING), &[(uid(11), grid(0, 0, 2, 2))]);
+    assert_eq!(
+        run(create_with_widgets(&f.ctx, &input)),
+        Err(DataError::Conflict)
+    );
+    assert_eq!(f.scalar("SELECT COUNT(*) FROM dashboards"), 0);
+}
+
+/// `BEGIN IMMEDIATE` serializes the count and the insert: at 99 dashboards, two concurrent
+/// creations give exactly one success and 100 dashboards.
+#[test]
+fn two_concurrent_creations_at_99_dashboards_give_one_success() {
+    let f = Fixture::create();
+    insert_dashboards(&f, MAX_DASHBOARDS - 1);
+    let (a, b) = (new(1000, "X"), new(1001, "Y"));
+    let (ra, rb) = std::thread::scope(|s| {
+        let ha = s.spawn(|| create(&f, &a));
+        let hb = s.spawn(|| create(&f, &b));
+        (ha.join().expect("a"), hb.join().expect("b"))
+    });
+    let results = [ra, rb];
+    assert_eq!(
+        results.iter().filter(|r| r.is_ok()).count(),
+        1,
+        "{results:?}"
+    );
+    assert!(
+        results.contains(&Err(DataError::LimitReached)),
+        "{results:?}"
+    );
+    assert_eq!(f.scalar("SELECT COUNT(*) FROM dashboards"), MAX_DASHBOARDS);
 }

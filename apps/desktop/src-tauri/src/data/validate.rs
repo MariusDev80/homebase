@@ -3,6 +3,7 @@
 //! count bytes. `trim` is [`hb_trim`].
 
 use super::error::DataError;
+use super::widgets::{GridDto, LayoutItemDto};
 use super::MAX_BATCH;
 use crate::backup::names::{hb_trim, is_uuid_shape};
 use std::collections::HashSet;
@@ -48,8 +49,10 @@ pub const MIN_DATE: &str = "1900-01-01";
 pub const MAX_DATE: &str = "2199-12-31";
 const MAX_SETTING_KEY_CHARS: usize = 128;
 const MAX_ICON_CHARS: usize = 32;
-/// `Number.MAX_SAFE_INTEGER` of JavaScript.
-const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+/// `widget_type` length in code points (the `CHECK`), same bound as the configuration import.
+pub const MAX_WIDGET_TYPE_CHARS: usize = 64;
+/// `config_version` and `theme_version`: 1..=10 000, same bound as the configuration import.
+pub const MAX_CONFIG_VERSION: i64 = 10_000;
 
 /// UTF-16 code units, what JavaScript's `.length` counts.
 pub fn utf16_len(s: &str) -> usize {
@@ -118,8 +121,34 @@ pub fn trimmed_text<'a>(raw: &'a str, max: usize, field: &str) -> Result<&'a str
     }
 }
 
+/// Like the import: no NUL (the `CHECK` `length()` stops at the first one).
 pub fn dashboard_name(raw: &str) -> Result<&str, DataError> {
+    if raw.contains('\0') {
+        return Err(DataError::invalid("name"));
+    }
     trimmed_text(raw, MAX_NAME_CHARS, "name")
+}
+
+/// 1..=64 code points, no NUL (shared with the configuration import).
+pub fn is_widget_type_shape(widget_type: &str) -> bool {
+    (1..=MAX_WIDGET_TYPE_CHARS).contains(&widget_type.chars().count())
+        && !widget_type.contains('\0')
+}
+
+pub fn widget_type(widget_type: &str) -> Result<(), DataError> {
+    if is_widget_type_shape(widget_type) {
+        Ok(())
+    } else {
+        Err(DataError::invalid("widgetType"))
+    }
+}
+
+pub fn config_version(version: i64) -> Result<(), DataError> {
+    if (1..=MAX_CONFIG_VERSION).contains(&version) {
+        Ok(())
+    } else {
+        Err(DataError::invalid("configVersion"))
+    }
 }
 
 #[cfg_attr(not(test), expect(dead_code, reason = "used by lot TC3"))]
@@ -172,12 +201,12 @@ pub fn json_depth(text: &str) -> usize {
     usize::try_from(max).unwrap_or(0)
 }
 
-/// Theme of a dashboard (`themeJson`, `themeVersion`): version 1..=2^53-1 (absent: 1), text
+/// Theme of a dashboard (`themeJson`, `themeVersion`): version 1..=10 000 (absent: 1), text
 /// starting with `{`, nesting <= 100, <= 4 096 code points (absent: `{}`). The version is checked
 /// first. Returns the values to store.
 pub fn theme(theme_json: Option<&str>, version: Option<i64>) -> Result<(&str, i64), DataError> {
     let version = version.unwrap_or(DEFAULT_THEME_VERSION);
-    if !(1..=MAX_SAFE_INTEGER).contains(&version) {
+    if !(1..=MAX_CONFIG_VERSION).contains(&version) {
         return Err(DataError::invalid("themeVersion"));
     }
     let text = theme_json.unwrap_or(DEFAULT_THEME);
@@ -200,6 +229,18 @@ pub fn grid(x: i64, y: i64, w: i64, h: i64) -> Result<(), DataError> {
     } else {
         Err(DataError::invalid("grid"))
     }
+}
+
+/// Checks a batch of layout items (at most `max`, distinct ids, valid rectangles).
+pub fn check_items(items: &[LayoutItemDto], max: usize) -> Result<(), DataError> {
+    if items.len() > max {
+        return Err(DataError::invalid("items"));
+    }
+    distinct(items.iter().map(|i| i.id.as_str()), "items")?;
+    for GridDto { x, y, w, h } in items.iter().map(|i| i.grid) {
+        grid(x, y, w, h)?;
+    }
+    Ok(())
 }
 
 /// A batch of at most 1 000 elements (an empty one is the caller's business: no disk access).

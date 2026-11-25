@@ -11,7 +11,8 @@ use super::paths::DataRoot;
 use super::MAX_CONFIG_FILE_BYTES;
 pub use crate::data::validate::is_secret_setting_key;
 use crate::data::validate::{
-    is_dashboard_icon_shape, is_setting_key_shape, MAX_GRID, MAX_THEME_CHARS,
+    is_dashboard_icon_shape, is_setting_key_shape, is_widget_type_shape, MAX_CONFIG_VERSION,
+    MAX_GRID, MAX_THEME_CHARS,
 };
 use crate::time::clock::Clock;
 use crate::time::formats::format_instant;
@@ -34,10 +35,8 @@ const MAX_WIDGETS: usize = crate::data::MAX_WIDGETS as usize;
 const MAX_SETTINGS: usize = crate::data::MAX_SETTINGS as usize;
 
 const MAX_NAME_CHARS: usize = 100;
-const MAX_WIDGET_TYPE_CHARS: usize = 64;
 const MAX_JSON_CHARS: usize = 65_536;
 const MAX_SORT_ORDER: i64 = 1_000_000;
-const MAX_CONFIG_VERSION: i64 = 10_000;
 /// How long the write transaction waits for another writer (the data commands).
 const WRITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -172,11 +171,7 @@ pub fn validate_plan(plan: &ConfigImportPlan) -> Result<(), BackupError> {
             if !widget_ids.insert(widget.id.as_str()) {
                 return Err(problem(ImportProblem::DuplicateId));
             }
-            let type_len = char_count(&widget.widget_type);
-            if type_len == 0
-                || type_len > MAX_WIDGET_TYPE_CHARS
-                || widget.widget_type.contains('\0')
-            {
+            if !is_widget_type_shape(&widget.widget_type) {
                 return Err(problem(ImportProblem::InvalidWidgetType));
             }
             let g = widget.grid;

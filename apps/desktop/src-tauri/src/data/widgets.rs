@@ -1,7 +1,6 @@
 //! Widget instance commands (spec typed-data-commands 4.5.3). `configJson` travels as text and
 //! is stored as is; the `CHECK` of V1 decides whether it is an object (`constraint`).
 
-use super::dashboards::check_items;
 use super::error::DataError;
 use super::{validate, DataCtx, MAX_BATCH, MAX_WIDGETS, MAX_WIDGETS_PER_DASHBOARD};
 use crate::backup::BackupState;
@@ -46,9 +45,6 @@ FROM (
   FROM json_each(?2)
 ) AS j
 WHERE widget_instances.id = j.id AND widget_instances.dashboard_id = ?1";
-
-/// `widget_type` is at most 64 characters (the `CHECK`).
-const MAX_TYPE_CHARS: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -148,13 +144,16 @@ pub(crate) async fn get_widget(ctx: &DataCtx, id: &str) -> Result<Option<WidgetD
     with_conn!(ctx, conn => fetch(&mut conn, id).await)
 }
 
-/// The grid rectangle is not checked here (current contract): the `CHECK` decides.
+/// Same bounds as the configuration import (type, grid, version): an export is always importable.
 pub(crate) async fn create_widget(
     ctx: &DataCtx,
     input: &WidgetNewDto,
 ) -> Result<WidgetDto, DataError> {
     ctx.ensure_writable()?;
     validate::new_id(&input.id)?;
+    validate::widget_type(&input.widget_type)?;
+    validate::grid(input.grid.x, input.grid.y, input.grid.w, input.grid.h)?;
+    validate::config_version(input.config_version)?;
     validate::json_text(&input.config_json, "configJson")?;
     let now = ctx.now();
     with_conn!(ctx, conn => {
@@ -196,6 +195,7 @@ pub(crate) async fn update_widget_config(
     config_version: i64,
 ) -> Result<WidgetDto, DataError> {
     ctx.ensure_writable()?;
+    validate::config_version(config_version)?;
     validate::json_text(config_json, "configJson")?;
     let now = ctx.now();
     with_conn!(ctx, conn => {
@@ -224,7 +224,7 @@ pub(crate) async fn update_widget_layout(
     if items.is_empty() {
         return Ok(0);
     }
-    check_items(items, MAX_BATCH)?;
+    validate::check_items(items, MAX_BATCH)?;
     let payload = layout_payload(items)?;
     write_layout(ctx, dashboard_id, &payload).await
 }
@@ -266,7 +266,7 @@ pub(crate) async fn find_first_widget_of_type(
     ctx: &DataCtx,
     widget_type: &str,
 ) -> Result<Option<WidgetDto>, DataError> {
-    if widget_type.chars().count() > MAX_TYPE_CHARS {
+    if widget_type.chars().count() > validate::MAX_WIDGET_TYPE_CHARS {
         return Ok(None);
     }
     with_conn!(ctx, conn => {
