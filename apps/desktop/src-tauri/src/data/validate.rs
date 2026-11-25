@@ -236,6 +236,19 @@ pub fn batch_len(len: usize, field: &str) -> Result<(), DataError> {
     }
 }
 
+/// Largest id of a reorder batch, in bytes (a UUID is 36): unknown ids are ignored by the
+/// statement, so only their size is bounded.
+pub const MAX_ID_BYTES: usize = 64;
+
+/// Every id of a batch is at most `MAX_ID_BYTES` bytes.
+pub fn id_sizes<'a>(ids: impl IntoIterator<Item = &'a str>, field: &str) -> Result<(), DataError> {
+    if ids.into_iter().all(|id| id.len() <= MAX_ID_BYTES) {
+        Ok(())
+    } else {
+        Err(DataError::invalid(field))
+    }
+}
+
 /// Distinct ids.
 pub fn distinct<'a>(ids: impl IntoIterator<Item = &'a str>, field: &str) -> Result<(), DataError> {
     let mut seen = HashSet::new();

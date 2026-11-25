@@ -161,6 +161,18 @@ fn batches_are_bounded_and_distinct() {
 }
 
 #[test]
+fn ids_of_a_batch_are_bounded_in_bytes() {
+    assert_eq!(id_sizes([], "ids"), Ok(()));
+    assert_eq!(id_sizes(["a".repeat(36).as_str()], "ids"), Ok(()));
+    assert_eq!(id_sizes(["a".repeat(64).as_str()], "ids"), Ok(()));
+    assert_eq!(id_sizes(["a".repeat(65).as_str()], "ids"), invalid("ids"));
+    assert_eq!(
+        id_sizes(["a", "é".repeat(33).as_str()], "ids"),
+        invalid("ids")
+    );
+}
+
+#[test]
 fn json_texts_are_capped_in_bytes() {
     assert_eq!(json_text(&"a".repeat(262_144), "configJson"), Ok(()));
     assert_eq!(

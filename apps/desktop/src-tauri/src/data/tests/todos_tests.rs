@@ -68,7 +68,7 @@ fn rule(f: &Fixture, id: u32, rrule: &str) -> TodoDto {
 
 fn rename(f: &Fixture, id: u32, title: &str) -> Result<TodoDto, DataError> {
     let changes = TodoChangesDto {
-        title: Some(title.to_owned()),
+        title: Some(Some(title.to_owned())),
         ..TodoChangesDto::default()
     };
     change(f, id, &changes)
@@ -84,7 +84,7 @@ fn due_on(f: &Fixture, id: u32, due: Option<&str>) -> Result<TodoDto, DataError>
 
 fn describe(f: &Fixture, id: u32, text: &str) -> Result<TodoDto, DataError> {
     let changes = TodoChangesDto {
-        description: Some(text.to_owned()),
+        description: Some(Some(text.to_owned())),
         ..TodoChangesDto::default()
     };
     change(f, id, &changes)
@@ -390,7 +390,7 @@ fn updates_the_description_kept_by_a_title_only_update() {
     assert_eq!(describe(&f, 1, &max).expect("max").description, max);
     let offline = f.without_disk();
     let too_long = TodoChangesDto {
-        description: Some(format!("{max}a")),
+        description: Some(Some(format!("{max}a"))),
         ..TodoChangesDto::default()
     };
     assert_eq!(
@@ -398,7 +398,7 @@ fn updates_the_description_kept_by_a_title_only_update() {
         Err(DataError::invalid("description"))
     );
     let nul_first = TodoChangesDto {
-        description: Some(format!("\0{max}")),
+        description: Some(Some(format!("\0{max}"))),
         ..TodoChangesDto::default()
     };
     assert_eq!(
@@ -414,7 +414,7 @@ fn important_is_written_when_given_and_kept_when_omitted() {
     add(&f, 1, LIST, "A");
     let set = |important| {
         let changes = TodoChangesDto {
-            important: Some(important),
+            important: Some(Some(important)),
             ..TodoChangesDto::default()
         };
         change(&f, 1, &changes).expect("important")
@@ -532,11 +532,11 @@ fn changes_distinguish_an_absent_field_from_null() {
         "important": true
     }))
     .expect("values");
-    assert_eq!(values.title.as_deref(), Some("T"));
+    assert_eq!(values.title, Some(Some("T".to_owned())));
     assert_eq!(values.due_on, Some(Some("2026-01-02".to_owned())));
-    assert_eq!(values.description.as_deref(), Some("D"));
+    assert_eq!(values.description, Some(Some("D".to_owned())));
     assert_eq!(values.rrule, Some(Some("FREQ=DAILY".to_owned())));
-    assert_eq!(values.important, Some(true));
+    assert_eq!(values.important, Some(Some(true)));
     let only_rrule = parse(serde_json::json!({ "rrule": null })).expect("rrule only");
     assert_eq!(only_rrule.due_on, None);
     assert_eq!(only_rrule.rrule, Some(None));
@@ -798,6 +798,46 @@ fn reorder_validates_the_input_before_the_disk() {
     );
     let ok: Vec<String> = (0..1000).map(|i| format!("id-{i}")).collect();
     assert_eq!(run(reorder_todos(&f.ctx, &list, &ok)), Ok(()));
+}
+
+/// Each id of a reorder is at most 64 bytes (a UUID is 36): 64 is accepted, 65 is refused
+/// before the disk.
+#[test]
+fn reorder_bounds_the_size_of_each_id() {
+    let f = fixture();
+    let offline = f.without_disk();
+    let list = uid(LIST);
+    assert_eq!(
+        run(reorder_todos(&offline, &list, &["x".repeat(65)])),
+        Err(DataError::invalid("ids"))
+    );
+    assert_eq!(run(reorder_todos(&f.ctx, &list, &["x".repeat(64)])), Ok(()));
+    assert_eq!(run(reorder_todos(&f.ctx, &list, &[uid(1)])), Ok(()));
+}
+
+/// An explicit `null` on `title`, `description` or `important` is `invalid_input` before the
+/// disk (only `dueOn` and `rrule` mean "clear"); an absent field stays "unchanged".
+#[test]
+fn explicit_null_is_refused_for_title_description_and_important() {
+    let f = fixture();
+    add(&f, 1, LIST, "A");
+    let offline = f.without_disk();
+    for field in ["title", "description", "important"] {
+        let wire: TodoChangesDto =
+            serde_json::from_value(serde_json::json!({ field: null })).expect("wire");
+        assert_eq!(
+            run(update_todo(&offline, &uid(1), &wire)).map(|_| ()),
+            Err(DataError::invalid(field)),
+            "{field}"
+        );
+        assert_eq!(
+            run(update_todo(&f.ctx, &uid(1), &wire)).map(|_| ()),
+            Err(DataError::invalid(field)),
+            "{field}"
+        );
+    }
+    let kept = change(&f, 1, &TodoChangesDto::default()).expect("absent");
+    assert_eq!(kept.title, "A");
 }
 
 /// TS: "clearCompleted: deletes only the completed todos of the list and returns the count".
@@ -1173,6 +1213,36 @@ fn writes_are_unavailable_when_a_restoration_is_staged() {
     assert_eq!(run(reorder_todos(&ro, &uid(LIST), &[])), unavailable());
     assert_eq!(
         run(clear_completed(&ro, &uid(LIST))).map(|_| ()),
+        unavailable()
+    );
+    // An INVALID input is still `unavailable`: `ensure_writable` runs before the validation.
+    assert_eq!(
+        run(create_list(&ro, &list_new(5, None, ""))).map(|_| ()),
+        unavailable()
+    );
+    assert_eq!(
+        run(create_todo(&ro, &todo_new(2, LIST, "", Some("2026-13-45")))).map(|_| ()),
+        unavailable()
+    );
+    let null_title = TodoChangesDto {
+        title: Some(None),
+        ..TodoChangesDto::default()
+    };
+    assert_eq!(
+        run(update_todo(&ro, &uid(1), &null_title)).map(|_| ()),
+        unavailable()
+    );
+    assert_eq!(
+        run(shift_repeat_due(&ro, &uid(1), "bad", "bad")).map(|_| ()),
+        unavailable()
+    );
+    let twice = uid(1);
+    assert_eq!(
+        run(reorder_todos(&ro, &uid(LIST), &[twice.clone(), twice])),
+        unavailable()
+    );
+    assert_eq!(
+        run(reorder_todos(&ro, &uid(LIST), &["x".repeat(65)])),
         unavailable()
     );
     assert_eq!(f.scalar("SELECT COUNT(*) FROM todos"), 1);

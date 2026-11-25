@@ -379,6 +379,18 @@ fn writes_are_unavailable_when_a_restoration_is_staged() {
         Err(DataError::Unavailable)
     );
     assert_eq!(run(delete_note(&ro, &uid(1))), Err(DataError::Unavailable));
+    // An INVALID input is still `unavailable`: `ensure_writable` runs before the validation.
+    let bad = NoteNewDto {
+        id: "not-a-uuid".to_owned(),
+        widget_instance_id: None,
+        title: "x".repeat(201),
+        body: String::new(),
+    };
+    assert_eq!(run(create_note(&ro, &bad)), Err(DataError::Unavailable));
+    assert_eq!(
+        run(update_note(&ro, &uid(1), &"x".repeat(201), "")),
+        Err(DataError::Unavailable)
+    );
     assert_eq!(f.scalar("SELECT COUNT(*) FROM notes"), 1);
     assert_eq!(f.text("SELECT title FROM notes"), "a");
     assert!(run(get_note(&ro, &uid(1))).expect("get").is_some());
@@ -419,7 +431,11 @@ fn note_dtos_are_camel_case_and_the_input_refuses_unknown_fields() {
     let mut extra = ok.clone();
     extra["extra"] = serde_json::json!(true);
     assert!(serde_json::from_value::<NoteNewDto>(extra).is_err());
-    let mut snake = ok;
+    let mut snake = ok.clone();
     snake["widget_instance_id"] = serde_json::json!(null);
     assert!(serde_json::from_value::<NoteNewDto>(snake).is_err());
+    // A missing required field is a deserialization error, not a default.
+    let mut no_title = ok;
+    no_title.as_object_mut().expect("object").remove("title");
+    assert!(serde_json::from_value::<NoteNewDto>(no_title).is_err());
 }

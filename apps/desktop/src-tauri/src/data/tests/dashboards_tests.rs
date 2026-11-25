@@ -833,6 +833,54 @@ fn only_the_backup_modules_delete_dashboards() {
     assert!(found.is_empty(), "{found:?}");
 }
 
+/// Sister of P4: outside `data/{notes,shortcuts,todos}.rs` no production source reads or writes
+/// `notes`, `shortcuts`, `todo_lists` or `todos` (`from` / `into` / `update` followed by the whole
+/// word, any case, any spacing). `backup/` holds no such SQL in production code (only in
+/// `*_tests.rs`, skipped like the `tests` folders), so it needs no exclusion.
+#[test]
+fn only_the_typed_modules_touch_notes_shortcuts_and_todos() {
+    fn walk(dir: &std::path::Path, found: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).expect("dir") {
+            let path = entry.expect("entry").path();
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
+            if path.is_dir() {
+                if name != "tests" {
+                    walk(&path, found);
+                }
+                continue;
+            }
+            let allowed = path.ends_with("data/notes.rs")
+                || path.ends_with("data/shortcuts.rs")
+                || path.ends_with("data/todos.rs");
+            if !name.ends_with(".rs") || name.ends_with("_tests.rs") || allowed {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path)
+                .expect("source")
+                .to_lowercase();
+            let words: Vec<&str> = text.split_whitespace().collect();
+            fn word(w: &str) -> &str {
+                w.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+            }
+            if words.windows(2).any(|w| {
+                matches!(word(w[0]), "from" | "into" | "update")
+                    && matches!(word(w[1]), "notes" | "shortcuts" | "todo_lists" | "todos")
+            }) {
+                found.push(path.display().to_string());
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut found,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
 /// T6: the theme version stops at 10 000, like the import.
 #[test]
 fn theme_version_is_bounded_to_10_000() {

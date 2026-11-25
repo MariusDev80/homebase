@@ -142,6 +142,7 @@ pub(crate) async fn reorder_shortcuts(ctx: &DataCtx, ids: &[String]) -> Result<(
         return Ok(());
     }
     validate::batch_len(ids.len(), "ids")?;
+    validate::id_sizes(ids.iter().map(String::as_str), "ids")?;
     validate::distinct(ids.iter().map(String::as_str), "ids")?;
     let payload = serde_json::to_string(ids).map_err(|_| DataError::Database)?;
     let now = ctx.now();

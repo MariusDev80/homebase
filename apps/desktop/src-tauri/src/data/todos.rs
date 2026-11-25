@@ -121,17 +121,21 @@ pub struct TodoNewDto {
     pub due_on: Option<String>,
 }
 
-/// Absent field = unchanged; `null` = clear (`dueOn`, `rrule`).
+/// Absent field = unchanged; `null` = clear (`dueOn`, `rrule`); an explicit `null` on `title`,
+/// `description` or `important` is `invalid_input` (checked by `update_todo`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TodoChangesDto {
-    pub title: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    pub title: Option<Option<String>>,
     #[serde(default, deserialize_with = "present")]
     pub due_on: Option<Option<String>>,
-    pub description: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    pub description: Option<Option<String>>,
     #[serde(default, deserialize_with = "present")]
     pub rrule: Option<Option<String>>,
-    pub important: Option<bool>,
+    #[serde(default, deserialize_with = "present")]
+    pub important: Option<Option<bool>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -305,15 +309,26 @@ pub(crate) async fn update_todo(
     changes: &TodoChangesDto,
 ) -> Result<TodoDto, DataError> {
     ctx.ensure_writable()?;
+    if matches!(changes.title, Some(None)) {
+        return Err(DataError::invalid("title"));
+    }
+    if matches!(changes.description, Some(None)) {
+        return Err(DataError::invalid("description"));
+    }
+    if matches!(changes.important, Some(None)) {
+        return Err(DataError::invalid("important"));
+    }
     let title = changes
         .title
-        .as_deref()
+        .as_ref()
+        .and_then(|t| t.as_deref())
         .map(validate::todo_title)
         .transpose()?;
     if let Some(Some(due_on)) = &changes.due_on {
         validate::date(due_on, "dueOn")?;
     }
-    if let Some(description) = &changes.description {
+    let description = changes.description.as_ref().and_then(|d| d.as_deref());
+    if let Some(description) = description {
         validate::description(description)?;
     }
     if let Some(Some(rrule)) = &changes.rrule {
@@ -329,7 +344,7 @@ pub(crate) async fn update_todo(
     let due_on = changes.due_on.as_ref().and_then(|d| d.as_deref());
     let set_rrule = i64::from(changes.rrule.is_some());
     let rrule = changes.rrule.as_ref().and_then(|r| r.as_deref());
-    let important = changes.important.map(i64::from);
+    let important = changes.important.flatten().map(i64::from);
     let now = ctx.now();
     with_conn!(ctx, conn => {
         let result = sqlx::query(UPDATE_SQL)
@@ -337,7 +352,7 @@ pub(crate) async fn update_todo(
             .bind(title)
             .bind(set_due)
             .bind(due_on)
-            .bind(changes.description.as_deref())
+            .bind(description)
             .bind(set_rrule)
             .bind(rrule)
             .bind(important)
@@ -429,6 +444,7 @@ pub(crate) async fn reorder_todos(
         return Ok(());
     }
     validate::batch_len(ids.len(), "ids")?;
+    validate::id_sizes(ids.iter().map(String::as_str), "ids")?;
     validate::distinct(ids.iter().map(String::as_str), "ids")?;
     let payload = serde_json::to_string(ids).map_err(|_| DataError::Database)?;
     let now = ctx.now();

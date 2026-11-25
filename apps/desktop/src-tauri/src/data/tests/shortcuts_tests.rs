@@ -311,6 +311,20 @@ fn reorder_rejects_duplicates_and_oversized_batches_before_the_disk() {
     assert_eq!(run(reorder_shortcuts(&f.ctx, &ok)), Ok(()));
 }
 
+/// Each id of a reorder is at most 64 bytes (a UUID is 36): 64 is accepted, 65 is refused
+/// before the disk.
+#[test]
+fn reorder_bounds_the_size_of_each_id() {
+    let f = Fixture::create();
+    let offline = f.without_disk();
+    assert_eq!(
+        run(reorder_shortcuts(&offline, &["x".repeat(65)])),
+        Err(DataError::invalid("ids"))
+    );
+    assert_eq!(run(reorder_shortcuts(&f.ctx, &["x".repeat(64)])), Ok(()));
+    assert_eq!(run(reorder_shortcuts(&f.ctx, &[uid(1)])), Ok(()));
+}
+
 /// TS: "reorder only touches rows whose sort_order changes".
 #[test]
 fn reorder_only_touches_rows_whose_sort_order_changes() {
@@ -423,6 +437,24 @@ fn writes_are_unavailable_when_a_restoration_is_staged() {
     );
     assert_eq!(
         run(reorder_shortcuts(&ro, &[])),
+        Err(DataError::Unavailable)
+    );
+    // An INVALID input is still `unavailable`: `ensure_writable` runs before the validation.
+    assert_eq!(
+        run(create_shortcut(&ro, &new(2, "", "javascript:alert(1)"))),
+        Err(DataError::Unavailable)
+    );
+    assert_eq!(
+        run(update_shortcut(&ro, &uid(1), "", "not a url")),
+        Err(DataError::Unavailable)
+    );
+    let twice = uid(1);
+    assert_eq!(
+        run(reorder_shortcuts(&ro, &[twice.clone(), twice])),
+        Err(DataError::Unavailable)
+    );
+    assert_eq!(
+        run(reorder_shortcuts(&ro, &["x".repeat(65)])),
         Err(DataError::Unavailable)
     );
     assert_eq!(labels(&f), ["A"]);
