@@ -1,6 +1,6 @@
 # Spec : commandes Rust typées pour toutes les données du front (ADR-002 O3, fermeture de R1)
 
-- **Statut** : acceptée (2026-11-25) ; décisions T1 à T9 validées par Marius le 2026-11-25, telles que recommandées
+- **Statut** : réalisée (2026-11-25) sur la branche phase-3-typed-sql ; vérifications manuelles MC1 à MC8 en attente. Acceptée le 2026-11-25 ; décisions T1 à T9 validées par Marius le 2026-11-25, telles que recommandées
 - **Auteur** : architect (Opus)
 - **Destinataire** : `implementer` (Sonnet), un lot à la fois (§6), sur la branche `phase-3-typed-sql`
 - **Liens** : `CLAUDE.md` ; `docs/PLAN.md` §2, §6 ; `docs/SECURITY-NOTES.md` ; ADR-001 §3.7 ; ADR-002 (§2.1, §2.3, §2.4, §2.5, §3.3, §3.5, §3.6, R1, R10, R13, O3) ; `docs/specs/timers-reminders.md` (D2, D3, §4.4, §4.7) ; `docs/specs/habits.md` (D1, §4.3, §4.4) ; `docs/specs/backup-restore.md` ; `docs/specs/dashboards-sidebar.md` (D10, §4.7, §4.8)
@@ -103,7 +103,7 @@ L'ADR-002 a accordé au front `sql:allow-execute` et `sql:allow-select` (§3.6) 
 
 | # | Supposition | Vérifiée par |
 |---|---|---|
-| S1 | Sans permission `sql:*` dans une capability, `invoke('plugin:sql|select' / 'execute' / 'load' / 'close')` est refusé par l'ACL de Tauri 2 (la doc ne le dit pas en toutes lettres) | MC1 |
+| S1 | Sans permission `sql:*` dans une capability, `invoke('plugin:sql|select' / 'execute' / 'load' / 'close')` est refusé par l'ACL de Tauri 2 (la doc ne le dit pas en toutes lettres). *Mise à jour (2026-11-25)* : vérifiée dans les sources (§9 R1) ; MC1 reste une confirmation | MC1 |
 | S2 | Une erreur de désérialisation d'argument arrive au front sous forme de chaîne commençant par ``invalid args ` `` (affichage de `tauri::Error::InvalidArgs`) | MC1 ; si faux, l'adaptateur TS pré-valide les nombres (repli §4.3) |
 | S3 | Ouvrir une connexion sqlx par commande coûte peu : médiane de `widget_list` < 15 ms sur le PC de Marius | PV1, MC7 |
 | S4 | Passer en WAL depuis une connexion Rust fonctionne alors que le pool du plugin garde des connexions inactives (c'est déjà le cas aujourd'hui, par ce même pool, et les bases existantes sont déjà en WAL) | TC1, MC3 |
@@ -456,7 +456,7 @@ Contrôles, ordres et SQL de `SqliteTodoRepository`, en particulier : `todo_upda
 
 ### 4.7 Front : `data/`
 
-Fichiers de production après TC4 : `index.ts`, `models.ts`, `repositories.ts`, `json.ts`, `data-error.ts`, `clock.ts`, `time-formats.ts`, `search.ts` (ne garde que `excerptAround` et les constantes `SEARCH_QUERY_MAX`, `SEARCH_LIMIT_MAX`), `dashboard-theme-input.ts`, `data.providers.ts`, `content.tokens.ts`, `schedule.tokens.ts`, `tauri/**`.
+Fichiers de production après TC4 : `index.ts`, `models.ts`, `repositories.ts`, `json.ts`, `data-error.ts`, `clock.ts`, `time-formats.ts`, `search.ts` (ne garde que `hbTrim` et `excerptAround`), `dashboard-theme-input.ts`, `data.providers.ts`, `content.tokens.ts`, `schedule.tokens.ts`, `tauri/**`. *Réalisé (TC4)* : les bornes de recherche (`SEARCH_QUERY_MAX`, `SEARCH_LIMIT_MAX`) et `validSearch`, qui ne servent qu'au faux dépôt de tâches, sont dans `core/testing/valid-search.ts` (test seulement).
 
 - `data/tauri/wire.ts` (nouveau) : types des DTO (`DashboardWire`, `WidgetWire`, `NoteWire`, `TodoWire`…) et conversions vers les modèles (`theme: parseJsonObject(themeJson)`, `config: parseJsonObject(configJson)`, réglage : `parseJsonValue(valueJson)`) ; `corrupt_data` en cas d'échec (comportement de `row-mappers.ts`).
 - `data/tauri/tauri-{settings,dashboard,widget-instance,note,shortcut,todo}.repository.ts` (nouveaux) : constructeur `(newId: IdGenerator)` ; une méthode = un `invokeCommand` ; arguments recopiés **champ par champ** (`deny_unknown_fields`) ; id généré si absent ; objets JSON sérialisés (`JSON.stringify` ; `undefined` → `invalid_input` avant l'appel ; thème par `validTheme`) ; `TodoChanges` : seules les clés définies sont envoyées ; recherche : `excerptAround(texte, hbTrim(query))` (`hbTrim` = `hb_trim` de Rust).
@@ -526,7 +526,16 @@ Fichiers de production après TC4 : `index.ts`, `models.ts`, `repositories.ts`, 
 
 ### 4.13 Sécurité (surface après TC4)
 - Surface JS données : 43 + 1 commandes typées (plus celles des rappels, sessions, habitudes) ; aucune permission `sql:*`, `fs:*`, `core:*` ajoutée. Aucune entrée n'est un chemin, une URL de fichier, un nom de table ou un fragment SQL (P2). `like_contains` échappe les jokers ; tris en dur.
+- Barrière : l'ACL de Tauri (aucune permission `sql:*`, S1 vérifiée dans les sources, §9 R1) et l'absence du paquet `@tauri-apps/plugin-sql`. Les gardes statiques (`front-sql-guard.spec.ts`, `check-initial-bundle.mjs`, règle ESLint) sont des alarmes contre une régression involontaire, contournables par conception ; elles ne sont pas une barrière.
 - Résiduel accepté : un XSS peut lire toutes les données affichables et appeler les commandes destructrices sans sauvegarde (`widget_delete` et sa cascade, `todo_delete`, `todo_clear_completed`, `note_delete`, `shortcut_delete`, `setting_delete`). Atténuations : CSP stricte, assainissement de tout contenu externe (PLAN §6), sauvegardes quotidiennes, `pre-delete` et `pre-import`.
+- *Complément après la revue finale (2026-11-25)* : le résiduel couvre aussi les points suivants. Aucun n'est une régression : l'accès SQL d'avant TC4 permettait tout cela, et plus.
+  - (a) Écrasements sans sauvegarde : `note_update`, `todo_update`, `widget_update_config`, `shortcut_update`, `setting_set`. L'ancien contenu est perdu.
+  - (b) Suppressions côté planificateur : `reminder_delete`, `session_delete`, `habit_delete`, `habit_set_check` (une coche retirée).
+  - (c) `config_import_apply` avec un plan forgé, sans dialogue : les tableaux absents du plan sont supprimés en cascade, sous une sauvegarde `pre-import`.
+  - (d) `backup_restore { kind: 'internal', id }` sans dialogue : une archive interne remplace la base au redémarrage (sauvegarde `pre-restore` prise avant).
+  - (e) Purge des réserves de sauvegarde par rotation : 11 `backup_create` évincent toutes les sauvegardes manuelles (réserve de 10) ; plus de 5 `dashboard_delete` ou `config_import_apply` évincent la réserve de sécurité (5 archives, `pre-delete`, `pre-import` et `pre-restore` comprises) ; `daily_due` saute la quotidienne si une archive complète de moins de 24 h existe (`src/backup/daily.rs` l. 22-24), donc des `backup_create` répétés empêchent toute nouvelle quotidienne (les anciennes restent).
+  - (f) Remplissage du disque : aucune borne de nombre sur les notes, raccourcis, tâches et listes (T6 ne borne que les tableaux, widgets et réglages).
+  - À réévaluer à l'audit de phase 6. Pistes, **non décidées** : dialogue natif de confirmation, ouvert par Rust, pour l'import et la restauration ; sauvegarde avant écrasement ou suppression ; bornes de nombre sur les notes, raccourcis, tâches et listes ; protection des réserves de sauvegarde contre une rotation forcée.
 - Journaux : codes d'erreur et identifiants seulement, jamais de valeurs. Aucun secret (la garde des clés de réglage « secrètes » passe en Rust).
 
 ---
@@ -634,6 +643,8 @@ Sur `npm run dev` (identifiant `.dev`), sauf MC2 et MC8 sur l'exe release constr
 
 ## 8. Amendements proposés (à appliquer par le coordinateur après validation)
 
+*État au 2026-11-25* : §8.1, §8.2, §8.3 et §8.5 sont appliqués, sous forme d'amendements datés dans chaque document (l'historique reste lisible). §8.4 n'est pas appliqué tel quel : la tâche de la ROADMAP reste ouverte jusqu'à MC1 à MC8, avec une note d'avancement en fin de ligne. §8.6 (`CLAUDE.md`) attend la validation de Marius.
+
 ### 8.1 ADR-002 (`docs/adr/002-data-layer.md`)
 - **§3.6** : remplacer par « *Amendement (spec typed-data-commands)* : **aucune permission `sql:*`**. Le front accède aux données par des commandes Rust typées (`setting_*`, `dashboard_*`, `widget_*`, `note_*`, `shortcut_*`, `todo_*`, plus `reminder_*`, `session_*`, `habit_*`, `dashboard_delete`). `tauri-plugin-sql` n'est plus utilisé que côté Rust pour les migrations (`preload`). »
 - **§3.5** : ajouter « *Amendement (spec typed-data-commands)* : les dépôts de `data/` sont des adaptateurs `data/tauri/` sur des commandes Rust ; `SqlExecutor`, `NodeSqliteExecutor` et `error-mapping.ts` ne servent plus qu'aux tests de schéma (`data/testing/`). La validation est faite en Rust ; les erreurs sont traduites par `invokeCommand` (code SQLite côté Rust, plus de correspondance par message). `DashboardRepository.remove` et `WidgetInstanceRepository.moveToDashboard` sont remplacés par `createWithWidgets` (transaction Rust). Plus de bootstrap front. »
@@ -646,15 +657,19 @@ Sur `npm run dev` (identifiant `.dev`), sauf MC2 et MC8 sur l'exe release constr
 - **R10** : « Réduit aux tests de schéma (T5). » **R13** : « Clos : correspondance par code SQLite en Rust. »
 - **O3** : « **Fait (spec typed-data-commands)**. »
 - **§4 Conséquences**, négatives : remplacer « Pas de transaction multi-instructions depuis le front… » par « Chaque nouvel accès aux données demande une commande Rust (DTO, bornes, permission, tests Rust) ; c'est le prix de la fermeture de R1. »
+- *Ajouté à l'application (2026-11-25)* : §2.1 (le front n'appelle plus `Database.get`), §2.6 (le port `SqlExecutor` ne sert plus qu'aux tests), §4 positives, bandeau historique en tête du §6 (spec de phase 0), §6.5, §6.8 (la règle « plugin SQL autorisé seulement dans `tauri-sql-executor.ts` » est périmée), critères A5 et A7, O4 (l'option « `SqlExecutor` navigateur » ne s'applique plus).
 
 ### 8.2 ADR-001 (`docs/adr/001-widget-contract.md`) §3.7
 « *Amendement (spec typed-data-commands)* : `DashboardRepository { list, get, create, createIfNone, update, updateTheme, createWithWidgets }` ; `WidgetInstanceRepository { listByDashboard, get, create, updateConfig, updateLayout, findFirstOfType, remove }` ; tous implémentés par des commandes Rust typées. La suppression d'un dashboard passe uniquement par `dashboard_delete`. »
+*Ajouté à l'application (2026-11-25)* : §1 « Supposé » (`Database.get`), §3.7 « Usage par le contrat » (instruction SQL unique), §3.8 (rappel de l'accès SQL complet), §6 Risques (même realm JS), §8.5 (règles ESLint `data/sqlite`).
 
 ### 8.3 `docs/SECURITY-NOTES.md`
 Remplacer la section « Accès SQL direct du front (ADR-002) » par :
 > ## Accès aux données du front (ADR-002 O3, spec typed-data-commands)
-> Le front n'a **aucune** permission `sql:*` : il lit et écrit les données par des commandes Rust typées, aux entrées bornées et validées, aux paramètres SQL liés. Aucune commande ne reçoit de SQL, de nom de table ni de chemin : `ATTACH`, `VACUUM INTO` et les `PRAGMA` sont hors d'atteinte. `tauri-plugin-sql` ne sert qu'aux migrations, côté Rust. Garde-fous : `capability_tests.rs` (aucune permission `sql:`, listes exactes de `default.json` et `debug.json`, CSP exacte), `front-sql-guard.spec.ts`, `check-initial-bundle.mjs` (`plugin:sql` absent du bundle).
-> - **Résiduel accepté** : un script injecté peut appeler les commandes typées : lire les données affichables, supprimer un widget (et ses notes ou tâches), une tâche, une note, un raccourci ou un réglage **sans** sauvegarde. Les suppressions de tableau (`dashboard_delete`) et l'import de configuration prennent une sauvegarde avant. Atténuations : CSP stricte, assainissement de tout contenu externe, sauvegardes quotidiennes.
+> Le front n'a **aucune** permission `sql:*` : il lit et écrit les données par des commandes Rust typées, aux entrées bornées et validées, aux paramètres SQL liés. Aucune commande ne reçoit de SQL, de nom de table ni de chemin : `ATTACH`, `VACUUM INTO` et les `PRAGMA` sont hors d'atteinte. `tauri-plugin-sql` ne sert qu'aux migrations, côté Rust.
+> - **Barrière** : l'ACL de Tauri (aucune permission `sql:*`, S1 vérifiée dans les sources, §9 R1) et l'absence du paquet `@tauri-apps/plugin-sql`. `capability_tests.rs` teste cette configuration (aucune permission `sql:`, listes exactes de `default.json` et `debug.json`, CSP exacte, paquet absent).
+> - **Alarmes statiques** : `front-sql-guard.spec.ts`, `check-initial-bundle.mjs` (`plugin:sql` absent du bundle), règle ESLint. Elles signalent une régression involontaire ; elles sont contournables par conception et ne sont pas une barrière.
+> - **Résiduel accepté** : un script injecté peut appeler les commandes typées : lire les données affichables, supprimer un widget (et ses notes ou tâches), une tâche, une note, un raccourci ou un réglage **sans** sauvegarde ; et aussi les points (a) à (f) du §4.13 (écrasements, suppressions du planificateur, import et restauration sans dialogue, purge des réserves de sauvegarde par rotation, remplissage du disque). Aucun n'est une régression. Les suppressions de tableau (`dashboard_delete`) et l'import de configuration prennent une sauvegarde avant. Atténuations : CSP stricte, assainissement de tout contenu externe, sauvegardes quotidiennes. À réévaluer à l'audit de phase 6 (pistes non décidées : §4.13).
 
 ### 8.4 `docs/ROADMAP.md`, phase 3
 Remplacer la première tâche par :
@@ -671,10 +686,11 @@ Remplacer la première tâche par :
 - l. 86 : « capacités au strict minimum (aucune permission `sql:*` : commandes Rust typées ; plugins de lancement/ouverture limités … ) ».
 
 ### 8.6 `CLAUDE.md` (à faire valider par Marius : fichier d'instructions)
-- Stack, « Données » : « SQLite locale (`tauri-plugin-sql` pour les migrations, côté Rust) ; le front lit et écrit par des commandes Rust typées ».
-- Commandes, « Tests » : « `test:data` : schéma et migrations sur better-sqlite3 en mémoire ; le SQL des commandes est testé par `rust:test` ».
-- Conventions : « Toute donnée utilisateur passe par la couche `data/` (interfaces de repository, implémentées par des commandes Rust typées). Aucun SQL dans le front. »
-- Sécurité : ajouter « Aucune permission `sql:*` côté front (ADR-002 O3). »
+Texte proposé, ligne par ligne (mis à jour le 2026-11-25) :
+- Stack, « Données » : « Données : SQLite locale, migrations SQL versionnées `V1__…` appliquées côté Rust par `tauri-plugin-sql` (`preload`) ; le front lit et écrit par des commandes Rust typées (ADR-002 O3) ; images en fichiers référencés en base ».
+- Commandes, « Tests » : « Tests : `npm run test` (Vitest Angular + `test:data` : schéma et migrations sur better-sqlite3 en mémoire) ; Rust : `npm run rust:test` (dont le SQL des commandes de données, sur les vraies migrations) ».
+- Conventions : « Toute donnée utilisateur passe par la couche `data/` (interfaces de repository, implémentées par des commandes Rust typées dans `data/tauri/`). Aucun SQL dans le front. Une nouvelle donnée = une commande Rust (DTO borné, permission `allow-…`, tests Rust). »
+- Sécurité : ajouter « Aucune permission `sql:*` côté front : les données passent par des commandes Rust typées, sans SQL, nom de table ni chemin venant du front (ADR-002 O3). »
 
 ---
 
@@ -682,13 +698,13 @@ Remplacer la première tâche par :
 
 | Risque | Impact | Mitigation |
 |---|---|---|
-| R1. S1 faux (le plugin accepterait un appel JS sans permission) | Surface SQL intacte | MC1 avant fusion ; sinon T2-B (retirer le crate) avant tout contenu externe |
+| R1. S1 faux (le plugin accepterait un appel JS sans permission) | Surface SQL intacte | **S1 vérifiée dans les sources (2026-11-25)**. tauri 2.12.6, `src/webview/mod.rs` l. 2068-2109 : toute commande `plugin:<x>|<cmd>` passe par l'ACL et est rejetée sans permission résolue. `src/ipc/authority.rs` l. 462-489 (`resolve_access`) : seule une commande accordée à la fenêtre et à l'origine passe. tauri-utils 2.10.4, `acl/resolved.rs` l. 414-419 : l'ensemble `default` d'un plugin n'est développé que s'il est cité dans une capability. tauri-plugin-sql 2.6.0 : `load`, `execute`, `select` et `close` ont chacune une permission ; les migrations passent par `preload` dans le `setup` du plugin, sans permission front. MC1 reste une confirmation à l'exécution avant fusion ; si MC1 échoue : T2-B avant tout contenu externe |
 | R2. Latence par connexion (S3) | Interface plus lente (ouverture d'un tableau, recherche) | PV1 / MC7 ; repli local vers un pool (T4-B) dans `data::connect` |
 | R3. Écart de contrat non repéré lors du portage | Régression silencieuse d'un widget | Portage **cas par cas** des 131 tests TS (table de correspondance obligatoire) ; specs des stores et widgets inchangées et vertes |
 | R4. Désérialisation (S2) non traduite en `invalid_input` | Erreurs `unknown` au lieu de `invalid_input` | MC1 ; repli TS (§4.3) |
 | R5. Budget du bundle | Avertissement CI | Critère par lot ; arrêt et décision si dépassé |
 | R6. Lot TC2 volumineux (Rust + front + T3) | Revue difficile | Découpage interne autorisé (TC2a : Rust ; TC2b : front), mêmes CA |
-| R7. Commandes destructrices accessibles à un XSS | Perte de données | Résiduel documenté (§4.13) ; sauvegardes ; à réévaluer à l'audit de phase 6 (sauvegarde avant `widget_delete` ?) |
+| R7. Commandes destructrices accessibles à un XSS | Perte de données | Résiduel documenté (§4.13), complété après la revue finale : suppressions sans sauvegarde, (a) écrasements sans sauvegarde, (b) suppressions du planificateur, (c) import d'un plan forgé sans dialogue, (d) restauration interne sans dialogue, (e) purge des réserves de sauvegarde par rotation, (f) remplissage du disque. Aucun n'est une régression. Sauvegardes quotidiennes et de sécurité. À réévaluer à l'audit de phase 6 ; pistes non décidées : dialogue natif pour l'import et la restauration, sauvegarde avant écrasement ou suppression (dont `widget_delete`), bornes de nombre, protection des réserves |
 | R8. Transition TC2–TC3 : deux chemins d'accès coexistent | Incohérence temporaire | Branche unique `phase-3-typed-sql`, fusion sur `main` seulement après TC4 et MC1 à MC8 |
 | R9. Une écriture acceptée pendant la préparation d'une restauration (avant `mark_restart_pending`) est perdue au redémarrage | Perte de la dernière modification | Résiduel assumé ; suivi possible : poser le drapeau d'écritures refusées au début de `backup_restore` |
 
