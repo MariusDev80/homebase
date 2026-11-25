@@ -20,15 +20,6 @@ export function validSearch(query: string, limit: number): string {
   return trimmed;
 }
 
-/**
- * `%term%` LIKE pattern with `\`, `%` and `_` escaped (use with `ESCAPE '\'`).
- * SQLite's LIKE is case-insensitive for ASCII only: accented or non-Latin letters match
- * case-sensitively, and "e" does not match "é" (documented limit, no extension loaded).
- */
-export function likeContains(term: string): string {
-  return `%${term.replace(/[\\%_]/g, '\\$&')}%`;
-}
-
 /** Short single-line excerpt of `body` around the first occurrence of `term` (ASCII-insensitive). */
 export function excerptAround(body: string, term: string): string {
   const lowerBody = body.toLowerCase();

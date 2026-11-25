@@ -1,6 +1,118 @@
 import { DataError } from '../data-error';
 import { parseJsonObject, parseJsonValue, type JsonValue } from '../json';
-import type { Dashboard, GridRect, WidgetInstanceRecord } from '../models';
+import type {
+  Dashboard,
+  GridRect,
+  Note,
+  Shortcut,
+  Todo,
+  TodoList,
+  WidgetInstanceRecord,
+} from '../models';
+
+export interface NoteWire {
+  readonly id: string;
+  readonly widgetInstanceId: string | null;
+  readonly title: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface NoteHitWire {
+  readonly id: string;
+  readonly title: string;
+  readonly body: string;
+  readonly widgetInstanceId: string | null;
+}
+
+export interface ShortcutWire {
+  readonly id: string;
+  readonly label: string;
+  readonly url: string;
+  readonly sortOrder: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface TodoListWire {
+  readonly id: string;
+  readonly widgetInstanceId: string | null;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface TodoWire {
+  readonly id: string;
+  readonly listId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly dueOn: string | null;
+  readonly rrule: string | null;
+  readonly important: boolean;
+  readonly completedAt: string | null;
+  readonly sortOrder: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface TodoHitWire {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly listId: string;
+  readonly widgetInstanceId: string | null;
+  readonly completedAt: string | null;
+}
+
+export function toNote(wire: NoteWire): Note {
+  return {
+    id: wire.id,
+    widgetInstanceId: wire.widgetInstanceId,
+    title: wire.title,
+    body: wire.body,
+    createdAt: wire.createdAt,
+    updatedAt: wire.updatedAt,
+  };
+}
+
+export function toShortcut(wire: ShortcutWire): Shortcut {
+  return {
+    id: wire.id,
+    label: wire.label,
+    url: wire.url,
+    sortOrder: wire.sortOrder,
+    createdAt: wire.createdAt,
+    updatedAt: wire.updatedAt,
+  };
+}
+
+export function toTodoList(wire: TodoListWire): TodoList {
+  return {
+    id: wire.id,
+    widgetInstanceId: wire.widgetInstanceId,
+    name: wire.name,
+    createdAt: wire.createdAt,
+    updatedAt: wire.updatedAt,
+  };
+}
+
+export function toTodo(wire: TodoWire): Todo {
+  return {
+    id: wire.id,
+    listId: wire.listId,
+    title: wire.title,
+    description: wire.description,
+    dueOn: wire.dueOn,
+    rrule: wire.rrule,
+    important: wire.important,
+    completedAt: wire.completedAt,
+    sortOrder: wire.sortOrder,
+    createdAt: wire.createdAt,
+    updatedAt: wire.updatedAt,
+  };
+}
 
 /** Wire shapes of the Rust DTOs (camelCase; JSON objects travel as text). */
 export interface DashboardWire {

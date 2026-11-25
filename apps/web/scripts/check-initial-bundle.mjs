@@ -1,5 +1,5 @@
 // Fails when the initial chunks (index.html scripts + modulepreload + their static imports) contain
-// SQL of the lazy content repositories (todo, note, shortcut: data/content.tokens.ts). Those
+// the command names of the lazy content repositories (todo, note, shortcut: data/content.tokens.ts). Those
 // repositories must only be reachable through dynamic imports (lazy widgets / calendar sources).
 // Usage: node scripts/check-initial-bundle.mjs [distDir]
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.resolve(process.argv[2] ?? path.join(scriptDir, '..', 'dist', 'web', 'browser'));
-const FORBIDDEN = ['FROM todos', 'FROM notes', 'FROM shortcuts'];
+// Command names owned by the lazy content repositories (data/tauri/tauri-{todo,note,shortcut}).
+const FORBIDDEN = ['todo_list_items', 'note_search', 'shortcut_reorder'];
 
 const indexPath = path.join(dist, 'index.html');
 if (!existsSync(indexPath)) {
@@ -68,8 +69,8 @@ for (const name of initial) {
   for (const needle of FORBIDDEN) if (text.includes(needle)) found.push(`${name}: ${needle}`);
 }
 if (found.length > 0) {
-  console.error('Content repository SQL found in the initial bundle (must stay lazy):');
+  console.error('Content repository commands found in the initial bundle (must stay lazy):');
   for (const line of found) console.error(`  ${line}`);
   process.exit(1);
 }
-console.log(`OK: no content repository SQL in ${initial.size} initial chunk(s).`);
+console.log(`OK: no content repository command in ${initial.size} initial chunk(s).`);

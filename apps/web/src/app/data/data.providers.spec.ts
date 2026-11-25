@@ -2,7 +2,6 @@ import { EnvironmentInjector, createEnvironmentInjector } from '@angular/core';
 import {
   DASHBOARD_REPOSITORY,
   SETTINGS_REPOSITORY,
-  SQL_EXECUTOR,
   WIDGET_INSTANCE_REPOSITORY,
   provideDataLayer,
 } from './data.providers';
@@ -26,12 +25,6 @@ describe('provideDataLayer', () => {
     expect(di.get(SETTINGS_REPOSITORY)).toBeInstanceOf(TauriSettingsRepository);
     expect(di.get(DASHBOARD_REPOSITORY)).toBeInstanceOf(TauriDashboardRepository);
     expect(di.get(WIDGET_INSTANCE_REPOSITORY)).toBeInstanceOf(TauriWidgetInstanceRepository);
-  });
-
-  it('keeps the guarded SQL executor, which is unavailable outside Tauri', async () => {
-    const executor = injector().get(SQL_EXECUTOR);
-    await expect(executor.select('SELECT 1')).rejects.toMatchObject({ kind: 'unavailable' });
-    await expect(executor.execute('SELECT 1')).rejects.toMatchObject({ kind: 'unavailable' });
   });
 
   it('repositories are unavailable outside Tauri', async () => {
