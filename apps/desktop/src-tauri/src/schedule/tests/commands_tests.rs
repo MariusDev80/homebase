@@ -1529,3 +1529,159 @@ fn a_habit_reminder_is_not_found_by_the_generic_reminder_commands() {
             .is_empty());
     });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Past exceptions are dropped on write (ROADMAP phase 3)
+// ---------------------------------------------------------------------------------------------
+
+/// With `NOW` = 2026-11-16 09:00 Paris, the cutoff is 2026-11-09 09:00 Paris (7 days earlier).
+#[test]
+fn create_drops_exdates_older_than_the_catchup_window_and_keeps_the_rest() {
+    let fx = Fx::new();
+    run(async {
+        let mut dto = create_dto(1, "Eau", "2026-01-01T09:00:00", Some("FREQ=DAILY"));
+        dto.exdates = [
+            "2026-11-09T08:59:59", // just before the cutoff: dropped
+            "2026-11-09T09:00:00", // exactly the cutoff: kept (still catchable)
+            "2026-11-12T09:00:00", // inside the window: kept
+            "2026-11-16T09:00:00", // now: kept
+            "2026-11-20T09:00:00", // future: kept
+            "2025-03-01T09:00:00", // long past: dropped
+        ]
+        .map(str::to_owned)
+        .to_vec();
+        let created = create_reminder(&fx.ctx, dto).await.expect("create");
+        assert_eq!(
+            created.exdates,
+            [
+                "2026-11-09T09:00:00",
+                "2026-11-12T09:00:00",
+                "2026-11-16T09:00:00",
+                "2026-11-20T09:00:00"
+            ]
+        );
+        let stored = fx.raw_reminder(1).await.expect("row");
+        assert_eq!(
+            stored.exdates,
+            r#"["2026-11-09T09:00:00","2026-11-12T09:00:00","2026-11-16T09:00:00","2026-11-20T09:00:00"]"#
+        );
+    });
+}
+
+#[test]
+fn a_daily_reminder_with_366_past_exdates_still_accepts_skip() {
+    let fx = Fx::new();
+    run(async {
+        let first = jiff::civil::date(2025, 1, 1);
+        let past: Vec<String> = (0..366)
+            .map(|i| format!("{}T09:00:00", first + jiff::Span::new().days(i)))
+            .collect();
+        assert_eq!(past.last().map(String::as_str), Some("2026-01-01T09:00:00"));
+
+        let mut dto = create_dto(1, "Eau", "2025-01-01T09:00:00", Some("FREQ=DAILY"));
+        dto.exdates = past.clone();
+        dto.exdates.push("2026-11-17T09:00:00".to_owned());
+        let created = create_reminder(&fx.ctx, dto).await.expect("create");
+        assert_eq!(created.exdates, ["2026-11-17T09:00:00"]);
+
+        // The same through "Skip": an update carrying the old list plus the next key.
+        let mut exdates: Vec<&str> = past.iter().map(String::as_str).collect();
+        exdates.push("2026-11-17T09:00:00");
+        let updated = update_reminder(
+            &fx.ctx,
+            uuid(1),
+            input_dto(
+                "Eau",
+                "2025-01-01T09:00:00",
+                Some("FREQ=DAILY"),
+                &exdates,
+                true,
+            ),
+        )
+        .await
+        .expect("update");
+        assert_eq!(updated.exdates, ["2026-11-17T09:00:00"]);
+        assert_eq!(
+            updated.next_fire_key.as_deref(),
+            Some("2026-11-18T09:00:00")
+        );
+    });
+}
+
+#[test]
+fn the_limit_of_366_still_applies_to_kept_exdates() {
+    let fx = Fx::new();
+    run(async {
+        let first = jiff::civil::date(2026, 11, 20);
+        let mut dto = create_dto(1, "Eau", "2026-01-01T09:00:00", Some("FREQ=DAILY"));
+        dto.exdates = (0..367)
+            .map(|i| format!("{}T09:00:00", first + jiff::Span::new().days(i)))
+            .collect();
+        assert!(create_reminder(&fx.ctx, dto).await.is_err());
+    });
+}
+
+#[test]
+fn update_drops_past_exdates_too() {
+    let fx = Fx::new();
+    run(async {
+        fx.make(1, "Eau", "2026-01-01T09:00:00", Some("FREQ=DAILY"))
+            .await;
+        let updated = update_reminder(
+            &fx.ctx,
+            uuid(1),
+            input_dto(
+                "Eau",
+                "2026-01-01T09:00:00",
+                Some("FREQ=DAILY"),
+                &["2026-10-01T09:00:00", "2026-11-14T09:00:00"],
+                true,
+            ),
+        )
+        .await
+        .expect("update");
+        assert_eq!(updated.exdates, ["2026-11-14T09:00:00"]);
+    });
+}
+
+/// The cutoff is an instant, not a wall-clock subtraction: across the spring change (Paris
+/// 2026-03-29) 7 days earlier is 11:00 CET, not 12:00.
+#[test]
+fn the_cutoff_follows_the_instant_across_the_spring_change() {
+    let fx = Fx::new();
+    run(async {
+        fx.set("2026-04-02T10:00:00.000Z");
+        let mut dto = create_dto(1, "Eau", "2026-01-01T09:00:00", Some("FREQ=DAILY"));
+        dto.exdates = [
+            "2026-03-26T10:59:59",
+            "2026-03-26T11:00:00",
+            "2026-03-26T12:00:00",
+        ]
+        .map(str::to_owned)
+        .to_vec();
+        let created = create_reminder(&fx.ctx, dto).await.expect("create");
+        assert_eq!(
+            created.exdates,
+            ["2026-03-26T11:00:00", "2026-03-26T12:00:00"]
+        );
+    });
+}
+
+/// Same across the autumn change (Paris 2026-10-25): 7 days earlier is 11:00 CET.
+#[test]
+fn the_cutoff_follows_the_instant_across_the_autumn_change() {
+    let fx = Fx::new();
+    run(async {
+        fx.set("2026-11-01T10:00:00.000Z");
+        let mut dto = create_dto(1, "Eau", "2026-01-01T09:00:00", Some("FREQ=DAILY"));
+        dto.exdates = [
+            "2026-10-25T02:30:00", // ambiguous wall time (first pass, CEST): long before
+            "2026-10-25T10:59:59",
+            "2026-10-25T11:00:00",
+        ]
+        .map(str::to_owned)
+        .to_vec();
+        let created = create_reminder(&fx.ctx, dto).await.expect("create");
+        assert_eq!(created.exdates, ["2026-10-25T11:00:00"]);
+    });
+}

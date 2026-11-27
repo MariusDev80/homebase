@@ -12,15 +12,16 @@ use super::store::{self, HistoryCursor, SeenTarget, UnseenDelivery};
 use super::text::{check_id, check_label, check_title};
 use super::tick::{cache_of, settle_due, show_notices, Cache, TickReport};
 use super::{
-    SchedulerCtx, SchedulerState, LABEL_MAX_CHARS, LIST_MAX_LIMIT, MAX_REMINDERS,
+    SchedulerCtx, SchedulerState, CATCHUP_WINDOW, LABEL_MAX_CHARS, LIST_MAX_LIMIT, MAX_REMINDERS,
     MAX_RUNNING_SESSIONS, TITLE_MAX_CHARS,
 };
 use crate::time::commands::{to_spec, AnchorDto, RecurrenceSpecDto};
 use crate::time::error::TimeError;
 use crate::time::formats::{
-    format_instant, format_local_date_time, parse_instant, parse_local_date_time,
+    format_instant, format_local_date_time, parse_instant, parse_local_date_time, parse_time_zone,
 };
 use crate::time::recurrence::{format_rule, Anchor, RecurrenceSpec};
+use crate::time::zone::resolve_local;
 use jiff::{SignedDuration, Timestamp};
 use sqlx::SqliteConnection;
 use tauri::State;
@@ -299,6 +300,36 @@ pub(super) fn prepare(
     })
 }
 
+/// Above this many entries the list is left alone: `prepare` refuses it (limit of 366) anyway.
+const PRUNE_MAX_INPUT: usize = 1_000;
+
+/// Drops the exceptions whose occurrence can neither be scheduled nor caught up any more: those
+/// resolved (in the reminder's zone, `compatible`) strictly before `now - CATCHUP_WINDOW`. Without
+/// this, a daily reminder skipped often would reach the 366 limit and refuse "Skip". Entries that
+/// do not parse, an unknown zone or an oversized list are left as they are, for `prepare` to
+/// report. Order and format of the kept entries are untouched.
+pub(super) fn prune_past_exdates(
+    exdates: Vec<String>,
+    time_zone: &str,
+    now: Timestamp,
+) -> Vec<String> {
+    if exdates.is_empty() || exdates.len() > PRUNE_MAX_INPUT {
+        return exdates;
+    }
+    let (Ok(tz), Ok(cutoff)) = (parse_time_zone(time_zone), now.checked_sub(CATCHUP_WINDOW)) else {
+        return exdates;
+    };
+    exdates
+        .into_iter()
+        .filter(|value| {
+            let Ok(local) = parse_local_date_time(value) else {
+                return true;
+            };
+            resolve_local(local, &tz).map_or(true, |at| at >= cutoff)
+        })
+        .collect()
+}
+
 /// Cache of the next occurrence after `now`; none for a disabled reminder or a finished series.
 pub(super) fn cache_for(
     spec: &RecurrenceSpec,
@@ -348,6 +379,7 @@ pub(crate) async fn create_reminder(
         enabled,
     } = input;
     check_id(&id)?;
+    let exdates = prune_past_exdates(exdates, &time_zone, now_of(ctx)?);
     let parts = prepare(title, start_local, time_zone, rrule, exdates)?;
     let (row, status) = locked!(ctx, conn => {
         let now = now_of(ctx)?;
@@ -377,6 +409,7 @@ pub(crate) async fn update_reminder(
         exdates,
         enabled,
     } = input;
+    let exdates = prune_past_exdates(exdates, &time_zone, now_of(ctx)?);
     let parts = prepare(title, start_local, time_zone, rrule, exdates)?;
     let mut notices = Vec::new();
     let result = locked!(ctx, conn => {
