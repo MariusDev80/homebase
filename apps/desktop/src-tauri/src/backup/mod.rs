@@ -132,6 +132,11 @@ impl BackupState {
         Ok(BusyGuard { busy: &self.busy })
     }
 
+    /// A restoration is staged: the data commands refuse writes (T7).
+    pub fn is_restart_pending(&self) -> bool {
+        self.restart_pending.load(Ordering::SeqCst)
+    }
+
     pub fn mark_restart_pending(&self) {
         self.restart_pending.store(true, Ordering::SeqCst);
     }

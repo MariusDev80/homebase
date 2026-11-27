@@ -108,8 +108,8 @@ export class FakeWidgetInstanceRepository implements WidgetInstanceRepository {
     return changed;
   }
 
-  async moveToDashboard(targetDashboardId: string, items: readonly LayoutItem[]): Promise<number> {
-    await this.check();
+  /** Test helper: moves the listed instances to another dashboard with their new rectangles. */
+  relocate(targetDashboardId: string, items: readonly LayoutItem[]): number {
     let changed = 0;
     for (const item of items) {
       const index = this.items.findIndex((i) => i.id === item.id);

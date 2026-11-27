@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dashboard-list"
+description = "Enables the dashboard_list command without any pre-configured scope."
+commands.allow = ["dashboard_list"]
+
+[[permission]]
+identifier = "deny-dashboard-list"
+description = "Denies the dashboard_list command without any pre-configured scope."
+commands.deny = ["dashboard_list"]

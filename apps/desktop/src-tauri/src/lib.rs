@@ -1,6 +1,7 @@
 mod backup;
 #[cfg(test)]
 mod capability_tests;
+mod data;
 mod db;
 mod net;
 mod schedule;
@@ -54,6 +55,49 @@ fn invoke_handler<R: tauri::Runtime>(
         schedule::habit_commands::habit_delete,
         schedule::habit_commands::habit_checks,
         schedule::habit_commands::habit_set_check,
+        data::settings::setting_get,
+        data::settings::setting_list,
+        data::settings::setting_set,
+        data::settings::setting_delete,
+        data::dashboards::dashboard_list,
+        data::dashboards::dashboard_get,
+        data::dashboards::dashboard_create,
+        data::dashboards::dashboard_ensure_default,
+        data::dashboards::dashboard_update,
+        data::dashboards::dashboard_update_theme,
+        data::dashboards::dashboard_create_with_widgets,
+        data::widgets::widget_list,
+        data::widgets::widget_get,
+        data::widgets::widget_create,
+        data::widgets::widget_update_config,
+        data::widgets::widget_update_layout,
+        data::widgets::widget_find_first_of_type,
+        data::widgets::widget_delete,
+        data::notes::note_get,
+        data::notes::note_create,
+        data::notes::note_update,
+        data::notes::note_delete,
+        data::notes::note_search,
+        data::shortcuts::shortcut_list,
+        data::shortcuts::shortcut_create,
+        data::shortcuts::shortcut_update,
+        data::shortcuts::shortcut_delete,
+        data::shortcuts::shortcut_reorder,
+        data::shortcuts::shortcut_search,
+        data::todos::todo_list_for_widget,
+        data::todos::todo_list_create,
+        data::todos::todo_list_items,
+        data::todos::todo_create,
+        data::todos::todo_update,
+        data::todos::todo_shift_repeat_due,
+        data::todos::todo_set_completed,
+        data::todos::todo_delete,
+        data::todos::todo_due,
+        data::todos::todo_overdue,
+        data::todos::todo_repeating_due,
+        data::todos::todo_reorder,
+        data::todos::todo_clear_completed,
+        data::todos::todo_search,
     ]
 }
 
@@ -97,6 +141,49 @@ fn invoke_handler<R: tauri::Runtime>(
         schedule::habit_commands::habit_delete,
         schedule::habit_commands::habit_checks,
         schedule::habit_commands::habit_set_check,
+        data::settings::setting_get,
+        data::settings::setting_list,
+        data::settings::setting_set,
+        data::settings::setting_delete,
+        data::dashboards::dashboard_list,
+        data::dashboards::dashboard_get,
+        data::dashboards::dashboard_create,
+        data::dashboards::dashboard_ensure_default,
+        data::dashboards::dashboard_update,
+        data::dashboards::dashboard_update_theme,
+        data::dashboards::dashboard_create_with_widgets,
+        data::widgets::widget_list,
+        data::widgets::widget_get,
+        data::widgets::widget_create,
+        data::widgets::widget_update_config,
+        data::widgets::widget_update_layout,
+        data::widgets::widget_find_first_of_type,
+        data::widgets::widget_delete,
+        data::notes::note_get,
+        data::notes::note_create,
+        data::notes::note_update,
+        data::notes::note_delete,
+        data::notes::note_search,
+        data::shortcuts::shortcut_list,
+        data::shortcuts::shortcut_create,
+        data::shortcuts::shortcut_update,
+        data::shortcuts::shortcut_delete,
+        data::shortcuts::shortcut_reorder,
+        data::shortcuts::shortcut_search,
+        data::todos::todo_list_for_widget,
+        data::todos::todo_list_create,
+        data::todos::todo_list_items,
+        data::todos::todo_create,
+        data::todos::todo_update,
+        data::todos::todo_shift_repeat_due,
+        data::todos::todo_set_completed,
+        data::todos::todo_delete,
+        data::todos::todo_due,
+        data::todos::todo_overdue,
+        data::todos::todo_repeating_due,
+        data::todos::todo_reorder,
+        data::todos::todo_clear_completed,
+        data::todos::todo_search,
     ]
 }
 
@@ -145,6 +232,8 @@ pub fn run() {
         .setup(|app| {
             // First, before anything else: confirms a restoration done in this process.
             let restore_attempted = backup::startup::on_app_ready(app.handle())?;
+            // Right after: WAL is applied by Rust before any data command can run (never fails).
+            data::bootstrap::at_startup(app.handle());
             tray::setup(app.handle())?;
             schedule::start(app.handle())?;
             refresh_autostart(app.handle());
@@ -323,6 +412,49 @@ mod tests {
             "schedule::habit_commands::habit_delete",
             "schedule::habit_commands::habit_checks",
             "schedule::habit_commands::habit_set_check",
+            "data::settings::setting_get",
+            "data::settings::setting_list",
+            "data::settings::setting_set",
+            "data::settings::setting_delete",
+            "data::dashboards::dashboard_list",
+            "data::dashboards::dashboard_get",
+            "data::dashboards::dashboard_create",
+            "data::dashboards::dashboard_ensure_default",
+            "data::dashboards::dashboard_update",
+            "data::dashboards::dashboard_update_theme",
+            "data::dashboards::dashboard_create_with_widgets",
+            "data::widgets::widget_list",
+            "data::widgets::widget_get",
+            "data::widgets::widget_create",
+            "data::widgets::widget_update_config",
+            "data::widgets::widget_update_layout",
+            "data::widgets::widget_find_first_of_type",
+            "data::widgets::widget_delete",
+            "data::notes::note_get",
+            "data::notes::note_create",
+            "data::notes::note_update",
+            "data::notes::note_delete",
+            "data::notes::note_search",
+            "data::shortcuts::shortcut_list",
+            "data::shortcuts::shortcut_create",
+            "data::shortcuts::shortcut_update",
+            "data::shortcuts::shortcut_delete",
+            "data::shortcuts::shortcut_reorder",
+            "data::shortcuts::shortcut_search",
+            "data::todos::todo_list_for_widget",
+            "data::todos::todo_list_create",
+            "data::todos::todo_list_items",
+            "data::todos::todo_create",
+            "data::todos::todo_update",
+            "data::todos::todo_shift_repeat_due",
+            "data::todos::todo_set_completed",
+            "data::todos::todo_delete",
+            "data::todos::todo_due",
+            "data::todos::todo_overdue",
+            "data::todos::todo_repeating_due",
+            "data::todos::todo_reorder",
+            "data::todos::todo_clear_completed",
+            "data::todos::todo_search",
         ] {
             assert_eq!(
                 production.matches(&format!("        {command},")).count(),
@@ -370,6 +502,49 @@ mod tests {
             "habit_delete",
             "habit_checks",
             "habit_set_check",
+            "setting_get",
+            "setting_list",
+            "setting_set",
+            "setting_delete",
+            "dashboard_list",
+            "dashboard_get",
+            "dashboard_create",
+            "dashboard_ensure_default",
+            "dashboard_update",
+            "dashboard_update_theme",
+            "dashboard_create_with_widgets",
+            "widget_list",
+            "widget_get",
+            "widget_create",
+            "widget_update_config",
+            "widget_update_layout",
+            "widget_find_first_of_type",
+            "widget_delete",
+            "note_get",
+            "note_create",
+            "note_update",
+            "note_delete",
+            "note_search",
+            "shortcut_list",
+            "shortcut_create",
+            "shortcut_update",
+            "shortcut_delete",
+            "shortcut_reorder",
+            "shortcut_search",
+            "todo_list_for_widget",
+            "todo_list_create",
+            "todo_list_items",
+            "todo_create",
+            "todo_update",
+            "todo_shift_repeat_due",
+            "todo_set_completed",
+            "todo_delete",
+            "todo_due",
+            "todo_overdue",
+            "todo_repeating_due",
+            "todo_reorder",
+            "todo_clear_completed",
+            "todo_search",
         ] {
             assert!(build.contains(&format!("\"{command}\",")), "{command}");
         }
@@ -438,6 +613,26 @@ mod tests {
         assert!(ready < tray, "on_app_ready must come before tray::setup");
         assert!(!production.contains("app_restart"));
         assert!(!production.contains("tauri_plugin_process"));
+    }
+
+    #[test]
+    fn wal_is_applied_after_the_confirmation_and_before_the_tray_and_the_scheduler() {
+        let source = include_str!("lib.rs");
+        let production = source
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production part");
+        let ready = production
+            .find("backup::startup::on_app_ready(")
+            .expect("on_app_ready");
+        let wal = production
+            .find("data::bootstrap::at_startup(")
+            .expect("at_startup");
+        let tray = production.find("tray::setup(").expect("tray");
+        let start = production.find("schedule::start(").expect("schedule start");
+        assert!(ready < wal, "at_startup must come after on_app_ready");
+        assert!(wal < tray, "at_startup must come before tray::setup");
+        assert!(tray < start, "schedule::start must come after tray::setup");
     }
 
     #[test]

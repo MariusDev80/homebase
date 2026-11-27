@@ -13,6 +13,7 @@ function restrict({
   tauriApi = false,
   timeBarrel = false,
   tauriRepos = false,
+  testingRelative = false,
 }) {
   const paths = [
     { name: 'better-sqlite3', message: 'Test-only dependency (data/testing).' },
@@ -28,7 +29,8 @@ function restrict({
   if (plugin) {
     paths.push({
       name: '@tauri-apps/plugin-sql',
-      message: 'Only data/sqlite/tauri-sql-executor.ts may import the SQL plugin.',
+      message:
+        'The front has no SQL access: all data goes through typed Rust commands (data/tauri).',
     });
   }
   const patterns = [{ group: ['node:*'], message: 'Node built-ins are test-only.' }];
@@ -45,6 +47,12 @@ function restrict({
         'Initial bundle: esbuild puts in the initial chunk every module re-exported by a barrel imported from main. Import the real file (core/time/time-zone, ...).',
     });
   }
+  if (testingRelative) {
+    patterns.push({
+      regex: '(^|/)testing(/|$)',
+      message: 'data/testing is test-only: production code must not import it.',
+    });
+  }
   if (temporal) {
     patterns.push({
       group: ['temporal-polyfill', 'temporal-polyfill/*'],
@@ -53,11 +61,7 @@ function restrict({
   }
   if (internals) {
     patterns.push({
-      group: [
-        '**/data/sqlite/**',
-        '**/data/testing/**',
-        ...(tauriRepos ? [] : ['**/data/tauri/**']),
-      ],
+      group: ['**/data/testing/**', ...(tauriRepos ? [] : ['**/data/tauri/**'])],
       message: 'Import from the data layer public API (data/index.ts) instead.',
     });
   }
@@ -156,7 +160,7 @@ module.exports = defineConfig([
     rules: {
       'no-restricted-imports': [
         'error',
-        restrict({ plugin: true, internals: false, tauriApi: true }),
+        restrict({ plugin: true, internals: false, tauriApi: true, testingRelative: true }),
       ],
     },
   },
@@ -164,15 +168,9 @@ module.exports = defineConfig([
     // The Rust-command repositories: the only part of data/ that reaches the Tauri API.
     files: ['src/app/data/tauri/**/*.ts'],
     rules: {
-      'no-restricted-imports': ['error', restrict({ plugin: true, internals: false })],
-    },
-  },
-  {
-    files: ['src/app/data/sqlite/tauri-sql-executor.ts'],
-    rules: {
       'no-restricted-imports': [
         'error',
-        restrict({ plugin: false, internals: false, tauriApi: true }),
+        restrict({ plugin: true, internals: false, testingRelative: true }),
       ],
     },
   },

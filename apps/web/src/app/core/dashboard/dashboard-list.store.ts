@@ -6,6 +6,7 @@ import {
   type Dashboard,
   type DashboardPatch,
   type JsonObject,
+  type LayoutItem,
 } from '../../data';
 import { PendingWrites } from '../widgets/pending-writes';
 
@@ -119,17 +120,32 @@ export class DashboardListStore {
   }
 
   /**
-   * Best-effort cleanup of an empty dashboard that was just created (no backup: it holds nothing).
-   * A failure is only logged; the dashboard then stays in the list, as it does in the database.
+   * Atomic overflow: creates the dashboard and moves the listed instances of the source to it in
+   * one transaction (nothing is created when it fails). Adds the created dashboard to the list.
    */
-  async discardEmpty(id: string): Promise<void> {
-    try {
-      if (await this.repository.remove(id)) {
-        this.dashboardsState.update((list) => list.filter((d) => d.id !== id));
-      }
-    } catch (error) {
-      console.error('Could not remove the empty dashboard', error);
-    }
+  async createWithWidgets(
+    input: {
+      readonly name: string;
+      readonly icon: string;
+      readonly theme?: JsonObject;
+      readonly themeVersion?: number;
+    },
+    sourceDashboardId: string,
+    items: readonly LayoutItem[],
+  ): Promise<{ readonly dashboard: Dashboard; readonly moved: number }> {
+    if (this.dashboardsState().length >= MAX_DASHBOARDS) throw new DashboardLimitError();
+    const result = await this.repository.createWithWidgets(
+      {
+        name: input.name,
+        icon: input.icon,
+        ...(input.theme !== undefined ? { theme: input.theme } : {}),
+        ...(input.themeVersion !== undefined ? { themeVersion: input.themeVersion } : {}),
+      },
+      sourceDashboardId,
+      items,
+    );
+    this.dashboardsState.update((list) => [...list, result.dashboard]);
+    return result;
   }
 
   async countWidgets(id: string): Promise<number> {

@@ -9,6 +9,11 @@ use super::fsutil::rename_with_retry;
 use super::names::{hb_trim, is_uuid_shape, BackupKind};
 use super::paths::DataRoot;
 use super::MAX_CONFIG_FILE_BYTES;
+pub use crate::data::validate::is_secret_setting_key;
+use crate::data::validate::{
+    is_dashboard_icon_shape, is_setting_key_shape, is_widget_type_shape, MAX_CONFIG_VERSION,
+    MAX_GRID, MAX_THEME_CHARS,
+};
 use crate::time::clock::Clock;
 use crate::time::formats::format_instant;
 use serde::Deserialize;
@@ -23,21 +28,16 @@ use std::time::Duration;
 
 pub const CONFIG_FORMAT: &str = "homebase/dashboard-config";
 
-const MAX_DASHBOARDS: usize = 100;
-const MAX_WIDGETS_PER_DASHBOARD: usize = 200;
-const MAX_WIDGETS: usize = 1_000;
-const MAX_SETTINGS: usize = 200;
+// Single source: the data commands enforce the same limits (T6).
+const MAX_DASHBOARDS: usize = crate::data::MAX_DASHBOARDS as usize;
+const MAX_WIDGETS_PER_DASHBOARD: usize = crate::data::MAX_WIDGETS_PER_DASHBOARD as usize;
+const MAX_WIDGETS: usize = crate::data::MAX_WIDGETS as usize;
+const MAX_SETTINGS: usize = crate::data::MAX_SETTINGS as usize;
+
 const MAX_NAME_CHARS: usize = 100;
-const MAX_WIDGET_TYPE_CHARS: usize = 64;
 const MAX_JSON_CHARS: usize = 65_536;
-/// Same as `MAX_DASHBOARD_THEME_CHARS` on the front and the `CHECK` of V5 (code points).
-const MAX_THEME_CHARS: usize = 4_096;
-const MAX_GRID: i64 = 10_000;
 const MAX_SORT_ORDER: i64 = 1_000_000;
-const MAX_CONFIG_VERSION: i64 = 10_000;
-const MAX_SETTING_KEY_CHARS: usize = 128;
-const MAX_ICON_CHARS: usize = 32;
-/// How long the write transaction waits for another writer (the SQL plugin pool of the front).
+/// How long the write transaction waits for another writer (the data commands).
 const WRITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -108,49 +108,6 @@ fn char_count(s: &str) -> usize {
 /// Setting never written by an import (defence in depth: the front already drops it).
 const EXCLUDED_SETTING_KEY: &str = "dashboard.last";
 
-/// Same as the front's `SECRET_KEY_PATTERN`, written by hand (no `regex`): a key is secret when it
-/// contains one of the markers, case-insensitively.
-pub fn is_secret_setting_key(key: &str) -> bool {
-    const MARKERS: [&str; 9] = [
-        "secret",
-        "token",
-        "password",
-        "passwd",
-        "credential",
-        "apikey",
-        "api_key",
-        "api-key",
-        "api.key",
-    ];
-    let lower = key.to_lowercase();
-    MARKERS.iter().any(|m| lower.contains(m))
-}
-
-/// `^[a-z][a-z0-9-]{0,31}$`, checked on bytes (a NUL or any non-ASCII byte is refused).
-fn is_dashboard_icon_shape(icon: &str) -> bool {
-    let bytes = icon.as_bytes();
-    let Some((first, rest)) = bytes.split_first() else {
-        return false;
-    };
-    first.is_ascii_lowercase()
-        && bytes.len() <= MAX_ICON_CHARS
-        && rest
-            .iter()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
-}
-
-/// `^[a-z][a-z0-9._-]{0,127}$`
-fn is_setting_key_shape(key: &str) -> bool {
-    let mut chars = key.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    first.is_ascii_lowercase()
-        && key.len() <= MAX_SETTING_KEY_CHARS
-        && chars
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
-}
-
 fn json_within(text: &str, max_chars: usize) -> Option<Value> {
     if char_count(text) > max_chars {
         return None;
@@ -214,11 +171,7 @@ pub fn validate_plan(plan: &ConfigImportPlan) -> Result<(), BackupError> {
             if !widget_ids.insert(widget.id.as_str()) {
                 return Err(problem(ImportProblem::DuplicateId));
             }
-            let type_len = char_count(&widget.widget_type);
-            if type_len == 0
-                || type_len > MAX_WIDGET_TYPE_CHARS
-                || widget.widget_type.contains('\0')
-            {
+            if !is_widget_type_shape(&widget.widget_type) {
                 return Err(problem(ImportProblem::InvalidWidgetType));
             }
             let g = widget.grid;

@@ -27,7 +27,7 @@ export const CONFIG_FORMAT_VERSION = 3;
 /** Versions this build reads: 1 (no icon, no theme), 2 (no theme) and 3. */
 export const SUPPORTED_FORMAT_VERSIONS: readonly number[] = [1, 2, 3];
 
-/** Same pattern as `SqliteSettingsRepository` (data/ is not touched, so it is repeated here). */
+/** Same pattern as the Rust `is_secret_setting_key` (data/validate.rs; data/ is not touched, so it is repeated here). */
 export const SECRET_KEY_PATTERN = /(secret|token|passw(or)?d|api[-_.]?key|credential)/i;
 export const SETTING_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,127}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

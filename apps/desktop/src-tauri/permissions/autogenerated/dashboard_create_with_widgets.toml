@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dashboard-create-with-widgets"
+description = "Enables the dashboard_create_with_widgets command without any pre-configured scope."
+commands.allow = ["dashboard_create_with_widgets"]
+
+[[permission]]
+identifier = "deny-dashboard-create-with-widgets"
+description = "Denies the dashboard_create_with_widgets command without any pre-configured scope."
+commands.deny = ["dashboard_create_with_widgets"]

@@ -1,11 +1,11 @@
 import { FakeWidgetInstanceRepository } from './fake-widget-instance.repository';
 
 describe('FakeWidgetInstanceRepository', () => {
-  it('moveToDashboard moves the listed instances with their new rectangles', async () => {
+  it('relocate moves the listed instances with their new rectangles', () => {
     const repo = new FakeWidgetInstanceRepository();
     const a = repo.seed({ dashboardId: 'd1' });
     const b = repo.seed({ dashboardId: 'd1' });
-    const n = await repo.moveToDashboard('d2', [{ id: a.id, grid: { x: 1, y: 2, w: 3, h: 4 } }]);
+    const n = repo.relocate('d2', [{ id: a.id, grid: { x: 1, y: 2, w: 3, h: 4 } }]);
     expect(n).toBe(1);
     expect(repo.items.find((i) => i.id === a.id)).toMatchObject({
       dashboardId: 'd2',

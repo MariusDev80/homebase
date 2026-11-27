@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-widget-create"
+description = "Enables the widget_create command without any pre-configured scope."
+commands.allow = ["widget_create"]
+
+[[permission]]
+identifier = "deny-widget-create"
+description = "Denies the widget_create command without any pre-configured scope."
+commands.deny = ["widget_create"]

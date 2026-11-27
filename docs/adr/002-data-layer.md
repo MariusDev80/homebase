@@ -1,9 +1,11 @@
 # ADR-002 : Couche de données (SQLite, migrations, repositories)
 
 - **Statut** : accepté (2026-10-22, par Marius, en fin de phase 1 ; les changements passent par des amendements explicites)
-- **Date** : 2026-10-20 (amendé le 2026-10-22 : sauvegarde/restauration)
+- **Date** : 2026-10-20 (amendé le 2026-10-22 : sauvegarde/restauration ; le 2026-11-25 : O3 fait, commandes Rust typées)
 - **Décideur** : architect (Opus), validation Marius
-- **Liens** : `docs/PLAN.md` §3, §4, §6, §9 ; `docs/ROADMAP.md` phase 0 ; ADR-001 (contrat Widget, rédigé en parallèle, non modifié ici)
+- **Liens** : `docs/PLAN.md` §3, §4, §6, §9 ; `docs/ROADMAP.md` phase 0 ; ADR-001 (contrat Widget, rédigé en parallèle, non modifié ici) ; `docs/specs/typed-data-commands.md` (O3)
+
+> *Amendement (spec typed-data-commands, 2026-11-25, branche `phase-3-typed-sql` ; vérifications manuelles MC1 à MC8 en attente avant fusion)* : **O3 est fait et R1 est clos.** Le front n'a plus aucune permission `sql:*` ni le paquet `@tauri-apps/plugin-sql`. Il lit et écrit par des commandes Rust typées (`data/tauri/`). `tauri-plugin-sql` n'applique plus que les migrations, côté Rust (`preload`). Chaque section touchée porte un amendement daté ; le texte d'origine reste lisible. Le §6 (spec de phase 0) est conservé comme historique.
 
 ---
 
@@ -45,6 +47,8 @@ Sources consultées le 2026-10-20. Le code du plugin a été lu sur la branche `
 | S5 | `crypto.randomUUID()` est disponible dans la WebView2 (origine `http://tauri.localhost`, traitée comme contexte sécurisé par Chromium) | **Supposé** : fallback prévu | — |
 | S6 | `@angular/build:unit-test` accepte une option `exclude` pour retirer `src/app/data/**` du runner Angular | **Supposé** : l'implementer vérifie, sinon s'arrête et rapporte | — |
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : F13, F14, S3 et S4 ne concernent plus la production (le front n'appelle plus le plugin). Fait ajouté, vérifié dans les sources : sans permission `sql:*`, toute commande `plugin:sql|*` est refusée par l'ACL de Tauri (tauri 2.12.6, tauri-utils 2.10.4, tauri-plugin-sql 2.6.0 ; détail : spec typed-data-commands §9 R1).
+
 ---
 
 ## 2. Options étudiées
@@ -57,6 +61,8 @@ Sources consultées le 2026-10-20. Le code du plugin a été lu sur la branche `
 | C. Migrator maison en Rust (sqlx ou rusqlite direct) | Contrôle total (sauvegarde avant migration, message d'erreur natif) | Duplique le plugin, ajoute du Rust et des dépendances. Injustifié en phase 0 |
 
 **Retenu : A.** Moindre privilège et ordre de démarrage simple. Un échec de migration est un bug de développement que les tests (§5) doivent attraper. La sauvegarde avant migration est en place depuis la phase 1 (spec backup-restore) ; l'écran d'erreur natif complet reste prévu en phase 6 (O1, partiellement traité).
+
+*Amendement (spec typed-data-commands, 2026-11-25)* : le `preload` reste (T2-A de la spec). Le front n'appelle plus `Database.get()` et n'a plus aucune permission `sql:*`. L'option C reste à rouvrir avec l'écran d'erreur natif de migration (O1).
 
 ### 2.2 Immutabilité des migrations
 - sqlx refuse déjà au démarrage une migration appliquée dont le SQL a changé (F4). C'est un garde-fou, mais il se déclenche **sur le PC de Marius**, au lancement : trop tard.
@@ -74,11 +80,14 @@ Sources consultées le 2026-10-20. Le code du plugin a été lu sur la branche `
 
 Conséquence : l'interface des repositories **n'expose pas** de `transaction(cb)`.
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : les transactions sont désormais possibles côté Rust (`BEGIN IMMEDIATE` sur une connexion dédiée). La règle « une écriture logique = une instruction » reste la règle par défaut ; une transaction n'est utilisée que pour une lecture suivie d'une écriture dépendante (contrôle de limite, `todo_shift_repeat_due`, `dashboard_create_with_widgets`). L'interface des repositories n'expose toujours pas de `transaction(cb)`.
+
 ### 2.4 PRAGMA
 - `foreign_keys` : déjà `ON` sur chaque connexion du pool (F10). Rien à faire en production. Le pilote de test l'active explicitement.
 - `busy_timeout` : déjà 5 s (F10). Suffisant.
 - `journal_mode` : **WAL**. Il ne peut pas être mis dans une migration, qui s'exécute en transaction (F16), ni dans l'URL (F11). Comme il est persistant (F16), le front l'exécute au bootstrap (idempotent) puis le vérifie. Justification de ce choix plutôt que DELETE, le défaut : le pool du plugin a plusieurs connexions, et le planificateur Rust de la phase 2 lira probablement la base par une autre connexion. En WAL, les lecteurs ne bloquent pas l'écrivain. Coût : des fichiers `-wal` et `-shm`, et une sauvegarde qui ne doit pas être une simple copie de fichier (résolu par `VACUUM INTO`, §2.7).
 - `synchronous` : défaut (FULL). C'est un réglage par connexion, impossible à garantir sur tout le pool. Il est aussi le plus sûr, et le volume d'écriture est faible.
+- *Amendement (spec typed-data-commands, 2026-11-25)* : `PRAGMA journal_mode = WAL` est posé par Rust à chaque démarrage (`data::bootstrap`), plus par le front. Un échec est journalisé sans bloquer : la base fonctionne alors en mode `DELETE` (T8 de la spec). Les connexions Rust des commandes de données ont `foreign_keys` et `busy_timeout` 5 s.
 
 ### 2.5 Pilote SQLite pour les tests Vitest (Node)
 | Option | Pour | Contre |
@@ -92,9 +101,12 @@ Conséquence : l'interface des repositories **n'expose pas** de `transaction(cb)
 
 Les tests de `data/` tournent dans une config Vitest séparée (environnement `node`), hors du runner Angular, parce que le runner Angular construit pour le navigateur et ne doit pas résoudre de module natif. La couche `data/` reste donc du TypeScript sans Angular (sauf `data.providers.ts`).
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : better-sqlite3 ne sert plus qu'aux tests de schéma et de migration (`migrations.spec.ts`, `sql-time-checks.spec.ts`, `data/testing/`). Le SQL de production est dans les commandes Rust et testé en Rust (`rust:test`) sur les vraies migrations. Il n'y a plus de classes de repository SQLite communes à la production et aux tests.
+
 ### 2.6 Repositories génériques ou spécifiques
 - `Repository<T, Id>` générique (CRUD) : rejeté. Il expose des opérations sans objet (pas de « update » arbitraire des réglages), pousse vers un SQL générique construit dynamiquement et n'apporte rien à trois agrégats.
 - **Retenu** : interfaces **spécifiques par agrégat** (`DashboardRepository`, `WidgetInstanceRepository`, `SettingsRepository`) au-dessus d'un port générique minimal `SqlExecutor` (`execute`, `select`). C'est ce port qui est générique, pas les repositories.
+- *Amendement (spec typed-data-commands, 2026-11-25)* : les interfaces spécifiques restent ; elles sont implémentées par des adaptateurs `data/tauri/` sur des commandes Rust typées, une commande par méthode. Le port `SqlExecutor` ne sert plus qu'aux tests de schéma (`data/testing/sql-executor.ts`).
 
 ### 2.7 Images et sauvegardes (décision de principe ; implémentation en phase 1, 5 et 6)
 - **Racine des données Homebase** = dossier de la base = `app_config_dir()` = `%APPDATA%\<identifier>\` (F6, F7). Les images vont dans `<racine>\images\`, nommées `<uuid>.<ext>`, jamais modifiées sur place (une nouvelle version = un nouveau fichier). On n'utilise volontairement pas `app_data_dir()`, identique sous Windows (F7), pour garder une racine unique et une sauvegarde simple.
@@ -111,7 +123,7 @@ Les tests de `data/` tournent dans une config Vitest séparée (environnement `n
 
 ### 3.1 Emplacement et connexion
 - Chaîne de connexion unique : `sqlite:homebase.db`, d'où le fichier `%APPDATA%\<identifier>\homebase.db` (`identifier` est celui de `tauri.conf.json`, fixé à l'initialisation du monorepo, **à ne plus changer** ensuite, sinon les données « disparaissent »).
-- La même constante apparaît à 3 endroits, contrôlés par test : Rust `db::DB_URL`, `tauri.conf.json` `plugins.sql.preload`, TS `DB_URL`.
+- La même constante apparaît à 3 endroits, contrôlés par test : Rust `db::DB_URL`, `tauri.conf.json` `plugins.sql.preload`, TS `DB_URL`. *Amendement (spec typed-data-commands, 2026-11-25)* : la constante apparaît à 2 endroits (Rust `db::DB_URL`, `plugins.sql.preload`) ; le `DB_URL` TS est supprimé. Les commandes de données ouvrent le fichier par son chemin (`BackupState.root.db()`), sans le créer (`create_if_missing(false)`).
 - Seul le feature Cargo `sqlite` est compilé (pas de `mysql` ni de `postgres`, donc aucune connexion réseau possible via ce plugin).
 
 ### 3.2 Migrations
@@ -142,12 +154,14 @@ Les tests de `data/` tournent dans une config Vitest séparée (environnement `n
 
 *Amendement (spec habits, 2026-11-17)* : clé naturelle `(habit_id, day_on)` de `habit_checks` ; `created_at` / `updated_at` fournis par l'horloge Rust.
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : `created_at` / `updated_at` de **toutes** les tables sont fournis par l'horloge Rust (`format_instant`, même format). Les UUID restent générés par le front et Rust vérifie leur forme à la création. Côté Rust, les paramètres sont liés en `?N` ; sqlx lie les booléens en `1`/`0` et les entiers en `i64` : les règles « Booléens » et « Nombres » liées au plugin (F13) ne concernent plus que l'outillage de test.
+
 ### 3.4 Schéma V1 (phase 0)
 Trois tables : `settings` (clé/valeur JSON), `dashboards`, `widget_instances`. Rien pour les widgets futurs. SQL exact au §6.3.
 
 `widget_instances.config` (objet JSON opaque pour la couche données) et `config_version` (entier ≥ 1) portent la « configuration versionnée » de l'ADR-001. La couche données ne les interprète jamais : la validation et la migration de config relèvent du registre de widgets. `widget_type` reste peu contraint (1 à 64 caractères) pour ne pas préjuger du format d'identifiant de l'ADR-001. **Si l'ADR-001 impose un autre format (version dans le JSON, contraintes de taille de grille…), on aligne V1 avant sa fusion sur `main`.**
 
-Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoque un secret (`secret`, `token`, `password`, `passwd`, `apikey`/`api_key`/`api-key`/`api.key`, `credential`) avec `DataError('forbidden')`. Les secrets vont dans le gestionnaire d'identifiants Windows.
+Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoque un secret (`secret`, `token`, `password`, `passwd`, `apikey`/`api_key`/`api-key`/`api.key`, `credential`) avec `DataError('forbidden')`. Les secrets vont dans le gestionnaire d'identifiants Windows. *Amendement (spec typed-data-commands, 2026-11-25)* : ce contrôle est fait en Rust (`setting_set`, `is_secret_setting_key`), avant le contrôle de forme de la clé.
 
 *Amendement (spec dashboards-sidebar, V4)* : `dashboards.icon TEXT NOT NULL DEFAULT 'th-large'` avec un `CHECK` de forme. Exception justifiée à « pas de `DEFAULT` » (règle des horodatages) : `ADD COLUMN NOT NULL` exige un défaut. Le `CHECK` ne fige pas la liste des icônes.
 
@@ -169,8 +183,12 @@ Garde-fou secrets : `SettingsRepository.set` refuse toute clé dont le nom évoq
 
 *Amendement (spec timers-reminders, 2026-11-16)* : dépôts adossés à des commandes Rust (`ReminderRepository`, `TimeSessionRepository`), erreurs Rust traduites en `DataError` (spec timers-reminders §4.7).
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : tous les dépôts de `data/` sont des adaptateurs `data/tauri/` sur des commandes Rust typées (réglages, tableaux, instances, notes, raccourcis, tâches, en plus des rappels, sessions et habitudes). `SqlExecutor`, `NodeSqliteExecutor` et `error-mapping.ts` ne servent plus qu'aux tests de schéma (`data/testing/`). La validation est faite en Rust ; les erreurs sont traduites par `invokeCommand` (code SQLite côté Rust, plus de correspondance par message). `DashboardRepository.remove` et `WidgetInstanceRepository.moveToDashboard` sont remplacés par `DashboardRepository.createWithWidgets` (une transaction Rust). Plus de bootstrap front ; hors Tauri, `invokeCommand` lève `unavailable`. Écritures refusées (`unavailable`) quand une restauration est armée.
+
 ### 3.6 Capabilities Tauri
-Strict nécessaire pour le front : **`sql:allow-execute`** et **`sql:allow-select`**. **Pas** de `sql:default` (qui ajouterait `allow-load` et `allow-close`, inutiles avec `preload` + `Database.get`, F14 et F15).
+*Décision initiale (phase 0, remplacée le 2026-11-25)* : strict nécessaire pour le front : **`sql:allow-execute`** et **`sql:allow-select`**. **Pas** de `sql:default` (qui ajouterait `allow-load` et `allow-close`, inutiles avec `preload` + `Database.get`, F14 et F15).
+
+*Amendement (spec typed-data-commands, 2026-11-25)* : **aucune permission `sql:*`**. Le front accède aux données par des commandes Rust typées (`setting_*`, `dashboard_*`, `widget_*`, `note_*`, `shortcut_*`, `todo_*`, plus `reminder_*`, `session_*`, `habit_*`, `dashboard_delete`), une permission `allow-…` par commande, liste exacte testée (`capability_tests.rs`). `tauri-plugin-sql` n'est plus utilisé que côté Rust pour les migrations (`preload`).
 
 ---
 
@@ -178,12 +196,12 @@ Strict nécessaire pour le front : **`sql:allow-execute`** et **`sql:allow-selec
 
 Positives :
 - Les widgets ne voient que des interfaces. Changer de stockage (ou ajouter une synchro) ne touche pas les widgets.
-- Le SQL et les migrations réels sont testés en CI sous Node, sans Tauri.
+- Le SQL et les migrations réels sont testés en CI sous Node, sans Tauri. *Amendement (2026-11-25)* : les migrations restent testées sous Node ; le SQL des commandes de données est testé en Rust (`rust:test`) sur les vraies migrations.
 - Les migrations sont figées par trois verrous : manifeste en CI, contrôle Rust des fichiers enregistrés, checksum sqlx à l'exécution.
-- Surface du plugin réduite (pas de `load`/`close`, SQLite seul).
+- Surface du plugin réduite (pas de `load`/`close`, SQLite seul). *Amendement (2026-11-25)* : surface du plugin nulle côté front (aucune permission `sql:*`, paquet npm retiré).
 
 Négatives et coûts :
-- Pas de transaction multi-instructions depuis le front. Certaines écritures demandent du SQL un peu plus riche (`UPDATE … FROM json_each`). Un besoin réel de transaction impose une commande Rust.
+- ~~Pas de transaction multi-instructions depuis le front. Certaines écritures demandent du SQL un peu plus riche (`UPDATE … FROM json_each`). Un besoin réel de transaction impose une commande Rust.~~ *Amendement (spec typed-data-commands, 2026-11-25)* : chaque nouvel accès aux données demande une commande Rust (DTO, bornes, permission, tests Rust) ; c'est le prix de la fermeture de R1.
 - Deux runners de tests côté web (Angular et `test:data`).
 - Une devDependency native (better-sqlite3).
 - Une erreur de migration fait planter le démarrage tant que l'écran d'erreur natif de O1 n'existe pas (phase 6) ; la sauvegarde avant migration permet de revenir en arrière.
@@ -194,7 +212,7 @@ Négatives et coûts :
 
 | Risque | Impact | Mitigation |
 |---|---|---|
-| R1. XSS dans la WebView : `execute` donne lecture et écriture complètes sur la base, et en SQL `ATTACH DATABASE '<chemin>'` ou `VACUUM INTO '<chemin>'` permettent de **créer des fichiers SQLite n'importe où** dans les dossiers accessibles en écriture | Élevé si XSS | Défense principale : CSP stricte, assainissement de tout contenu externe, aucune page distante (PLAN §6). Résiduel accepté en phase 0. À réévaluer à l'audit de la phase 6 : remplacer `execute`/`select` génériques par des commandes Rust typées (supprime la surface SQL), ou désactiver ATTACH via un autorisateur SQLite (non exposé par le plugin, nécessiterait du Rust) |
+| R1. XSS dans la WebView : `execute` donne lecture et écriture complètes sur la base, et en SQL `ATTACH DATABASE '<chemin>'` ou `VACUUM INTO '<chemin>'` permettent de **créer des fichiers SQLite n'importe où** dans les dossiers accessibles en écriture | Élevé si XSS | Défense principale : CSP stricte, assainissement de tout contenu externe, aucune page distante (PLAN §6). Résiduel accepté en phase 0. À réévaluer à l'audit de la phase 6 : remplacer `execute`/`select` génériques par des commandes Rust typées (supprime la surface SQL), ou désactiver ATTACH via un autorisateur SQLite (non exposé par le plugin, nécessiterait du Rust). **Clos (spec typed-data-commands, 2026-11-25)** : plus aucune permission `sql:*` ; aucune commande ne reçoit de SQL ni de chemin. Résiduel : un XSS peut appeler les commandes typées (suppressions et écrasements sans sauvegarde, import et restauration sans dialogue, rotation des sauvegardes, remplissage du disque ; voir `docs/SECURITY-NOTES.md`) |
 | R2. Fins de ligne CRLF sur un `.sql` : `VersionMismatch` au démarrage sur le PC de Marius | Démarrage impossible | `.gitattributes eol=lf` + test « pas de `\r` » |
 | R3. Migration modifiée après application | Démarrage impossible (F4) | Manifeste de checksums en CI + revue |
 | R4. Rétrogradation (ancien binaire sur une base plus récente) : `VersionMissing` | Démarrage impossible | Ne jamais rétrograder sans restaurer une sauvegarde. Le documenter en phase 6 |
@@ -203,10 +221,10 @@ Négatives et coûts :
 | R7. Changement d'`identifier` : nouveau dossier de données | Données « perdues » | Figer l'`identifier` à l'initialisation. Le changer exige une migration de dossier |
 | R8. SQLite embarquée par sqlx plus ancienne que 3.38 (S1) | V1 échoue (STRICT, `json_valid`, `UPDATE FROM`) | Critère A10 : contrôle de `sqlite_version()` au premier lancement |
 | R9. better-sqlite3 sans binaire précompilé pour la version de Node | `test:data` ne s'installe pas | Build Tools C++ déjà présents. Repli `node:sqlite` (même interface `SqlExecutor`) |
-| R10. Écarts entre la SQLite de better-sqlite3 et celle de sqlx | Un test passe sous Node mais échoue en production | SQL standard SQLite, versions récentes des deux côtés, critère A10 au lancement réel |
+| R10. Écarts entre la SQLite de better-sqlite3 et celle de sqlx | Un test passe sous Node mais échoue en production | SQL standard SQLite, versions récentes des deux côtés, critère A10 au lancement réel. *Amendement (2026-11-25)* : réduit aux tests de schéma (le SQL de production est testé par la SQLite de sqlx dans `rust:test`) |
 | R11. Deux instances de l'application sur la même base | Écritures concurrentes (supportées en WAL), doublons de notifications en phase 2 | Plugin single-instance à prévoir en phase 2 (hors ADR). **Clos (spec timers-reminders, 2026-11-16) : instance unique en place, planificateur unique.** |
 | R12. Antivirus ou outil de synchro qui verrouille `homebase.db` | Erreurs `busy` | `busy_timeout` 5 s, `DataError('busy')`. Ne pas placer la base dans un dossier synchronisé (OneDrive) |
-| R13. Mise en correspondance des erreurs par message (S3) fragile | Mauvaise catégorie d'erreur | Repli `unknown`. Tests de mapping sous Node. Vérification manuelle sous Tauri (A11) |
+| R13. Mise en correspondance des erreurs par message (S3) fragile | Mauvaise catégorie d'erreur | Repli `unknown`. Tests de mapping sous Node. Vérification manuelle sous Tauri (A11). **Clos (spec typed-data-commands, 2026-11-25)** : correspondance par code SQLite étendu, en Rust |
 
 ### Cas limites explicitement traités
 - **Changement d'heure et fuseaux** : les horodatages techniques sont des instants UTC suffixés `Z`, insensibles à l'heure d'été. Un recul de l'horloge est toléré (pas de contrainte d'ordre). Les dates métier relèvent de l'ADR-003.
@@ -221,6 +239,8 @@ Négatives et coûts :
 ---
 
 ## 6. Spec d'implémentation (phase 0)
+
+> *Amendement (spec typed-data-commands, 2026-11-25)* : spec **historique** de la phase 0, conservée telle quelle. Depuis O3, `data/sqlite/` (dépôts SQLite, `tauri-sql-executor.ts`, `db-url.ts`, `row-mappers.ts`, `database-bootstrap.ts`), le paquet `@tauri-apps/plugin-sql` et les permissions `sql:*` n'existent plus. `sql-executor.ts` et `error-mapping.ts` sont dans `data/testing/` (tests de schéma). Les §6.5 et §6.8 et les critères A5 et A7 portent un amendement ; le reste décrit l'état de la phase 0.
 
 > Destinataire : `implementer` (Sonnet). Cette spec est autonome. En cas d'ambiguïté ou de supposition (S1 à S6) qui se révèle fausse : **s'arrêter et rapporter**, ne pas improviser.
 > Prérequis : la tâche « Init monorepo » est faite (`apps/web` Angular 21, `apps/desktop/src-tauri` Tauri 2). Adapter les commandes au gestionnaire de paquets choisi à l'initialisation, sans inventer de scripts autres que ceux listés ici.
@@ -412,6 +432,8 @@ Ne rien ajouter d'autre (pas de commande de sauvegarde en phase 0).
 ### 6.5 Capabilities (`capabilities/default.json`, fenêtre principale)
 Ajouter exactement `"sql:allow-execute"` et `"sql:allow-select"`. **Interdits** : `sql:default`, `sql:allow-load`, `sql:allow-close`, toute permission large.
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : périmé. Aucune permission `sql:*` dans `default.json` ni dans `debug.json` ; le front n'a que des permissions `allow-<commande>` d'application (liste exacte testée par `capability_tests.rs`).
+
 ### 6.6 Types et interfaces TypeScript (contrats à respecter)
 
 `json.ts`
@@ -578,6 +600,12 @@ Script `apps/web/package.json` : `"test:data": "tsc -p tsconfig.data-test.json -
 - `better-sqlite3` et `node:*` autorisés seulement dans `src/app/data/testing/**` et `src/app/data/**/*.spec.ts`.
 - En dehors de `src/app/data/**`, interdiction d'importer `**/data/sqlite/**` et `**/data/testing/**` : on passe par `data/index.ts`.
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : la première et la troisième règle sont périmées (`tauri-sql-executor.ts` et `data/sqlite/` n'existent plus). Règles actuelles (`apps/web/eslint.config.js`) :
+- `@tauri-apps/plugin-sql` interdit dans tout `src/`, sans exception. La règle est désactivée dans `data/testing/**` et les specs de `data/`, comme toutes les restrictions d'import ; le paquet n'est plus installé, un import y échouerait à la résolution.
+- `better-sqlite3` et `node:*` autorisés seulement dans `src/app/data/testing/**` et `src/app/data/**/*.spec.ts` (inchangé).
+- En dehors de `src/app/data/**`, interdiction d'importer `**/data/testing/**` et `**/data/tauri/**` (les specs peuvent importer `data/tauri/`) : on passe par `data/index.ts`. Dans `data/`, seul `data/tauri/**` importe `@tauri-apps/api` ; le code de production de `data/` n'importe pas `testing/`.
+- Ces règles, `front-sql-guard.spec.ts` et `check-initial-bundle.mjs` sont des alarmes contre une régression involontaire, contournables par conception. La barrière est l'ACL de Tauri (aucune permission `sql:*`) et l'absence du paquet.
+
 ### 6.9 Tests à écrire (Vitest, `test:data`)
 `migrations.spec.ts` :
 1. Chaque fichier du dossier est `V<n>__<nom>.sql` (`/^V([1-9]\d*)__([a-z0-9_]+)\.sql$/`) ou `checksums.json`. Versions contiguës à partir de 1.
@@ -610,9 +638,9 @@ Script `apps/web/package.json` : `"test:data": "tsc -p tsconfig.data-test.json -
 - **A2** `cargo test` est vert dans `apps/desktop/src-tauri` (2 tests de `db.rs`) ; `cargo clippy -- -D warnings` est propre si clippy est en place.
 - **A3** Modifier un caractère de `V1__init.sql` fait échouer `test:data` (manifeste). Le vérifier puis annuler la modification.
 - **A4** Ajouter un fichier `V2__x.sql` sans l'enregistrer dans `db.rs` fait échouer `cargo test`. Le vérifier puis supprimer le fichier.
-- **A5** `capabilities/default.json` ne contient, pour sql, que `sql:allow-execute` et `sql:allow-select`. `grep -r "sql:default\|sql:allow-load\|sql:allow-close"` sur `src-tauri` ne renvoie rien.
+- **A5** `capabilities/default.json` ne contient, pour sql, que `sql:allow-execute` et `sql:allow-select`. `grep -r "sql:default\|sql:allow-load\|sql:allow-close"` sur `src-tauri` ne renvoie rien. *Amendement (spec typed-data-commands, 2026-11-25)* : périmé. Critère actuel : aucune permission `sql:` dans `default.json` ni dans `debug.json` (`capability_tests.rs`, `no_sql_plugin_permission`).
 - **A6** `Cargo.toml` : `tauri-plugin-sql` avec le seul feature `sqlite`.
-- **A7** Aucun import de `@tauri-apps/plugin-sql`, `better-sqlite3` ou `node:` hors des fichiers autorisés (§6.8, vérifié par ESLint).
+- **A7** Aucun import de `@tauri-apps/plugin-sql`, `better-sqlite3` ou `node:` hors des fichiers autorisés (§6.8, vérifié par ESLint). *Amendement (spec typed-data-commands, 2026-11-25)* : `@tauri-apps/plugin-sql` n'est autorisé nulle part ; le paquet est absent de `package.json` et `package-lock.json` (`front_has_no_sql_plugin_package`) et `plugin:sql` est absent de tout le bundle (`check-initial-bundle.mjs`). La règle pour `better-sqlite3` et `node:` est inchangée.
 - **A8** Aucun `any`, aucun `BEGIN` / `COMMIT` dans `apps/web/src`, et aucune valeur concaténée dans du SQL (revue).
 - **A9** `.gitattributes` contient `*.sql text eol=lf`, et `git ls-files --eol apps/desktop/src-tauri/migrations` affiche `i/lf`.
 - **A10** (manuel, `tauri dev`) : `%APPDATA%\<identifier>\homebase.db` est créé, ainsi que `homebase.db-wal` après le démarrage. La console de développement affiche `journal_mode = wal`, une `sqlite_version` d'au moins 3.38.0 et la version de migration 1. Un second lancement se fait sans erreur. Si un point échoue (S1 ou S4), s'arrêter et rapporter.
@@ -640,6 +668,6 @@ Commandes de sauvegarde et de restauration, images, écran d'erreur de démarrag
 ## 7. Points ouverts
 - **O1** (phase 1) : sauvegarde automatique avant migration et message d'erreur natif si une migration échoue au `preload` (au lieu d'une panique). **Partiellement traité (sauvegarde avant migration ; écran d'erreur natif complet en phase 6).**
 - **O2** (phase 2) : accès du planificateur Rust à la base (connexion sqlx séparée sur le même fichier, ou réutilisation de l'état `DbInstances` du plugin), à trancher dans la spec du planificateur. **Partiellement traité : connexion sqlx dédiée par opération en place (spec backup-restore).** **Traité (spec timers-reminders D3) : connexions sqlx dédiées par opération, sérialisées par un verrou unique du module `schedule`.**
-- **O3** (avancé avant la phase 3, décision de Marius du 2026-10-22 : à faire avant le premier contenu externe affiché, RSS ou Markdown) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1. **Avancement partiel (spec timers-reminders, 2026-11-16) : les tables `reminders`, `reminder_deliveries`, `time_sessions` (V7) ne sont accessibles que par des commandes Rust typées ; leurs dépôts TS sont dans `data/tauri/` (garde-fou par test).** *Amendement (spec habits, 2026-11-17)* : `habits`, `habit_checks` (V8) : commandes Rust typées seulement.
-- **O4** (phase 6, E2E Playwright) : tests contre l'application Tauri (`tauri-driver`) ou un `SqlExecutor` navigateur (sql.js). Le front hors Tauri n'a pas de base aujourd'hui.
+- **O3** (avancé avant la phase 3, décision de Marius du 2026-10-22 : à faire avant le premier contenu externe affiché, RSS ou Markdown) : remplacer `execute`/`select` génériques par des commandes Rust typées pour fermer R1. **Avancement partiel (spec timers-reminders, 2026-11-16) : les tables `reminders`, `reminder_deliveries`, `time_sessions` (V7) ne sont accessibles que par des commandes Rust typées ; leurs dépôts TS sont dans `data/tauri/` (garde-fou par test).** *Amendement (spec habits, 2026-11-17)* : `habits`, `habit_checks` (V8) : commandes Rust typées seulement. **Fait (spec typed-data-commands, 2026-11-25)** : toutes les autres tables (`settings`, `dashboards`, `widget_instances`, `notes`, `shortcuts`, `todo_lists`, `todos`) sont servies par 43 commandes Rust typées ; plus aucune permission `sql:*` ni paquet `@tauri-apps/plugin-sql` côté front ; R1 clos. Vérifications manuelles MC1 à MC8 à faire par Marius avant la fusion sur `main`.
+- **O4** (phase 6, E2E Playwright) : tests contre l'application Tauri (`tauri-driver`) ou un `SqlExecutor` navigateur (sql.js). Le front hors Tauri n'a pas de base aujourd'hui. *Amendement (spec typed-data-commands, 2026-11-25)* : l'option « `SqlExecutor` navigateur » ne s'applique plus (le front n'exécute plus de SQL). Restent `tauri-driver`, ou une simulation de `invoke` côté navigateur ; à trancher en phase 6.
 - **O5** (clos : ADR-001 l.87 y répond) : alignement avec l'ADR-001 sur le format de `widget_type` et la représentation de la config versionnée, à faire **avant** la fusion de V1 sur `main`.

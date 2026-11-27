@@ -2,7 +2,7 @@ import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
-import { DashboardListStore, LAST_DASHBOARD_SETTING } from './dashboard-list.store';
+import { DashboardListStore, LAST_DASHBOARD_SETTING, MAX_DASHBOARDS } from './dashboard-list.store';
 import { DashboardStore } from './dashboard.store';
 import { DashboardThemeFlow } from './dashboard-theme-flow';
 import {
@@ -275,8 +275,8 @@ describe('DashboardComponent', () => {
       name = 'Accueil',
       icon = 'th-large',
     ) => {
-      const dashboards = new FakeDashboardRepository();
       const instances = new FakeWidgetInstanceRepository();
+      const dashboards = FakeDashboardRepository.linked(instances);
       await dashboards.createIfNone({ name, icon });
       const [dashboard] = await dashboards.list();
       for (const grid of grids) {
@@ -362,11 +362,13 @@ describe('DashboardComponent', () => {
           themeVersion: 3,
         };
         await list.update(dashboards.items[0].id, { name: 'Accueil', icon: 'briefcase' });
-        const create = vi.spyOn(list, 'create');
+        const create = vi.spyOn(list, 'createWithWidgets');
         move(el);
         await vi.waitFor(() => expect(dashboards.items).toHaveLength(2));
         expect(create).toHaveBeenCalledWith(
           expect.objectContaining({ theme: { cardBody: 'coral', later: 'x' }, themeVersion: 3 }),
+          expect.any(String),
+          expect.any(Array),
         );
         expect(dashboards.items[1]).toMatchObject({
           theme: { cardBody: 'coral', later: 'x' },
@@ -393,10 +395,16 @@ describe('DashboardComponent', () => {
         expect(name.endsWith(' (suite)')).toBe(true);
       });
 
-      it('removes the empty dashboard it created and shows an error when the move fails', async () => {
+      it('shows an error and creates nothing when the move is a conflict, with no deletion to call', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        const { fixture, el, instances, dashboards } = await seededAt(full);
-        vi.spyOn(instances, 'moveToDashboard').mockRejectedValue(new Error('boom'));
+        const { fixture, el, dashboards, instances } = await seededAt(full);
+        const list = TestBed.inject(DashboardListStore);
+        await list.load('Accueil');
+        // The displayed state is stale: the instances now live elsewhere, so none can be moved.
+        instances.relocate(
+          'elsewhere',
+          instances.items.map((i) => ({ id: i.id, grid: i.grid })),
+        );
         move(el);
         await vi.waitFor(() => {
           fixture.detectChanges();
@@ -408,20 +416,61 @@ describe('DashboardComponent', () => {
         expect(el.querySelector('[data-testid="dashboard-unplaced"]')).not.toBeNull();
       });
 
-      it('only logs a failed cleanup', async () => {
-        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        const { fixture, el, instances, dashboards } = await seededAt(full);
-        vi.spyOn(instances, 'moveToDashboard').mockRejectedValue(new Error('boom'));
-        vi.spyOn(dashboards, 'remove').mockRejectedValue(new Error('cleanup'));
+      it('shows the dashboards limit message when the repository refuses (forbidden)', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const { fixture, el, dashboards } = await seededAt(full);
+        dashboards.failNext(new DataError('forbidden', 'limit'));
         move(el);
         await vi.waitFor(() => {
           fixture.detectChanges();
           expect(el.querySelector('[data-testid="dashboard-move-error"]')).not.toBeNull();
         });
-        expect(error).toHaveBeenCalledWith(
-          'Could not remove the empty dashboard',
-          expect.any(Error),
+        expect(el.querySelector('[data-testid="dashboard-move-error"]')?.textContent).toContain(
+          'Nombre maximal de tableaux atteint (100).',
         );
+      });
+
+      it('shows the dashboards limit message at 100 dashboards, without calling the repository', async () => {
+        const { fixture, el, dashboards } = await seededAt(full);
+        const list = TestBed.inject(DashboardListStore);
+        await list.load('Accueil');
+        for (let i = 1; i < MAX_DASHBOARDS; i++) await dashboards.create({ name: `T${i}` });
+        await list.afterRemoval();
+        const spy = vi.spyOn(dashboards, 'createWithWidgets');
+        move(el);
+        await vi.waitFor(() => {
+          fixture.detectChanges();
+          expect(el.querySelector('[data-testid="dashboard-move-error"]')).not.toBeNull();
+        });
+        expect(spy).not.toHaveBeenCalled();
+        expect(el.querySelector('[data-testid="dashboard-move-error"]')?.textContent).toContain(
+          'Nombre maximal de tableaux atteint (100).',
+        );
+      });
+
+      it('keeps the widgets of the displayed dashboard when it changed during the move', async () => {
+        const { instances, dashboards, el } = await seededAt(full);
+        const store = TestBed.inject(DashboardStore);
+        const other = await dashboards.create({ name: 'Autre' });
+        const kept = instances.seed({ dashboardId: other.id, widgetType: 'fixture' });
+        let release: () => void = () => undefined;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        const original = dashboards.createWithWidgets.bind(dashboards);
+        vi.spyOn(dashboards, 'createWithWidgets').mockImplementation(async (...args) => {
+          await gate;
+          return original(...args);
+        });
+        move(el);
+        await vi.waitFor(() => expect(dashboards.createWithWidgets).toHaveBeenCalled());
+        await store.open(other.id, 'Accueil');
+        expect(store.instances().map((i) => i.id)).toEqual([kept.id]);
+        release();
+        await vi.waitFor(() => expect(dashboards.items).toHaveLength(3));
+        await vi.waitFor(() =>
+          expect(instances.items.some((i) => i.dashboardId === dashboards.items[2].id)).toBe(true),
+        );
+        expect(store.dashboard()?.id).toBe(other.id);
+        expect(store.instances().map((i) => i.id)).toEqual([kept.id]);
       });
     });
 

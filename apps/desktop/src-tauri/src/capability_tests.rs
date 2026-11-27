@@ -81,8 +81,49 @@ fn main_window_permissions_are_exactly_the_expected_ones() {
             "allow-habit-delete",
             "allow-habit-checks",
             "allow-habit-set-check",
-            "sql:allow-execute",
-            "sql:allow-select",
+            "allow-setting-get",
+            "allow-setting-list",
+            "allow-setting-set",
+            "allow-setting-delete",
+            "allow-dashboard-list",
+            "allow-dashboard-get",
+            "allow-dashboard-create",
+            "allow-dashboard-ensure-default",
+            "allow-dashboard-update",
+            "allow-dashboard-update-theme",
+            "allow-dashboard-create-with-widgets",
+            "allow-widget-list",
+            "allow-widget-get",
+            "allow-widget-create",
+            "allow-widget-update-config",
+            "allow-widget-update-layout",
+            "allow-widget-find-first-of-type",
+            "allow-widget-delete",
+            "allow-note-get",
+            "allow-note-create",
+            "allow-note-update",
+            "allow-note-delete",
+            "allow-note-search",
+            "allow-shortcut-list",
+            "allow-shortcut-create",
+            "allow-shortcut-update",
+            "allow-shortcut-delete",
+            "allow-shortcut-reorder",
+            "allow-shortcut-search",
+            "allow-todo-list-for-widget",
+            "allow-todo-list-create",
+            "allow-todo-list-items",
+            "allow-todo-create",
+            "allow-todo-update",
+            "allow-todo-shift-repeat-due",
+            "allow-todo-set-completed",
+            "allow-todo-delete",
+            "allow-todo-due",
+            "allow-todo-overdue",
+            "allow-todo-repeating-due",
+            "allow-todo-reorder",
+            "allow-todo-clear-completed",
+            "allow-todo-search",
             "opener:allow-open-url",
         ]
     );
@@ -162,16 +203,67 @@ fn cargo_toml_has_no_http_plugin() {
 }
 
 #[test]
-fn csp_keeps_network_local() {
+fn csp_is_exact() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json");
     let config: Value =
         serde_json::from_str(&fs::read_to_string(path).expect("read tauri.conf.json"))
             .expect("valid json");
-    let csp = config["app"]["security"]["csp"]
-        .as_str()
-        .expect("csp string");
-    assert!(csp.contains("connect-src 'self' ipc: http://ipc.localhost;"));
-    assert!(!csp.contains("open-meteo"));
+    assert_eq!(
+        config["app"]["security"]["csp"]
+            .as_str()
+            .expect("csp string"),
+        concat!(
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; ",
+            "img-src 'self' data:; font-src 'self' data:; ",
+            "connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; ",
+            "base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
+        )
+    );
+    assert_eq!(
+        config["app"]["security"]["dangerousDisableAssetCspModification"],
+        serde_json::json!(["style-src"])
+    );
+}
+
+#[test]
+fn debug_capability_is_exact() {
+    let capability: Value = serde_json::from_str(&read_capability("debug.json")).expect("json");
+    assert_eq!(capability["windows"], serde_json::json!(["main"]));
+    assert_eq!(
+        capability["permissions"],
+        serde_json::json!([
+            "allow-schedule-test-notification",
+            "core:webview:allow-internal-toggle-devtools"
+        ])
+    );
+    assert!(capability.get("remote").is_none());
+    assert!(capability.get("webviews").is_none());
+}
+
+/// The front has no SQL access: tauri-plugin-sql only runs the migrations from Rust (preload).
+#[test]
+fn no_sql_plugin_permission() {
+    for name in ["default.json", "debug.json"] {
+        let text = read_capability(name);
+        assert!(!text.contains("\"sql:"), "{name}");
+        let capability: Value = serde_json::from_str(&text).expect("valid json");
+        for permission in capability["permissions"].as_array().expect("permissions") {
+            let identifier = match permission {
+                Value::String(s) => s.as_str(),
+                other => other["identifier"].as_str().expect("identifier"),
+            };
+            assert!(!identifier.starts_with("sql:"), "{name}: {identifier}");
+        }
+    }
+}
+
+#[test]
+fn front_has_no_sql_plugin_package() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    for package in ["package.json", "apps/web/package.json", "package-lock.json"] {
+        let text = fs::read_to_string(root.join(package)).expect("read package file");
+        assert!(!text.contains("plugin-sql"), "{package}");
+    }
 }
 
 #[test]
@@ -257,4 +349,111 @@ fn schedule_commands_add_no_plugin_permission() {
         .filter(|p| p.as_str().is_some_and(|s| s.starts_with("allow-habit-")))
         .count();
     assert_eq!(habits, 7);
+}
+
+/// Typed data commands (spec typed-data-commands, lot TC2: settings, dashboards, widget
+/// instances): 18 permissions, no more (`allow-dashboard-delete` is the older backup command).
+#[test]
+fn data_commands_of_lot_tc2_add_exactly_eighteen_permissions() {
+    let data = permissions()
+        .iter()
+        .filter(|p| {
+            p.as_str().is_some_and(|s| {
+                s != "allow-dashboard-delete"
+                    && (s.starts_with("allow-setting-")
+                        || s.starts_with("allow-dashboard-")
+                        || s.starts_with("allow-widget-"))
+            })
+        })
+        .count();
+    assert_eq!(data, 18);
+}
+
+/// Typed data commands, lot TC3 (notes, shortcuts, todos, search included): 25 permissions.
+#[test]
+fn data_commands_of_lot_tc3_add_exactly_twenty_five_permissions() {
+    let count = |prefix: &str| {
+        permissions()
+            .iter()
+            .filter(|p| p.as_str().is_some_and(|s| s.starts_with(prefix)))
+            .count()
+    };
+    assert_eq!(count("allow-note-"), 5);
+    assert_eq!(count("allow-shortcut-"), 6);
+    assert_eq!(count("allow-todo-"), 14);
+}
+
+fn read_json(name: &str) -> Value {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
+    serde_json::from_str(&fs::read_to_string(path).expect("read json")).expect("valid json")
+}
+
+/// Capabilities can also be declared inline in the Tauri config or added at runtime: none may be.
+#[test]
+fn no_capability_outside_the_capabilities_folder() {
+    for name in ["tauri.conf.json", "tauri.dev.conf.json"] {
+        let config = read_json(name);
+        assert!(
+            config["app"]["security"].get("capabilities").is_none(),
+            "{name} declares inline capabilities"
+        );
+    }
+    let mut keys: Vec<String> = read_json("tauri.dev.conf.json")
+        .as_object()
+        .expect("object")
+        .keys()
+        .cloned()
+        .collect();
+    keys.sort();
+    assert_eq!(keys, ["identifier", "productName"]);
+}
+
+/// A hand-made permission set could bundle `sql:*` and be referenced from a capability.
+#[test]
+fn permissions_folder_only_holds_autogenerated() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("permissions");
+    let names: Vec<String> = fs::read_dir(dir)
+        .expect("read permissions dir")
+        .map(|entry| {
+            entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    assert_eq!(names, ["autogenerated"]);
+}
+
+fn rust_sources(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+    for entry in fs::read_dir(dir).expect("read src dir") {
+        let path = entry.expect("entry").path();
+        if path.is_dir() {
+            rust_sources(&path, out);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+#[test]
+fn no_runtime_capability_is_added() {
+    let mut files = Vec::new();
+    rust_sources(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut files,
+    );
+    assert!(files.len() > 5);
+    let needle = ["add_", "capability"].concat();
+    for file in files {
+        if file.file_name().is_some_and(|n| n == "capability_tests.rs") {
+            continue;
+        }
+        let text = fs::read_to_string(&file).expect("read source");
+        assert!(
+            !text.contains(&needle),
+            "{} adds a capability",
+            file.display()
+        );
+    }
 }

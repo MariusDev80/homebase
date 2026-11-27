@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { DataError } from '../data-error';
-import { ExecuteResult, SqlExecutor, SqlParam, SqlRow, assertSqlParams } from '../sql-executor';
-import { toDataError } from '../sqlite/error-mapping';
+import { ExecuteResult, SqlExecutor, SqlParam, SqlRow, assertSqlParams } from './sql-executor';
+import { toDataError } from './error-mapping';
 
 /** Test adapter: real SQLite engine (better-sqlite3), in memory. */
 export class NodeSqliteExecutor implements SqlExecutor {

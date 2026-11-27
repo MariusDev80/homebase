@@ -1,26 +1,13 @@
-import {
-  EnvironmentProviders,
-  InjectionToken,
-  inject,
-  isDevMode,
-  makeEnvironmentProviders,
-  provideAppInitializer,
-} from '@angular/core';
-import { isTauriRuntime } from '../tauri-runtime';
+import { EnvironmentProviders, InjectionToken, makeEnvironmentProviders } from '@angular/core';
 import { Clock, randomUuid, systemClock } from './clock';
-import type { SqlExecutor } from './sql-executor';
-import { DataError } from './data-error';
 import { DashboardRepository, SettingsRepository, WidgetInstanceRepository } from './repositories';
-import { DataLayerHealth, GuardedSqlExecutor } from './sqlite/guarded-sql-executor';
-import { initDatabase } from './sqlite/database-bootstrap';
-import { SqliteDashboardRepository } from './sqlite/sqlite-dashboard.repository';
-import { SqliteSettingsRepository } from './sqlite/sqlite-settings.repository';
-import { SqliteWidgetInstanceRepository } from './sqlite/sqlite-widget-instance.repository';
-import { TauriSqlExecutor } from './sqlite/tauri-sql-executor';
+import { TauriDashboardRepository } from './tauri/tauri-dashboard.repository';
+import { TauriSettingsRepository } from './tauri/tauri-settings.repository';
+import { TauriWidgetInstanceRepository } from './tauri/tauri-widget-instance.repository';
 
 /**
- * The single source of "now" (ADR-003 section 3.6). Providing another Clock here also drives
- * `created_at` / `updated_at` of every repository.
+ * The single source of "now" for display and front-side calculations. The stored created_at /
+ * updated_at come from the Rust clock (spec typed-data-commands 4.9).
  */
 export const CLOCK = new InjectionToken<Clock>('CLOCK', {
   providedIn: 'root',
@@ -34,45 +21,17 @@ export const WIDGET_INSTANCE_REPOSITORY = new InjectionToken<WidgetInstanceRepos
 );
 
 /**
- * The guarded SQL executor shared by every SQLite repository. Provided by provideDataLayer();
- * the lazy content repositories (data/content.tokens.ts) build on it.
- */
-export const SQL_EXECUTOR = new InjectionToken<SqlExecutor>('SQL_EXECUTOR');
-
-/**
- * Wires the SQLite repositories on top of tauri-plugin-sql and runs the bootstrap
- * (WAL) at application start. The initializer never rejects: a failure (outside Tauri
- * `DataError('unavailable')`, WAL error...) is memorised and rethrown by the repositories
- * on every call, so the application still starts and shows an error.
+ * Wires the Rust-command repositories (settings, dashboards, widget instances). The content
+ * repositories (todo, note, shortcut) are lazy: see data/content.tokens.ts. Outside Tauri every
+ * call rejects with DataError('unavailable').
  */
 export function provideDataLayer(): EnvironmentProviders {
-  // Created lazily: Database.get() needs the Tauri IPC bridge.
-  let executor: TauriSqlExecutor | undefined;
-  const getExecutor = (): TauriSqlExecutor => (executor ??= new TauriSqlExecutor());
-  const health = new DataLayerHealth();
-  const guarded = new GuardedSqlExecutor(health, getExecutor);
-
   return makeEnvironmentProviders([
-    {
-      provide: SETTINGS_REPOSITORY,
-      useFactory: () => new SqliteSettingsRepository(guarded, inject(CLOCK), randomUuid),
-    },
-    {
-      provide: DASHBOARD_REPOSITORY,
-      useFactory: () => new SqliteDashboardRepository(guarded, inject(CLOCK), randomUuid),
-    },
+    { provide: SETTINGS_REPOSITORY, useFactory: () => new TauriSettingsRepository(randomUuid) },
+    { provide: DASHBOARD_REPOSITORY, useFactory: () => new TauriDashboardRepository(randomUuid) },
     {
       provide: WIDGET_INSTANCE_REPOSITORY,
-      useFactory: () => new SqliteWidgetInstanceRepository(guarded, inject(CLOCK), randomUuid),
+      useFactory: () => new TauriWidgetInstanceRepository(randomUuid),
     },
-    { provide: SQL_EXECUTOR, useValue: guarded },
-    provideAppInitializer(() =>
-      health.initialize(() => {
-        if (!isTauriRuntime()) {
-          throw new DataError('unavailable', 'Homebase doit être lancé via Tauri');
-        }
-        return initDatabase(guarded, isDevMode());
-      }),
-    ),
   ]);
 }

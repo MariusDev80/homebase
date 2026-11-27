@@ -7,8 +7,11 @@ import {
 } from '@angular/core';
 import { NOTE_REPOSITORY, SHORTCUT_REPOSITORY, TODO_REPOSITORY } from './content.tokens';
 import { provideDataLayer } from './data.providers';
+import { TauriNoteRepository } from './tauri/tauri-note.repository';
+import { TauriShortcutRepository } from './tauri/tauri-shortcut.repository';
+import { TauriTodoRepository } from './tauri/tauri-todo.repository';
 
-// Outside Tauri: the real wiring (tokens -> guarded executor) must fail with `unavailable`.
+// Outside Tauri: the real wiring (tokens -> Tauri repositories) must fail with `unavailable`.
 vi.mock('../tauri-runtime', () => ({ isTauriRuntime: () => false }));
 
 async function createInjector(): Promise<EnvironmentInjector> {
@@ -51,5 +54,14 @@ describe('content repository tokens (real wiring, outside Tauri)', () => {
     expect(injector.get(TODO_REPOSITORY)).toBe(injector.get(TODO_REPOSITORY));
     expect(injector.get(NOTE_REPOSITORY)).toBe(injector.get(NOTE_REPOSITORY));
     expect(injector.get(SHORTCUT_REPOSITORY)).toBe(injector.get(SHORTCUT_REPOSITORY));
+  });
+});
+
+describe('content repository tokens (implementations)', () => {
+  it('provide the Tauri repositories', async () => {
+    const injector = await createInjector();
+    expect(injector.get(TODO_REPOSITORY)).toBeInstanceOf(TauriTodoRepository);
+    expect(injector.get(NOTE_REPOSITORY)).toBeInstanceOf(TauriNoteRepository);
+    expect(injector.get(SHORTCUT_REPOSITORY)).toBeInstanceOf(TauriShortcutRepository);
   });
 });

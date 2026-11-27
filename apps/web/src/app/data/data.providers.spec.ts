@@ -1,38 +1,35 @@
 import { EnvironmentInjector, createEnvironmentInjector } from '@angular/core';
-import { CLOCK, SETTINGS_REPOSITORY, provideDataLayer } from './data.providers';
-import { createTestDatabase } from './testing/migrations';
-import type { NodeSqliteExecutor } from './testing/node-sqlite-executor';
+import {
+  DASHBOARD_REPOSITORY,
+  SETTINGS_REPOSITORY,
+  WIDGET_INSTANCE_REPOSITORY,
+  provideDataLayer,
+} from './data.providers';
+import { TauriDashboardRepository } from './tauri/tauri-dashboard.repository';
+import { TauriSettingsRepository } from './tauri/tauri-settings.repository';
+import { TauriWidgetInstanceRepository } from './tauri/tauri-widget-instance.repository';
 
-const holder = vi.hoisted(() => ({ db: undefined as unknown }));
+vi.mock('../tauri-runtime', () => ({ isTauriRuntime: () => false }));
 
-// The Tauri executor is replaced by the in-memory SQLite test executor.
-vi.mock('./sqlite/tauri-sql-executor', () => ({
-  TauriSqlExecutor: class {
-    constructor() {
-      return holder.db as object;
-    }
-  },
-}));
-vi.mock('../tauri-runtime', () => ({ isTauriRuntime: () => true }));
+function injector(): EnvironmentInjector {
+  return createEnvironmentInjector(
+    [provideDataLayer()],
+    // Root-less parent: the environment injector only needs the providers above.
+    undefined as unknown as EnvironmentInjector,
+  );
+}
 
-describe('provideDataLayer and CLOCK', () => {
-  it('drives created_at / updated_at through the provided CLOCK', async () => {
-    const db: NodeSqliteExecutor = createTestDatabase();
-    holder.db = db;
-    const clock = { nowIso: () => '2031-05-06T07:08:09.123Z' };
-    const injector = createEnvironmentInjector(
-      [{ provide: CLOCK, useValue: clock }, provideDataLayer()],
-      // Root-less parent: the environment injector only needs the providers above.
-      undefined as unknown as EnvironmentInjector,
-    );
-    const settings = injector.get(SETTINGS_REPOSITORY);
-    await settings.set('time.test', 'x');
-    const rows = await db.select<{ created_at: string; updated_at: string }>(
-      "SELECT created_at, updated_at FROM settings WHERE key = 'time.test'",
-    );
-    expect(rows).toEqual([
-      { created_at: '2031-05-06T07:08:09.123Z', updated_at: '2031-05-06T07:08:09.123Z' },
-    ]);
-    db.close();
+describe('provideDataLayer', () => {
+  it('provides the Rust-command repositories for settings, dashboards and widget instances', () => {
+    const di = injector();
+    expect(di.get(SETTINGS_REPOSITORY)).toBeInstanceOf(TauriSettingsRepository);
+    expect(di.get(DASHBOARD_REPOSITORY)).toBeInstanceOf(TauriDashboardRepository);
+    expect(di.get(WIDGET_INSTANCE_REPOSITORY)).toBeInstanceOf(TauriWidgetInstanceRepository);
+  });
+
+  it('repositories are unavailable outside Tauri', async () => {
+    await expect(injector().get(SETTINGS_REPOSITORY).get('a')).rejects.toMatchObject({
+      kind: 'unavailable',
+    });
   });
 });

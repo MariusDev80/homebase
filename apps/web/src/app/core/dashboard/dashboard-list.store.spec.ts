@@ -17,9 +17,9 @@ import {
 } from './dashboard-list.store';
 
 function setup() {
-  const dashboards = new FakeDashboardRepository();
-  const settings = new FakeSettingsRepository();
   const instances = new FakeWidgetInstanceRepository();
+  const dashboards = FakeDashboardRepository.linked(instances);
+  const settings = new FakeSettingsRepository();
   TestBed.configureTestingModule({
     providers: [
       { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
@@ -151,16 +151,58 @@ describe('DashboardListStore', () => {
     expect(settings.values.get(LAST_DASHBOARD_SETTING)).toBe('abc');
   });
 
-  it('discardEmpty removes the dashboard, and only logs a failure', async () => {
+  it('createWithWidgets adds the created dashboard to the list and moves the instances', async () => {
+    const { store, dashboards, instances } = setup();
+    await store.load('Accueil');
+    const [source] = store.dashboards();
+    const a = instances.seed({ dashboardId: source.id });
+    const result = await store.createWithWidgets({ name: 'Suite', icon: 'home' }, source.id, [
+      { id: a.id, grid: { x: 0, y: 0, w: 2, h: 2 } },
+    ]);
+    expect(result.moved).toBe(1);
+    expect(store.dashboards().map((d) => d.name)).toEqual(['Accueil', 'Suite']);
+    expect(instances.items[0].dashboardId).toBe(result.dashboard.id);
+    expect(dashboards.items).toHaveLength(2);
+  });
+
+  it('createWithWidgets moves only the instances still on the source (partial stale ids)', async () => {
+    const { store, instances } = setup();
+    await store.load('Accueil');
+    const [source] = store.dashboards();
+    const a = instances.seed({ dashboardId: source.id });
+    const result = await store.createWithWidgets({ name: 'Suite', icon: 'home' }, source.id, [
+      { id: a.id, grid: { x: 0, y: 0, w: 2, h: 2 } },
+      { id: 'stale', grid: { x: 2, y: 0, w: 2, h: 2 } },
+    ]);
+    expect(result.moved).toBe(1);
+    expect(store.dashboards()).toHaveLength(2);
+    expect(instances.items.find((i) => i.id === a.id)?.dashboardId).toBe(result.dashboard.id);
+  });
+
+  it('createWithWidgets refuses a 101st dashboard without calling the repository', async () => {
     const { store, dashboards } = setup();
     await store.load('Accueil');
-    const extra = await store.create({ name: 'Vide', icon: 'home' });
-    await store.discardEmpty(extra.id);
-    expect(store.dashboards().map((d) => d.name)).toEqual(['Accueil']);
-    const kept = await store.create({ name: 'Reste', icon: 'home' });
-    dashboards.failNext(new DataError('unavailable', 'x'));
-    await expect(store.discardEmpty(kept.id)).resolves.toBeUndefined();
-    expect(store.dashboards()).toHaveLength(2);
+    for (let i = 1; i < MAX_DASHBOARDS; i++) await dashboards.create({ name: `T${i}` });
+    await store.afterRemoval();
+    const spy = vi.spyOn(dashboards, 'createWithWidgets');
+    await expect(
+      store.createWithWidgets({ name: 'x', icon: 'home' }, 's', [
+        { id: 'i', grid: { x: 0, y: 0, w: 1, h: 1 } },
+      ]),
+    ).rejects.toBeInstanceOf(DashboardLimitError);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('createWithWidgets leaves the list unchanged when the repository fails', async () => {
+    const { store, dashboards } = setup();
+    await store.load('Accueil');
+    dashboards.failNext(new DataError('conflict', 'x'));
+    await expect(
+      store.createWithWidgets({ name: 'x', icon: 'home' }, 's', [
+        { id: 'i', grid: { x: 0, y: 0, w: 1, h: 1 } },
+      ]),
+    ).rejects.toMatchObject({ kind: 'conflict' });
+    expect(store.dashboards()).toHaveLength(1);
   });
 });
 

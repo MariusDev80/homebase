@@ -1,9 +1,9 @@
 # ADR-001 : contrat `Widget`, registre et format de configuration
 
 - **Statut** : accepté (2026-10-22, par Marius, en fin de phase 1 ; les changements passent par des amendements explicites)
-- **Date** : 2026-10-20 (amendé le même jour pour alignement sur l'ADR-002, puis en phase 1 : `removeConfirmKey`, durcissement de l'opener)
+- **Date** : 2026-10-20 (amendé le même jour pour alignement sur l'ADR-002, puis en phase 1 : `removeConfirmKey`, durcissement de l'opener ; le 2026-11-25 : données par commandes Rust typées, spec typed-data-commands)
 - **Auteur** : architect (Opus)
-- **Liens** : `docs/PLAN.md` §3 « Contrat Widget », §4, §5, §6 ; `docs/ROADMAP.md` phases 0 et 1 ; `docs/adr/002-data-layer.md` (couche de données)
+- **Liens** : `docs/PLAN.md` §3 « Contrat Widget », §4, §5, §6 ; `docs/ROADMAP.md` phases 0 et 1 ; `docs/adr/002-data-layer.md` (couche de données) ; `docs/specs/typed-data-commands.md` (ADR-002 O3)
 
 > **Règle de préséance** : l'ADR-002 fait foi pour **toute** la couche `data/` (SQL **et** forme TypeScript des modèles, repositories, erreurs, JSON). Cet ADR ne définit que ce qui vit dans `core/` et `widgets/`, et ne fait que **référencer** les types de `data/`.
 
@@ -21,7 +21,7 @@ Homebase est un dashboard Windows (Tauri 2 + Angular 21 zoneless, signals, stand
 Contraintes :
 - Contrat indépendant de la lib de grille : tailles en **unités de grille**. Phase 0 : CSS Grid simple. Phase 1 : **angular-gridster2 21.x** (repli : gridstack), derrière un adaptateur.
 - CSP stricte dans le WebView : pas de `unsafe-eval`, donc aucune lib de validation qui génère du code (`new Function`) sans mode « sans JIT ».
-- Pas de transaction multi-instructions depuis le front (ADR-002 §2.3) : une écriture logique = une instruction SQL.
+- Pas de transaction multi-instructions depuis le front (ADR-002 §2.3) : une écriture logique = une instruction SQL. *Amendement (spec typed-data-commands, 2026-11-25)* : le front n'exécute plus de SQL ; chaque appel de repository est une commande Rust typée, qui peut utiliser une transaction côté Rust (ADR-002 §2.3 amendé).
 - i18n : **Transloco** (clés runtime, interpolation `{{ param }}`, traductions embarquées, `provideAppI18n()` dans `core/i18n`, fichier `apps/web/src/app/core/i18n/fr.json`), retenu par la tâche Shell.
 
 ### Faits vérifiés (sources consultées le 2026-10-20)
@@ -34,7 +34,7 @@ Contraintes :
 ### Supposé (à confirmer pendant l'implémentation)
 - `NgComponentOutlet` accepte toujours `ngComponentOutletInjector` en Angular 21 (API présente depuis v14, non revérifiée sur v21).
 - Les imports dynamiques (`import()`) de chunks Angular fonctionnent depuis le protocole d'assets Tauri en build de production (comportement standard, non testé ici).
-- Importer `data/index.ts` depuis un test du runner Angular est sans effet de bord (le module `@tauri-apps/plugin-sql` n'appelle rien à l'import ; `Database.get` n'est appelé que par la fabrique de `provideDataLayer`). Si faux : s'arrêter et remonter.
+- Importer `data/index.ts` depuis un test du runner Angular est sans effet de bord (le module `@tauri-apps/plugin-sql` n'appelle rien à l'import ; `Database.get` n'est appelé que par la fabrique de `provideDataLayer`). Si faux : s'arrêter et remonter. *Amendement (spec typed-data-commands, 2026-11-25)* : sans objet. `@tauri-apps/plugin-sql` n'est plus une dépendance du front et `Database.get` n'est plus appelé ; `provideDataLayer` fournit des dépôts adossés à des commandes Rust, qui n'appellent `invoke` qu'à l'usage.
 
 ## 2. Options étudiées
 
@@ -180,9 +180,11 @@ Cet ADR **ne définit aucun type de `data/`**. `core/` et `widgets/` utilisent, 
 - `WidgetInstanceRepository { listByDashboard, get, create, updateConfig (lève DataError('not_found')), updateLayout(dashboardId, items) → number, moveToDashboard(targetDashboardId, items) → number, findFirstOfType(widgetType), remove }` et `DashboardRepository { list, get, create, createIfNone, update, updateTheme, remove }` (`data/repositories.ts`). La suppression d'un dashboard par l'utilisateur passe par la commande Rust `dashboard_delete`, qui prend d'abord une sauvegarde `pre-delete` (spec dashboards-sidebar) ;
 - tokens `WIDGET_INSTANCE_REPOSITORY`, `DASHBOARD_REPOSITORY` et `provideDataLayer()` (`data/data.providers.ts`).
 
+*Amendement (spec typed-data-commands, 2026-11-25)* : `DashboardRepository { list, get, create, createIfNone, update, updateTheme, createWithWidgets }` ; `WidgetInstanceRepository { listByDashboard, get, create, updateConfig, updateLayout, findFirstOfType, remove }` ; tous implémentés par des commandes Rust typées (`data/tauri/`). `createWithWidgets(input, sourceDashboardId, items)` crée le tableau « (suite) » et y déplace les widgets en une transaction Rust ; elle remplace `moveToDashboard` et `DashboardRepository.remove`. La suppression d'un dashboard passe uniquement par `dashboard_delete`.
+
 Usage par le contrat :
 - les mises à jour de config (`updateConfig`) et de layout (`updateLayout`) touchent des colonnes distinctes : une sauvegarde de layout n'écrase pas une config écrite juste avant (et inversement) ;
-- aucune opération du contrat ne suppose de transaction côté front ; chaque appel de repository est une instruction SQL unique (ADR-002 §2.3).
+- aucune opération du contrat ne suppose de transaction côté front ; chaque appel de repository est une instruction SQL unique (ADR-002 §2.3). *Amendement (spec typed-data-commands, 2026-11-25)* : chaque appel de repository est une commande Rust typée ; une transaction Rust n'est utilisée que pour une lecture suivie d'une écriture dépendante (ex. `createWithWidgets`, contrôles de limite).
 
 ### 3.8 Permissions et capabilities Tauri
 Toutes les vues Angular tournent dans **une seule webview** : les capabilities Tauri s'y appliquent en bloc (union des besoins). Les permissions déclarées par un widget sont donc :
@@ -197,7 +199,7 @@ Toutes les vues Angular tournent dans **une seule webview** : les capabilities T
 | `network` | Un service typé par source, sans client HTTP générique côté front : `WeatherService` (phase 1, `core/weather`), puis `FeedService`, `ProbeService`… (phase 3, `OutboundHttp`) | **Aucune** permission `http:*` exposée au JS ; CSP `connect-src` inchangée. *Amendement phase 1* : commandes Rust dédiées (`weather_forecast`, `weather_geocode`) sur le module Rust `net` (reqwest + native-tls) : hôtes fixés par une énumération fermée `Endpoint`, HTTPS seul, aucune redirection ni proxy, timeouts, taille max, sorties désérialisées et validées (`docs/specs/weather-widget.md`). Le filtrage des IP privées (sauf NAS) et les hôtes configurables arrivent en phase 3 avec `OutboundHttp`, sur ce même module (`fetch_feed`, `probe_service`…) |
 | `launch-apps` | `AppLauncher` (phase 3) | **Aucune** permission `shell:*`. Commande Rust `launch_app(appId)` : `appId` résolu dans une liste autorisée tenue côté Rust ; jamais de chemin ni d'argument venant du front |
 
-Règle complémentaire : restreindre les commandes Rust de l'app via `AppManifest::commands` dans `build.rs` (par défaut elles sont toutes accessibles à toutes les fenêtres). Ajouter un type de permission = amendement de cet ADR + mise à jour du tableau. Rappel ADR-002 : `sql:allow-execute`/`sql:allow-select` donnent au front un accès SQL complet (risque R1 de l'ADR-002) ; c'est une raison de plus de ne pas considérer les permissions JS comme une barrière.
+Règle complémentaire : restreindre les commandes Rust de l'app via `AppManifest::commands` dans `build.rs` (par défaut elles sont toutes accessibles à toutes les fenêtres). Ajouter un type de permission = amendement de cet ADR + mise à jour du tableau. Rappel ADR-002 : `sql:allow-execute`/`sql:allow-select` donnent au front un accès SQL complet (risque R1 de l'ADR-002) ; c'est une raison de plus de ne pas considérer les permissions JS comme une barrière. *Amendement (spec typed-data-commands, 2026-11-25)* : le front n'a plus aucune permission `sql:*` (ADR-002 R1 clos) ; il dispose des commandes Rust typées de données, que tout script de la webview peut appeler. La règle reste : les permissions JS ne sont pas une barrière ; le résiduel est décrit dans `docs/SECURITY-NOTES.md`.
 
 ### 3.9 Hôte et grille
 - `WidgetHostComponent` (`core/`, sélecteur `app-widget-host`) : résout la définition, charge le composant, résout la config, crée un injector enfant fournissant `WIDGET_CONTEXT`, rend via `NgComponentOutlet`. États : `loading | ready | unknown-type | invalid-config | load-error`.
@@ -247,7 +249,7 @@ Config v1 `{ name: string }` (1 à 40 caractères après `trim`, défaut `"monde
 | Deux processus de l'app ouverts en même temps | Hors contrat ; plugin single-instance prévu (ADR-002 R11) |
 
 ## 6. Risques
-- **Même realm JS** : une XSS dans n'importe quel widget obtient toutes les capabilities de la webview (dont l'accès SQL complet, ADR-002 R1). Mitigation : CSP stricte, assainissement (DOMPurify) des contenus externes, aucune capability large, validation côté Rust. Les permissions JS ne sont qu'un garde-fou.
+- **Même realm JS** : une XSS dans n'importe quel widget obtient toutes les capabilities de la webview (dont l'accès SQL complet, ADR-002 R1). Mitigation : CSP stricte, assainissement (DOMPurify) des contenus externes, aucune capability large, validation côté Rust. Les permissions JS ne sont qu'un garde-fou. *Amendement (spec typed-data-commands, 2026-11-25)* : plus d'accès SQL complet (ADR-002 R1 clos) ; une XSS garde l'accès à toutes les commandes Rust typées, dont des suppressions et des écrasements sans sauvegarde (résiduel : `docs/SECURITY-NOTES.md`).
 - **Pas d'« error boundary » Angular** : une exception dans le template d'un widget remonte à l'`ErrorHandler` global et peut perturber le cycle de rendu. Mitigation : états d'erreur gérés par l'hôte pour le chargement et la config, `ErrorHandler` qui journalise, tests par widget. Risque accepté.
 - **Une ligne corrompue bloque tout le dashboard** : `listByDashboard` lève `corrupt_data` pour l'ensemble si une `config` n'est pas un objet. Probabilité très faible (le `CHECK` l'interdit ; seule une édition manuelle de la base y mène). Accepté en phase 0 ; à rouvrir si cela se produit (lecture tolérante ligne par ligne dans `data/`, par amendement de l'ADR-002).
 - **Migration de config boguée** → perte de préférences. Mitigation : jamais de réécriture en cas d'échec, fixtures obligatoires, sauvegardes de la base (ADR-002 §2.7).
@@ -528,7 +530,7 @@ export function provideAllWidgets(): Provider[] { return [provideWidget(helloWid
 - Parcourt récursivement les `.ts` ; extrait les spécificateurs : `import … from '…'`, `export … from '…'`, `import '…'`, `import('…')`.
 - Résout les relatifs (`path.resolve`) ; reconnaît aussi les alias `@core/`, `@data/`, `@widgets/` s'ils existent. Zone d'un fichier = 1er segment sous la racine (`core`, `data`, `widgets`, autre) ; widget = 2e segment sous `widgets/`.
 - Règles R1 à R4 (§3.1). Sortie : une ligne par violation `<fichier>:<ligne> [R<n>] <message>`, code de sortie 1 ; sinon message de succès et code 0.
-- Ne duplique pas les règles ESLint de l'ADR-002 (plugin SQL, `data/sqlite`, `data/testing`).
+- Ne duplique pas les règles ESLint de l'ADR-002 (plugin SQL, `data/sqlite`, `data/testing`). *Amendement (spec typed-data-commands, 2026-11-25)* : `data/sqlite` n'existe plus ; les règles ESLint de l'ADR-002 (§6.8 amendé) interdisent `@tauri-apps/plugin-sql` partout et protègent `data/testing` et `data/tauri`.
 
 ### 8.6 Clés i18n FR (`core/i18n/fr.json`, syntaxe Transloco)
 `widgets.hello.title` « Bonjour », `widgets.hello.description` « Widget de démonstration », `widgets.hello.greeting` « Bonjour, {{ name }} ! », `widgets.hello.nameLabel` « Nom », `widgets.hello.save` « Enregistrer », `widgets.hello.invalidName` « Le nom doit contenir de 1 à 40 caractères. », `dashboard.defaultName` « Accueil », `dashboard.addWidget` « Ajouter un widget », `dashboard.empty` « Aucun widget pour l'instant. », `dashboard.loadError` « Impossible de charger le tableau de bord. », `widgetHost.remove` « Supprimer », `widgetHost.unknownType` « Widget inconnu : {{ type }} », `widgetHost.invalidConfig` « Configuration invalide », `widgetHost.futureVersion` « Configuration créée par une version plus récente de Homebase », `widgetHost.resetConfig` « Réinitialiser », `widgetHost.loadError` « Impossible de charger ce widget », `widgetHost.retry` « Réessayer ».

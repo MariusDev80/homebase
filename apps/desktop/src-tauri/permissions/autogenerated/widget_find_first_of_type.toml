@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-widget-find-first-of-type"
+description = "Enables the widget_find_first_of_type command without any pre-configured scope."
+commands.allow = ["widget_find_first_of_type"]
+
+[[permission]]
+identifier = "deny-widget-find-first-of-type"
+description = "Denies the widget_find_first_of_type command without any pre-configured scope."
+commands.deny = ["widget_find_first_of_type"]

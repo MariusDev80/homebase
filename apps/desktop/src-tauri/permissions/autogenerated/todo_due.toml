@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-todo-due"
+description = "Enables the todo_due command without any pre-configured scope."
+commands.allow = ["todo_due"]
+
+[[permission]]
+identifier = "deny-todo-due"
+description = "Denies the todo_due command without any pre-configured scope."
+commands.deny = ["todo_due"]

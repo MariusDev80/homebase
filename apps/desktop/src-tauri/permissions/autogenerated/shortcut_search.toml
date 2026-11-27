@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shortcut-search"
+description = "Enables the shortcut_search command without any pre-configured scope."
+commands.allow = ["shortcut_search"]
+
+[[permission]]
+identifier = "deny-shortcut-search"
+description = "Denies the shortcut_search command without any pre-configured scope."
+commands.deny = ["shortcut_search"]

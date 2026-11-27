@@ -1,6 +1,7 @@
 // Fails when the initial chunks (index.html scripts + modulepreload + their static imports) contain
-// SQL of the lazy content repositories (todo, note, shortcut: data/content.tokens.ts). Those
+// the command names of the lazy content repositories (todo, note, shortcut: data/content.tokens.ts). Those
 // repositories must only be reachable through dynamic imports (lazy widgets / calendar sources).
+// It also fails when `plugin:sql` appears in ANY file of the dist: the front has no SQL plugin access.
 // Usage: node scripts/check-initial-bundle.mjs [distDir]
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -8,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.resolve(process.argv[2] ?? path.join(scriptDir, '..', 'dist', 'web', 'browser'));
-const FORBIDDEN = ['FROM todos', 'FROM notes', 'FROM shortcuts'];
+// Command names owned by the lazy content repositories (data/tauri/tauri-{todo,note,shortcut}).
+const FORBIDDEN = ['todo_list_items', 'note_search', 'shortcut_reorder'];
+// Must appear in no .js file of the dist at all (no relevance guard: absence is the goal).
+const FORBIDDEN_EVERYWHERE = ['plugin:sql'];
 
 const indexPath = path.join(dist, 'index.html');
 if (!existsSync(indexPath)) {
@@ -62,14 +66,27 @@ if (stale.length > 0) {
   process.exit(2);
 }
 
+const everywhere = FORBIDDEN_EVERYWHERE.flatMap((needle) =>
+  listJs(dist).flatMap((f) =>
+    readFileSync(f, 'utf8').includes(needle) ? [`${path.relative(dist, f)}: ${needle}`] : [],
+  ),
+);
+if (everywhere.length > 0) {
+  console.error('Forbidden pattern(s) found in the dist (the front has no SQL plugin access):');
+  for (const line of everywhere) console.error(`  ${line}`);
+  process.exit(1);
+}
+
 const found = [];
 for (const name of initial) {
   const text = readFileSync(path.join(dist, name), 'utf8');
   for (const needle of FORBIDDEN) if (text.includes(needle)) found.push(`${name}: ${needle}`);
 }
 if (found.length > 0) {
-  console.error('Content repository SQL found in the initial bundle (must stay lazy):');
+  console.error('Content repository commands found in the initial bundle (must stay lazy):');
   for (const line of found) console.error(`  ${line}`);
   process.exit(1);
 }
-console.log(`OK: no content repository SQL in ${initial.size} initial chunk(s).`);
+console.log(
+  `OK: no content repository command in ${initial.size} initial chunk(s), no plugin:sql anywhere in the dist.`,
+);

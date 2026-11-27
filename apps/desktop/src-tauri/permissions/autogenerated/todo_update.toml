@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-todo-update"
+description = "Enables the todo_update command without any pre-configured scope."
+commands.allow = ["todo_update"]
+
+[[permission]]
+identifier = "deny-todo-update"
+description = "Denies the todo_update command without any pre-configured scope."
+commands.deny = ["todo_update"]

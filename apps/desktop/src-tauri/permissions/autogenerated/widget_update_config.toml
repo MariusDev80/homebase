@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-widget-update-config"
+description = "Enables the widget_update_config command without any pre-configured scope."
+commands.allow = ["widget_update_config"]
+
+[[permission]]
+identifier = "deny-widget-update-config"
+description = "Denies the widget_update_config command without any pre-configured scope."
+commands.deny = ["widget_update_config"]

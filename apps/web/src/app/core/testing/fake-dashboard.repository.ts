@@ -9,8 +9,13 @@ import type {
   DashboardPatch,
   DashboardRepository,
   JsonObject,
+  LayoutItem,
   NewDashboard,
 } from '../../data';
+import type { FakeWidgetInstanceRepository } from './fake-widget-instance.repository';
+
+/** Same limit as the Rust command (MAX_DASHBOARDS). */
+const MAX_DASHBOARDS = 100;
 
 /** In-memory DashboardRepository with deterministic ids and timestamps (specs only). */
 export class FakeDashboardRepository implements DashboardRepository {
@@ -18,6 +23,15 @@ export class FakeDashboardRepository implements DashboardRepository {
   private counter = 0;
   private writes = 0;
   private nextFailure: unknown;
+
+  private instances?: FakeWidgetInstanceRepository;
+
+  /** Links an instance fake: createWithWidgets then really moves the instances of the source dashboard. */
+  static linked(instances: FakeWidgetInstanceRepository): FakeDashboardRepository {
+    const repo = new FakeDashboardRepository();
+    repo.instances = instances;
+    return repo;
+  }
 
   /** The next call rejects with `error`. */
   failNext(error: unknown): void {
@@ -117,11 +131,36 @@ export class FakeDashboardRepository implements DashboardRepository {
     return updated;
   }
 
-  async remove(id: string): Promise<boolean> {
+  /**
+   * Same checks and order as the Rust command: empty batch and duplicate ids (invalid_input), then
+   * the limit of 100 dashboards (forbidden), then conflict, creating nothing, when no listed instance
+   * belongs to the source. Needs a fake linked to the instance fake (`linked`).
+   */
+  async createWithWidgets(
+    input: NewDashboard,
+    sourceDashboardId: string,
+    items: readonly LayoutItem[],
+  ): Promise<{ readonly dashboard: Dashboard; readonly moved: number }> {
     await this.check();
-    const index = this.items.findIndex((d) => d.id === id);
-    if (index < 0) return false;
-    this.items.splice(index, 1);
-    return true;
+    if (items.length === 0) throw new DataError('invalid_input', 'items must not be empty');
+    if (new Set(items.map((item) => item.id)).size !== items.length) {
+      throw new DataError('invalid_input', 'items must not contain duplicate ids');
+    }
+    const instances = this.instances;
+    if (!instances) {
+      throw new Error(
+        'FakeDashboardRepository.createWithWidgets needs FakeDashboardRepository.linked()',
+      );
+    }
+    if (this.items.length >= MAX_DASHBOARDS) {
+      throw new DataError('forbidden', 'Dashboard limit reached');
+    }
+    const movable = items.filter((item) =>
+      instances.items.some((i) => i.id === item.id && i.dashboardId === sourceDashboardId),
+    );
+    if (movable.length === 0) throw new DataError('conflict', 'No widget instance could be moved');
+    const dashboard = this.build(input);
+    instances.relocate(dashboard.id, movable);
+    return { dashboard, moved: movable.length };
   }
 }

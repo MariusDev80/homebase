@@ -15,8 +15,8 @@ import {
 } from './dashboard.store';
 
 function setup() {
-  const dashboards = new FakeDashboardRepository();
   const instances = new FakeWidgetInstanceRepository();
+  const dashboards = FakeDashboardRepository.linked(instances);
   TestBed.configureTestingModule({
     providers: [
       { provide: DASHBOARD_REPOSITORY, useValue: dashboards },
@@ -476,20 +476,30 @@ describe('DashboardStore open and close', () => {
     expect(store.layoutError()).toBe(false);
   });
 
-  it('moveUnplacedTo moves the widgets without room and leaves the placed ones', async () => {
-    const { store, instances, dashboards, first } = await twoDashboards();
+  it('dropMoved removes every sent id, including a stale one that is no longer displayed', async () => {
+    const { store, instances, first } = await twoDashboards();
+    const a = instances.seed({ dashboardId: first.id });
+    const b = instances.seed({ dashboardId: first.id });
+    await store.open(first.id, 'x');
+    store.dropMoved([a.id, 'stale']);
+    expect(store.instances().map((i) => i.id)).toEqual([b.id]);
+  });
+
+  it('unplacedItems fits the widgets without room and writes nothing; dropMoved removes the moved ones', async () => {
+    const { store, instances, first } = await twoDashboards();
     for (let i = 0; i < 25; i++) {
       instances.seed({ dashboardId: first.id, grid: { x: 0, y: 0, w: 2, h: 2 } });
     }
     await store.open(first.id, 'x');
     const [lost] = store.layout().unplaced;
     const placedBefore = new Map(store.layout().placed);
-    const target = await dashboards.create({ name: 'Trop-plein' });
-    await expect(store.moveUnplacedTo(target.id)).resolves.toBe(1);
-    expect(instances.items.find((i) => i.id === lost)?.dashboardId).toBe(target.id);
+    const items = store.unplacedItems();
+    expect(items.map((i) => i.id)).toEqual([lost]);
+    expect(instances.items.find((i) => i.id === lost)?.dashboardId).toBe(first.id);
+    store.dropMoved(items.map((i) => i.id));
     expect(store.instances()).toHaveLength(24);
     expect(store.layout().unplaced).toEqual([]);
     expect(store.layout().placed).toEqual(placedBefore);
-    await expect(store.moveUnplacedTo(target.id)).resolves.toBe(0);
+    expect(store.unplacedItems()).toEqual([]);
   });
 });
