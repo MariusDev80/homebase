@@ -215,7 +215,7 @@ describe('ReminderStore', () => {
       });
     });
 
-    it('sends 366 past exceptions plus the new key to the repository (Rust prunes them)', async () => {
+    it('sends a full list of 366 exceptions plus the new key to the repository (Rust prunes it)', async () => {
       const r = await repo.create(INPUT);
       repo.schedule(r.id, '2026-11-17T07:00:00.000Z', '2030-01-01T08:00:00');
       const store = await create();

@@ -109,8 +109,8 @@ export class ReminderStore {
   /**
    * Skips the next occurrence of a series: its key joins the exceptions (M8, D12). Rejects with
    * invalid_input when there is no next occurrence. The 366 limit is not checked here: the Rust
-   * scheduler first drops the exceptions that are past the catch-up window, then applies it
-   * (and answers invalid_input), so a list full of past dates must still reach it.
+   * scheduler applies it (answers invalid_input), after pruning a saturated list of the entries
+   * older than the catch-up window, so a full list must still reach it.
    */
   skipNext(reminder: Reminder): Promise<Reminder> {
     const refuse = (message: string): Promise<never> => {

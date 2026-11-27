@@ -97,7 +97,7 @@ Spec : `docs/specs/dashboards-sidebar.md`. Vérifications manuelles M1 à M17 (e
 - [ ] (O→S) Raccourcis vers applications locales (liste autorisée, capacités Tauri)
 - [ ] (S) Widget objectifs (édition manuelle, durées, étiquettes)
 - [ ] (S) Bundle (arbitrage R5, option 3) : relever l'avertissement initial de 500 à 525 kB avec une valeur de référence enregistrée que la CI fait respecter à 2 kB près ; réserve : PrimeIcons réduit aux icônes utilisées et palette Aura minimale (≈ −14 kB)
-- [x] (S) Rappels : retirer des `exdates` les dates déjà passées (sinon un rappel quotidien souvent ignoré atteint la limite de 366 et « Ignorer » est refusé) — fait côté Rust (`prune_past_exdates`, écriture create/update) : retire les exdates antérieures à `now - CATCHUP_WINDOW` (7 j)
+- [x] (S) Rappels : retirer des `exdates` les dates déjà passées (sinon un rappel quotidien souvent ignoré atteint la limite de 366 et « Ignorer » est refusé) — fait côté Rust : élagage paresseux (`prune_past_exdates`, create/update) au-delà de 366 seulement, des entrées antérieures à `now - CATCHUP_WINDOW` (7 j), les plus anciennes d’abord ; sinon les exdates sont conservées (historique du calendrier)
 **Sortie** : informations externes et lancement d'applications, sans surface d'attaque inutile.
 
 ## Phase 4 : Budget et comptes

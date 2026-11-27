@@ -155,6 +155,8 @@ Désactiver un rappel efface son cache ; le réactiver repart de `next_after(now
 ### D12. Édition d'une série (M8)
 « Modifier » remplace toute la série (titre, ancre, règle, exceptions, activation) et recalcule le cache. « Ignorer la prochaine occurrence » ajoute `next_fire_key` aux `exdates` (≤ 366, ADR-003 §3.5.3) par la même commande de modification. Une modification qui change l'heure crée de nouvelles clés : la nouvelle occurrence sonnera même si l'ancienne a déjà sonné le même jour (comportement voulu) ; une modification du seul titre conserve les clés (pas de doublon). Les clés d'occurrence sont des heures murales : un changement de fuseau ou d'heure de départ qui laisse la même heure murale garde la même clé, et si cette occurrence a déjà été livrée le jour du changement, la nouvelle est absorbée sans toast (cas limite accepté en v1, L36). Avant d'appliquer une modification, les commandes qui touchent une échéance traitent d'abord ce qui est déjà échu (même fonction que le passage, §4.3 étapes 1 et 2, sous le même `gate`) : modifier un rappel échu non traité le livre d'abord, démarrer une session après un minuteur expiré non complété le complète d'abord.
 
+*Amendement (2026-11-27)* : les `exdates` servent d'historique des occurrences ignorées (le calendrier les développe sur toute plage) : elles ne sont jamais retirées tant que la liste tient dans 366 entrées. Élagage paresseux : à la création et à la modification d'un rappel (jamais pour un rappel d'habitude), si la liste reçue compte plus de 366 entrées distinctes, `prune_past_exdates` (`schedule/commands.rs`) retire les entrées dont l'instant résolu (fuseau du rappel, `compatible`) est antérieur à `now - CATCHUP_WINDOW` (7 jours), les plus anciennes d'abord, juste assez pour revenir à 366 ; faute d'assez d'entrées retirables, la limite refuse comme avant. Le front (`skipNext`) ne contrôle plus la longueur. Voir L37.
+
 ---
 
 ## 4. Conception détaillée
@@ -687,6 +689,7 @@ Une habitude « tous les lundis » **sans heure** reste une ancre datée qui ne 
 | L34 | Hors-ligne, synchronisation | Sans objet (tout est local) |
 | L35 | Base occupée (`busy`) pendant un passage | Erreur journalisée, nouvel essai dans 5 s, aucune livraison partielle (transaction) |
 | L36 | Changement de fuseau (ou d'heure de départ) d'un rappel vers la même heure murale, alors que l'occurrence de cette heure murale a déjà été livrée le jour même | La clé d'occurrence (heure murale) est identique : la nouvelle occurrence est absorbée sans toast. Cas limite accepté en v1 (D12) |
+| L37 | Horloge fausse de plus de 7 jours (avancée) sur un rappel dont la liste d'`exdates` est saturée (366) | L'élagage paresseux (D12, amendement 2026-11-27) peut retirer une exception encore rattrapable : l'occurrence ignorée sonne alors au rattrapage. Accepté : l'élagage ne s'applique qu'à une liste pleine et suppose une horloge juste à ±7 jours |
 
 ---
 

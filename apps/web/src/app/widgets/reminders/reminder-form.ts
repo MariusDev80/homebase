@@ -445,6 +445,7 @@ function timeProblem(error: TimeError): FieldProblem {
 function inputProblem(error: DataError): FieldProblem {
   const details = commandErrorDetails(error);
   if (details.timeKind === 'invalid_rule') return ruleProblem(details.code);
+  if (details.timeKind === 'invalid_exdate') return { field: 'form', key: ERR + 'exdates' };
   switch (details.field) {
     case 'title':
       return { field: 'title', key: ERR + 'title' };
