@@ -689,7 +689,7 @@ Une habitude « tous les lundis » **sans heure** reste une ancre datée qui ne 
 | L34 | Hors-ligne, synchronisation | Sans objet (tout est local) |
 | L35 | Base occupée (`busy`) pendant un passage | Erreur journalisée, nouvel essai dans 5 s, aucune livraison partielle (transaction) |
 | L36 | Changement de fuseau (ou d'heure de départ) d'un rappel vers la même heure murale, alors que l'occurrence de cette heure murale a déjà été livrée le jour même | La clé d'occurrence (heure murale) est identique : la nouvelle occurrence est absorbée sans toast. Cas limite accepté en v1 (D12) |
-| L37 | Horloge fausse de plus de 7 jours (avancée) sur un rappel dont la liste d'`exdates` est saturée (366) | L'élagage paresseux (D12, amendement 2026-11-27) peut retirer une exception encore rattrapable : l'occurrence ignorée sonne alors au rattrapage. Accepté : l'élagage ne s'applique qu'à une liste pleine et suppose une horloge juste à ±7 jours |
+| L37 | Horloge fausse de plus de 7 jours, en avance à l'écriture ou reculée ensuite, sur un rappel dont la liste d'`exdates` est saturée (366) | L'élagage paresseux (D12, amendement 2026-11-27) a pu retirer une exception encore rattrapable ; au démarrage le passage recalcule `next_fire(now)` et l'occurrence ignorée retirée sonne à son heure ou au rattrapage. Accepté : l'élagage ne s'applique qu'à une liste pleine et suppose une horloge juste à ±7 jours |
 
 ---
 

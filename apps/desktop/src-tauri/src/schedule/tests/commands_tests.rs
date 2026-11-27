@@ -4,6 +4,7 @@
 
 use crate::backup::sqlite::supported_schema_version;
 use crate::backup::test_support::{make_database, run};
+use crate::schedule::commands::prune_past_exdates;
 use crate::schedule::commands::{
     create_reminder, delete_reminder, delete_session, history_sessions, list_reminders,
     mark_deliveries_seen, rename_session, running_sessions, start_session, stop_session,
@@ -1562,7 +1563,10 @@ fn accepts_probe_at(now: &str, probe: &str) -> bool {
                 assert!(!created.exdates.iter().any(|e| e == probe || e == VERY_OLD));
                 true
             }
-            Err(_) => false,
+            Err(ScheduleError::Time {
+                error: TimeError::InvalidExdate { .. },
+            }) => false,
+            Err(other) => panic!("unexpected error: {other:?}"),
         }
     })
 }
@@ -1581,7 +1585,7 @@ fn a_list_within_the_limit_keeps_every_exdate_even_old_ones() {
 }
 
 #[test]
-fn a_saturated_list_drops_only_the_oldest_stale_entries_in_order() {
+fn a_saturated_list_drops_only_the_oldest_stale_entry() {
     let fx = Fx::new();
     run(async {
         // NOW cutoff: 2026-11-09 09:00 Paris. 367 entries: three stale, one inside the window.
@@ -1641,6 +1645,16 @@ fn a_daily_reminder_with_366_past_exdates_still_accepts_skip() {
 }
 
 #[test]
+fn prune_keeps_the_order_and_the_format_of_the_kept_entries() {
+    let now = parse_instant(NOW).expect("instant");
+    let mut exdates = vec!["2026-11-20T09:00:00".to_owned(), VERY_OLD.to_owned()];
+    exdates.extend(future_exdates(365).into_iter().rev());
+    let kept = prune_past_exdates(exdates.clone(), PARIS, now);
+    exdates.remove(1);
+    assert_eq!(kept, exdates);
+}
+
+#[test]
 fn a_saturated_list_without_enough_stale_entries_is_refused() {
     let fx = Fx::new();
     run(async {
@@ -1680,6 +1694,10 @@ fn a_fold_wall_time_resolves_to_its_first_pass() {
 /// 02:30 on 2026-03-29 = 01:30Z, exactly the cutoff of 2026-04-05T01:30Z: kept.
 #[test]
 fn a_gap_wall_time_equal_to_the_cutoff_is_kept() {
+    assert!(accepts_probe_at(
+        "2026-04-05T01:30:00.000Z",
+        "2026-03-29T02:29:59"
+    ));
     assert!(!accepts_probe_at(
         "2026-04-05T01:30:00.000Z",
         "2026-03-29T02:30:00"

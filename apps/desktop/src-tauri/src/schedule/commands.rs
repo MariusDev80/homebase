@@ -305,15 +305,18 @@ pub(super) fn prepare(
 const PRUNE_MAX_INPUT: usize = 1_000;
 
 /// Lazy pruning of the exceptions (ADR-003 section 3.5.3, C34: they double as the history of the
-/// skipped occurrences, so nothing is dropped while the list fits). Duplicates are counted once to decide whether the list is saturated; a raw list over the limit but without enough distinct entries is left as is (refused by `prepare`, as before).
+/// skipped occurrences, so nothing is dropped while the list fits). Duplicates are counted once
+/// to decide whether the list is saturated; a raw list over the limit but without enough distinct
+/// entries is left as is (refused by `prepare`, as before).
 /// Only a saturated list (more than `MAX_EXDATES` distinct entries, i.e. a new key added to a full
 /// list) is pruned, and only of entries resolved (in the reminder's zone, `compatible`) strictly
 /// before `now - CATCHUP_WINDOW`, which can neither be scheduled nor caught up any more; the oldest
 /// go first, just enough to get back to `MAX_EXDATES`. If there are not enough of them, the list
 /// is returned unchanged for `prepare` to refuse. Entries that do not parse, an unknown zone or an
 /// oversized list are also left as they are. The kept entries keep their order and format.
-/// Assumes a clock right within 7 days: a clock ahead by more than that could drop an exception
-/// that is still catchable (spec timers-reminders, L37).
+/// Assumes a clock right within 7 days: a clock wrong by more than that, ahead at the write or set
+/// back afterwards (the startup pass then recomputes `next_fire(now)`), can make an exception that
+/// was dropped ring again, on time or at the catch-up (spec timers-reminders, L37).
 pub(super) fn prune_past_exdates(
     exdates: Vec<String>,
     time_zone: &str,
