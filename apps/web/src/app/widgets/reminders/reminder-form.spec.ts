@@ -254,6 +254,13 @@ describe('problemOf', () => {
     expect(problemOf(nested('syntax')).field).toBe('repeat');
   });
 
+  it('places a nested invalid exception on the form with the exdates message', () => {
+    const error = new DataError('invalid_input', 'x', {
+      cause: { kind: 'time', error: { kind: 'invalid_exdate', value: 'x' } },
+    });
+    expect(problemOf(error)).toEqual({ field: 'form', key: 'widgets.reminders.errors.exdates' });
+  });
+
   it('places a rule error of the engine by its part', () => {
     const rule = (part: string) =>
       new TimeError('invalid_rule', 'x', { rule: 'invalid_value', part });

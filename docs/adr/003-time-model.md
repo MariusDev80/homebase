@@ -284,6 +284,8 @@ Le premier contrôle en échec détermine le code :
 
 *Amendement (spec habits, 2026-11-17)* : les `exdates` d'un rappel d'habitude sont dérivées des jours cochés.
 
+*Amendement (spec timers-reminders, 2026-11-27)* : les `exdates` d'un rappel servent aussi d'historique des occurrences ignorées (C34 : le calendrier les développe sur toute plage), donc **élagage paresseux** au-delà de 366 seulement : à l'écriture d'un rappel (hors habitudes), une liste de plus de 366 entrées distinctes perd ses entrées antérieures à `now - 7 jours` (fenêtre de rattrapage), les plus anciennes d'abord, juste assez pour revenir à 366 ; sinon la limite refuse. Suppose une horloge juste à ±7 jours.
+
 #### 3.5.4 Sémantique de l'expansion (Rust, moteur unique)
 Entrée : spec, plage `[from, to)`, fuseau d'affichage de la plage, limite.
 1. **Expansion flottante** : la crate reçoit `DTSTART` = heure murale nominale de l'ancre (minuit pour une ancre datée) **déguisée en UTC** (`rrule::Tz::UTC`), et la règle construite par le builder à partir de la structure validée, **sans `UNTIL`**. En UTC, ni trou ni pli. Les dates invalides sont ignorées par la crate (RFC, D2).

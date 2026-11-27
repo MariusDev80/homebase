@@ -147,6 +147,8 @@ export class FakeReminderRepository implements ReminderRepository {
     ) {
       throw new DataError('invalid_input', 'title');
     }
+    // Gap with the Rust scheduler: it first prunes a saturated list of the entries older than
+    // the catch-up window (7 days, oldest first) before applying this limit; this fake does not.
     if (input.exdates.length > SCHEDULE_LIMITS.maxExdates)
       throw new DataError('invalid_input', 'exdates');
   }

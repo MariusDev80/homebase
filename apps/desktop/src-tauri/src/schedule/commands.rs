@@ -12,17 +12,19 @@ use super::store::{self, HistoryCursor, SeenTarget, UnseenDelivery};
 use super::text::{check_id, check_label, check_title};
 use super::tick::{cache_of, settle_due, show_notices, Cache, TickReport};
 use super::{
-    SchedulerCtx, SchedulerState, LABEL_MAX_CHARS, LIST_MAX_LIMIT, MAX_REMINDERS,
+    SchedulerCtx, SchedulerState, CATCHUP_WINDOW, LABEL_MAX_CHARS, LIST_MAX_LIMIT, MAX_REMINDERS,
     MAX_RUNNING_SESSIONS, TITLE_MAX_CHARS,
 };
 use crate::time::commands::{to_spec, AnchorDto, RecurrenceSpecDto};
 use crate::time::error::TimeError;
 use crate::time::formats::{
-    format_instant, format_local_date_time, parse_instant, parse_local_date_time,
+    format_instant, format_local_date_time, parse_instant, parse_local_date_time, parse_time_zone,
 };
-use crate::time::recurrence::{format_rule, Anchor, RecurrenceSpec};
+use crate::time::recurrence::{format_rule, Anchor, RecurrenceSpec, MAX_EXDATES};
+use crate::time::zone::resolve_local;
 use jiff::{SignedDuration, Timestamp};
 use sqlx::SqliteConnection;
+use std::collections::HashSet;
 use tauri::State;
 
 // ---------------------------------------------------------------------------------------------
@@ -299,6 +301,63 @@ pub(super) fn prepare(
     })
 }
 
+/// Above this many entries the list is left alone: `prepare` refuses it (limit of 366) anyway.
+const PRUNE_MAX_INPUT: usize = 1_000;
+
+/// Lazy pruning of the exceptions (ADR-003 section 3.5.3, C34: they double as the history of the
+/// skipped occurrences, so nothing is dropped while the list fits). Duplicates are counted once
+/// to decide whether the list is saturated; a raw list over the limit but without enough distinct
+/// entries is left as is (refused by `prepare`, as before).
+/// Only a saturated list (more than `MAX_EXDATES` distinct entries, i.e. a new key added to a full
+/// list) is pruned, and only of entries resolved (in the reminder's zone, `compatible`) strictly
+/// before `now - CATCHUP_WINDOW`, which can neither be scheduled nor caught up any more; the oldest
+/// go first, just enough to get back to `MAX_EXDATES`. If there are not enough of them, the list
+/// is returned unchanged for `prepare` to refuse. Entries that do not parse, an unknown zone or an
+/// oversized list are also left as they are. The kept entries keep their order and format.
+/// Assumes a clock right within 7 days: a clock wrong by more than that, ahead at the write or set
+/// back afterwards (the startup pass then recomputes `next_fire(now)`), can make an exception that
+/// was dropped ring again, on time or at the catch-up (spec timers-reminders, L37).
+pub(super) fn prune_past_exdates(
+    exdates: Vec<String>,
+    time_zone: &str,
+    now: Timestamp,
+) -> Vec<String> {
+    if exdates.len() <= MAX_EXDATES || exdates.len() > PRUNE_MAX_INPUT {
+        return exdates;
+    }
+    let mut seen = HashSet::new();
+    let unique: Vec<String> = exdates
+        .iter()
+        .filter(|value| seen.insert(value.as_str()))
+        .cloned()
+        .collect();
+    if unique.len() <= MAX_EXDATES {
+        return exdates;
+    }
+    let (Ok(tz), Ok(cutoff)) = (parse_time_zone(time_zone), now.checked_sub(CATCHUP_WINDOW)) else {
+        return exdates;
+    };
+    let excess = unique.len() - MAX_EXDATES;
+    let mut stale: Vec<(Timestamp, usize)> = unique
+        .iter()
+        .enumerate()
+        .filter_map(|(index, value)| {
+            let at = resolve_local(parse_local_date_time(value).ok()?, &tz).ok()?;
+            (at < cutoff).then_some((at, index))
+        })
+        .collect();
+    if stale.len() < excess {
+        return exdates;
+    }
+    stale.sort_unstable();
+    let dropped: HashSet<usize> = stale.iter().take(excess).map(|&(_, index)| index).collect();
+    unique
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, value)| (!dropped.contains(&index)).then_some(value))
+        .collect()
+}
+
 /// Cache of the next occurrence after `now`; none for a disabled reminder or a finished series.
 pub(super) fn cache_for(
     spec: &RecurrenceSpec,
@@ -348,9 +407,11 @@ pub(crate) async fn create_reminder(
         enabled,
     } = input;
     check_id(&id)?;
+    // One clock read per command: the same `now` prunes the exceptions and dates the write.
+    let now = now_of(ctx)?;
+    let exdates = prune_past_exdates(exdates, &time_zone, now);
     let parts = prepare(title, start_local, time_zone, rrule, exdates)?;
     let (row, status) = locked!(ctx, conn => {
-        let now = now_of(ctx)?;
         let cache = cache_for(&parts.spec, enabled, now)?;
         let status = known_status(enabled, &cache);
         let stamp = format_instant(now);
@@ -377,10 +438,12 @@ pub(crate) async fn update_reminder(
         exdates,
         enabled,
     } = input;
+    // One clock read per command: the same `now` prunes the exceptions and dates the write.
+    let now = now_of(ctx)?;
+    let exdates = prune_past_exdates(exdates, &time_zone, now);
     let parts = prepare(title, start_local, time_zone, rrule, exdates)?;
     let mut notices = Vec::new();
     let result = locked!(ctx, conn => {
-        let now = now_of(ctx)?;
         settle(&mut conn, now, &mut notices).await?;
         let existing = store::get_reminder(&mut conn, &id)
             .await?
