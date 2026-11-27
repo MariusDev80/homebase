@@ -215,13 +215,25 @@ describe('ReminderStore', () => {
       });
     });
 
-    it('refuses beyond 366 exceptions', async () => {
+    it('sends 366 past exceptions plus the new key to the repository (Rust prunes them)', async () => {
       const r = await repo.create(INPUT);
       repo.schedule(r.id, '2026-11-17T07:00:00.000Z', '2030-01-01T08:00:00');
       const store = await create();
       const exdates = Array.from({ length: MAX_EXDATES }, (_, i) => `opaque-${i}`);
       const full = { ...store.reminders()[0], exdates };
-      await expect(store.skipNext(full)).rejects.toMatchObject({ kind: 'invalid_input' });
+      const spy = vi.spyOn(repo, 'update').mockResolvedValue(store.reminders()[0]);
+      await store.skipNext(full);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0][1].exdates).toHaveLength(MAX_EXDATES + 1);
+    });
+
+    it('propagates an invalid_input from the repository', async () => {
+      const r = await repo.create(INPUT);
+      repo.schedule(r.id, '2026-11-17T07:00:00.000Z', '2030-01-01T08:00:00');
+      const store = await create();
+      const failure = new DataError('invalid_input', 'exdates');
+      vi.spyOn(repo, 'update').mockRejectedValue(failure);
+      await expect(store.skipNext(store.reminders()[0])).rejects.toBe(failure);
     });
   });
 });
